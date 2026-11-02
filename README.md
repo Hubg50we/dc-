@@ -64,13 +64,20 @@ Any tokens in `tokens.txt` are **automatically loaded** when the script starts!
 
 ## ▶️ Running the Bot
 
-Run directly using Python:
+### Option 1: Pure Terminal Mode (No Web Browser)
+If you don't want a web server or browser popping up, run in pure terminal mode:
 ```bash
-python main.py
+bash noweb.sh
+# or if you ran install.sh:
+dc noweb
 ```
-Or use the provided launcher (which automatically requests `termux-wake-lock` to keep it running with screen turned off):
+
+### Option 2: With Web UI Dashboard
+Starts the bot and opens the visual web dashboard on port `5000`:
 ```bash
 bash start.sh
+# or if you ran install.sh:
+dc
 ```
 
 ---

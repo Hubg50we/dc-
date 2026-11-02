@@ -9,18 +9,30 @@ if command -v termux-wake-lock &> /dev/null; then
     termux-wake-lock
 fi
 
-# Automatically open dashboard in default browser on Android
-(
-    sleep 2
-    if command -v termux-open-url &> /dev/null; then
-        termux-open-url http://localhost:5000 2>/dev/null
-    elif command -v am &> /dev/null; then
-        am start -a android.intent.action.VIEW -d http://localhost:5000 >/dev/null 2>&1
-    fi
-) &
+# Check if running in no-web mode
+NO_WEB=false
+for arg in "$@"; do
+    case "$arg" in
+        --no-web|--noweb|noweb|-nw|--cli|-c)
+            NO_WEB=true
+            ;;
+    esac
+done
 
-echo "[+] Starting dc- Dashboard..."
-echo "[+] Web UI: http://localhost:5000"
+if [ "$NO_WEB" = false ] && [ "$ENABLE_WEB" != "false" ]; then
+    # Automatically open dashboard in default browser on Android
+    (
+        sleep 2
+        if command -v termux-open-url &> /dev/null; then
+            termux-open-url http://localhost:5000 2>/dev/null
+        elif command -v am &> /dev/null; then
+            am start -a android.intent.action.VIEW -d http://localhost:5000 >/dev/null 2>&1
+        fi
+    ) &
+    echo "[+] Starting dc- with Web UI: http://localhost:5000"
+else
+    echo "[+] Starting dc- in pure terminal mode (No Web / Console Only)..."
+fi
 
 # Run python script
 if command -v python3 &> /dev/null; then

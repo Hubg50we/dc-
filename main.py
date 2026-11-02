@@ -42,6 +42,10 @@ if DEVICE_TYPE == "desktop":
 else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
+ENABLE_WEB = os.environ.get("ENABLE_WEB", "true").lower() not in ("false", "0", "no")
+if any(arg.lower() in ("--no-web", "--noweb", "noweb", "-nw", "--cli", "-c") for arg in sys.argv[1:]):
+    ENABLE_WEB = False
+
 API = "https://discord.com/api/v10"
 
 # Account registry: id -> dict
@@ -1012,8 +1016,11 @@ async def main():
     START_TIME = time.time()
     MAIN_LOOP = asyncio.get_running_loop()
 
-    # Start built-in Web UI dashboard
-    start_web_server()
+    # Start built-in Web UI dashboard if enabled
+    if ENABLE_WEB:
+        start_web_server()
+    else:
+        print("[*] Running in pure terminal mode (Web UI disabled).")
 
     # Register OS signal handlers for clean SIGINT / SIGTERM
     try:
