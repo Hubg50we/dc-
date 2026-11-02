@@ -41,7 +41,7 @@ pip install -r requirements.txt --break-system-packages 2>/dev/null || \
 pip install -r requirements.txt
 
 # Ensure executable permissions on shell scripts
-chmod +x start.sh install.sh 2>/dev/null || true
+chmod +x start.sh install.sh termux.sh 2>/dev/null || true
 
 # Create .env if not present
 if [ ! -f ".env" ]; then
@@ -63,7 +63,7 @@ DIR="$HOME/dc-"
 if [ ! -d "$DIR" ]; then
     DIR="$(pwd)"
 fi
-cd "$DIR" && bash start.sh "$@"
+cd "$DIR" && bash termux.sh "$@"
 EOF
     chmod +x "$PREFIX/bin/dc" 2>/dev/null || true
     echo "[+] Created instant shortcut command: 'dc'"
@@ -71,7 +71,7 @@ fi
 
 # Also add alias to bashrc / zshrc as fallback
 if [ -f "$HOME/.bashrc" ]; then
-    grep -q "alias dc=" "$HOME/.bashrc" || echo 'alias dc="cd ~/dc- && bash start.sh"' >> "$HOME/.bashrc"
+    grep -q "alias dc=" "$HOME/.bashrc" || echo 'alias dc="cd ~/dc- && bash termux.sh"' >> "$HOME/.bashrc"
 fi
 
 echo ""

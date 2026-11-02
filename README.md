@@ -22,6 +22,27 @@ dc
 
 ---
 
+## 📱 Termux Dedicated Command Center
+
+You can control everything directly from your Termux terminal without ever opening a browser:
+
+| Command | Action |
+|---|---|
+| `dc` | Starts bot in background, enables wake-lock & auto-opens Web UI |
+| `dc menu` | Opens the **interactive colored TUI terminal menu** on your phone |
+| `dc status` | Displays a live colored status table of all connected Discord accounts |
+| `dc logs` | Live streams real-time activity logs in Termux (`tail -f`) |
+| `dc stop` | Cleanly stops the bot and releases the Android wake-lock |
+| `dc restart` | Restarts the bot engine |
+| `dc join <channel_id>` | Commands all accounts to join/move to a voice channel |
+| `dc mute` | Mutes all accounts in voice |
+| `dc unmute` | Unmutes all accounts in voice |
+| `dc leave` | Disconnects all accounts from voice |
+| `dc widget` | Installs 1-tap start/stop widgets for **Termux:Widget** |
+| `dc boot` | Sets up auto-start on phone reboot for **Termux:Boot** |
+
+---
+
 ## 🚀 Manual Step-by-Step Setup
 
 ### 1. Update Termux & Install Prerequisites
