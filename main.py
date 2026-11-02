@@ -779,10 +779,30 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/" or self.path.startswith("/?"):
             self.serve_file()
+        elif self.path == "/manifest.json":
+            self.serve_manifest()
         elif self.path == "/api/status":
             self.serve_status()
         else:
             self.send_error(404, "Not Found")
+
+    def serve_manifest(self):
+        data = {
+            "name": "dc- Discord Manager",
+            "short_name": "dc-",
+            "start_url": "/",
+            "display": "standalone",
+            "background_color": "#111214",
+            "theme_color": "#1e1f22",
+            "description": "Discord Voice Multi-Account Manager"
+        }
+        resp = json.dumps(data).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/manifest+json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(resp)))
+        self.end_headers()
+        self.wfile.write(resp)
 
     def serve_file(self):
         index_path = os.path.join(os.path.dirname(__file__), "web", "index.html")

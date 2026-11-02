@@ -3,7 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>dc- Control Panel</title>
+  <meta name="theme-color" content="#1e1f22">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="/manifest.json">
+  <title>dc- Mobile Dashboard</title>
   <style>
     :root {
       --bg-darker: #111214;
@@ -416,13 +421,32 @@
       transform: translateY(0);
     }
 
+    .mobile-bottom-bar {
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(30, 31, 34, 0.96);
+      backdrop-filter: blur(10px);
+      border-top: 1px solid var(--border);
+      padding: 10px 14px;
+      z-index: 999;
+      gap: 8px;
+    }
+
     /* Mobile adjustments */
+    @media (max-width: 768px) {
+      body { padding-bottom: 74px; }
+      .mobile-bottom-bar { display: flex; }
+    }
+
     @media (max-width: 600px) {
       main { padding: 12px; gap: 14px; }
       header { padding: 12px 14px; }
       .account-card { flex-direction: column; align-items: flex-start; }
       .acc-actions { width: 100%; justify-content: flex-end; margin-top: 6px; }
-      .toast { left: 14px; right: 14px; bottom: 14px; text-align: center; }
+      .toast { left: 14px; right: 14px; bottom: 80px; text-align: center; }
     }
   </style>
 </head>
@@ -864,5 +888,12 @@
     fetchStatus();
     setInterval(fetchStatus, 2000);
   </script>
+  <!-- Floating Mobile Thumb Bar -->
+  <div class="mobile-bottom-bar">
+    <button class="btn btn-primary" style="flex: 2;" onclick="sendAction('move')">🔊 Join All</button>
+    <button class="btn btn-warning" style="flex: 1;" onclick="sendAction('mute')">🔇 Mute</button>
+    <button class="btn btn-secondary" style="flex: 1;" onclick="sendAction('unmute')">🔊 Unmute</button>
+    <button class="btn btn-danger" style="flex: 1;" onclick="sendAction('disconnect')">✕ Leave</button>
+  </div>
 </body>
 </html>

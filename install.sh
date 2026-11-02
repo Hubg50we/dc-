@@ -47,12 +47,24 @@ if [ ! -f "tokens.txt" ]; then
     cp tokens.txt.example tokens.txt
 fi
 
+# Create global shortcut 'dc' in Termux
+if [ -n "$PREFIX" ] && [ -d "$PREFIX/bin" ]; then
+    cat << 'EOF' > "$PREFIX/bin/dc"
+#!/data/data/com.termux/files/usr/bin/bash
+DIR="$HOME/dc-"
+if [ ! -d "$DIR" ]; then
+    DIR="$(pwd)"
+fi
+cd "$DIR" && bash start.sh "$@"
+EOF
+    chmod +x "$PREFIX/bin/dc" 2>/dev/null || true
+    echo "[+] Created instant shortcut command: 'dc'"
+fi
+
 echo ""
 echo "========================================================"
-echo " Setup complete! "
-echo " Run the bot & Web UI with:"
-echo "    bash start.sh"
+echo " Fully Mobile Setup Complete! "
 echo ""
-echo " Then open in browser (Mobile or PC):"
-echo "    http://localhost:5000"
+echo " Just type:  dc"
+echo " (This automatically starts the bot and opens the UI in your phone's browser!)"
 echo "========================================================"
