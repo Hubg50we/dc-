@@ -14,35 +14,37 @@ Open **Termux** and run this single command line to install all packages and set
 pkg update -y && pkg install -y git python && git clone https://github.com/Hubg50we/dc-.git && cd dc- && bash install.sh
 ```
 
-Once installed, **you can start the bot and dashboard anytime by typing**:
+Once installed, **simply type**:
 ```bash
 dc
 ```
-*(Your phone's browser will automatically open with the dashboard!)*
+*(This immediately opens the **interactive full-screen Terminal Control Center (TUI)** inside Termux. Zero browser popups, zero hassle!)*
 
 ---
 
-## 📱 Termux Dedicated Command Center
+## 📱 100% Termux Interactive Command Center (No Browser Needed)
 
-You can control everything directly from your Termux terminal without ever opening a browser:
+Everything is managed **100% inside Termux** without ever opening a browser or switching apps:
 
 | Command | Action |
 |---|---|
-| `dc` | Starts bot in background, enables wake-lock & auto-opens Web UI |
-| `dc menu` | Opens the **interactive colored TUI terminal menu** on your phone |
+| `dc` | Launches the **interactive full-screen Terminal UI (TUI)** directly in Termux |
 | `dc status` | Displays a live colored status table of all connected Discord accounts |
-| `dc logs` | Live streams real-time activity logs in Termux (`tail -f`) |
+| `dc start` | Starts the bot in background and enables Android wake-lock (no browser popup) |
 | `dc stop` | Cleanly stops the bot and releases the Android wake-lock |
-| `dc restart` | Restarts the bot engine |
+| `dc restart` | Restarts the bot background engine |
+| `dc logs` | Live streams real-time activity logs in Termux (`tail -f`) |
 | `dc join <channel_id>` | Commands all accounts to join/move to a voice channel |
 | `dc mute` | Mutes all accounts in voice |
 | `dc unmute` | Unmutes all accounts in voice |
 | `dc leave` | Disconnects all accounts from voice |
 | `dc channel <id>` | Sets default Voice Channel ID (saves to `.env`) |
 | `dc guild <id>` | Sets Discord Server (Guild) ID (saves to `.env`) |
-| `dc config` | Displays and edits Server ID & Channel ID interactively |
-| `dc widget` | Installs 1-tap start/stop widgets for **Termux:Widget** |
-| `dc boot` | Sets up auto-start on phone reboot for **Termux:Boot** |
+| `dc mobile` | Toggles Discord identity to 📱 Android Mobile (Green Phone badge) |
+| `dc desktop` | Toggles Discord identity to 💻 Desktop Browser |
+| `dc token add <token>` | Add an account token instantly from terminal |
+| `dc token list` | List all loaded tokens (masked for security) |
+| `dc web` | *(Optional)* Opens Web Dashboard in browser only when explicitly asked |
 
 ---
 

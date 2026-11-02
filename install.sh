@@ -76,8 +76,9 @@ fi
 
 echo ""
 echo "========================================================"
-echo " Fully Mobile Setup Complete! "
+echo " 📱 Fully Mobile Termux Setup Complete! "
 echo ""
-echo " Run the bot anytime by simply typing:  dc"
-echo " (Your phone browser will automatically open with the dashboard!)"
+echo " Run dc- anytime in Termux by simply typing:  dc"
+echo " (Opens the full-screen interactive TUI menu directly in Termux!)"
+echo " Zero browser hassle - 100% controlled in your terminal."
 echo "========================================================"
