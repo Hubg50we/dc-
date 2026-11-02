@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="/manifest.json">
-  <title>dc- Mobile Pro</title>
+  <title>dc- Complete Mobile Control Center</title>
   <style>
     :root {
       --bg-darker: #111214;
@@ -17,7 +17,7 @@
       --bg-hover: #35373c;
       --accent: #5865f2;
       --accent-hover: #4752c4;
-      --accent-glow: rgba(88, 101, 242, 0.35);
+      --accent-glow: rgba(88, 101, 242, 0.4);
       --success: #23a55a;
       --danger: #f23f43;
       --warning: #f0b232;
@@ -31,7 +31,7 @@
 
     body.amoled-mode {
       --bg-darker: #000000;
-      --bg-dark: #090a0b;
+      --bg-dark: #08090a;
       --bg-card: #121316;
       --bg-hover: #1c1d22;
       --border: #24262b;
@@ -53,13 +53,13 @@
       display: flex;
       flex-direction: column;
       padding-bottom: calc(72px + var(--safe-bottom));
-      transition: background-color 0.25s ease;
+      transition: background-color 0.2s ease;
       overflow-x: hidden;
     }
 
     /* Top Glass App Bar */
     header {
-      background: rgba(30, 31, 34, 0.88);
+      background: rgba(30, 31, 34, 0.92);
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
       border-bottom: 1px solid var(--border);
@@ -79,7 +79,6 @@
       font-weight: 800;
       font-size: 1.15rem;
       color: var(--text-heading);
-      letter-spacing: -0.3px;
     }
 
     .brand-badge {
@@ -112,7 +111,6 @@
       font-size: 0.95rem;
       cursor: pointer;
     }
-
     .icon-btn:active { transform: scale(0.92); }
 
     /* Top Stats Pills Strip */
@@ -181,12 +179,8 @@
       justify-content: space-between;
     }
 
-    /* Inputs & Form Controls */
-    .field-group {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
+    /* Form Inputs */
+    .field-group { display: flex; flex-direction: column; gap: 6px; }
     .field-label {
       font-size: 0.75rem;
       font-weight: 600;
@@ -196,10 +190,9 @@
       display: flex;
       justify-content: space-between;
     }
-
     .input-row { display: flex; gap: 8px; }
 
-    input, textarea {
+    input, textarea, select {
       background: var(--bg-dark);
       border: 1px solid var(--border);
       color: var(--text-heading);
@@ -210,7 +203,7 @@
       outline: none;
       transition: all 0.2s;
     }
-    input:focus, textarea:focus {
+    input:focus, textarea:focus, select:focus {
       border-color: var(--accent);
       box-shadow: 0 0 0 3px var(--accent-glow);
     }
@@ -247,7 +240,31 @@
       gap: 10px;
     }
 
-    /* Range Slider & Presets */
+    /* Presets Strip */
+    .presets-container {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      scrollbar-width: none;
+    }
+    .presets-container::-webkit-scrollbar { display: none; }
+    .preset-chip {
+      background: var(--bg-dark);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      white-space: nowrap;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .preset-chip:active { background: var(--accent); color: #fff; }
+
+    /* Range Slider */
     .slider-box {
       background: var(--bg-dark);
       border: 1px solid var(--border);
@@ -257,12 +274,7 @@
       flex-direction: column;
       gap: 10px;
     }
-    .slider-header {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.82rem;
-      font-weight: 600;
-    }
+    .slider-header { display: flex; justify-content: space-between; font-size: 0.82rem; font-weight: 600; }
     input[type=range] {
       -webkit-appearance: none;
       appearance: none;
@@ -282,10 +294,7 @@
       cursor: pointer;
       box-shadow: 0 0 8px var(--accent);
     }
-    .preset-chips {
-      display: flex;
-      gap: 6px;
-    }
+    .preset-chips { display: flex; gap: 6px; }
     .chip {
       flex: 1;
       padding: 6px;
@@ -301,16 +310,7 @@
     .chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
     /* Accounts List */
-    .acc-header-tools {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-    .acc-list {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
+    .acc-list { display: flex; flex-direction: column; gap: 8px; }
     .acc-card {
       background: var(--bg-dark);
       border: 1px solid var(--border);
@@ -319,17 +319,9 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
-      position: relative;
     }
-    .acc-card.selected {
-      border-color: var(--accent);
-      background: rgba(88, 101, 242, 0.08);
-    }
-    .acc-top {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
+    .acc-card.selected { border-color: var(--accent); background: rgba(88, 101, 242, 0.08); }
+    .acc-top { display: flex; align-items: center; gap: 10px; }
     .acc-avatar-box {
       position: relative;
       width: 40px;
@@ -354,11 +346,7 @@
       background: var(--text-muted);
     }
     .online-indicator.live { background: var(--success); }
-
-    .acc-meta {
-      flex: 1;
-      min-width: 0;
-    }
+    .acc-meta { flex: 1; min-width: 0; }
     .acc-name {
       font-weight: 700;
       font-size: 0.95rem;
@@ -367,26 +355,12 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .acc-sub {
-      font-size: 0.74rem;
-      color: var(--text-muted);
-    }
-
-    .acc-pills {
-      display: flex;
-      gap: 4px;
-      flex-wrap: wrap;
-    }
-    .badge {
-      font-size: 0.7rem;
-      padding: 2px 7px;
-      border-radius: 5px;
-      font-weight: 600;
-    }
+    .acc-sub { font-size: 0.74rem; color: var(--text-muted); }
+    .acc-pills { display: flex; gap: 4px; flex-wrap: wrap; }
+    .badge { font-size: 0.7rem; padding: 2px 7px; border-radius: 5px; font-weight: 600; }
     .badge-voice { background: rgba(35, 165, 90, 0.2); color: var(--success); }
     .badge-mute { background: rgba(240, 178, 50, 0.2); color: var(--warning); }
     .badge-deaf { background: rgba(242, 63, 67, 0.2); color: var(--danger); }
-
     .acc-card-actions {
       display: flex;
       gap: 6px;
@@ -428,7 +402,6 @@
       padding-top: 6px;
       z-index: 250;
     }
-
     .nav-item {
       display: flex;
       flex-direction: column;
@@ -443,19 +416,11 @@
       user-select: none;
       transition: color 0.15s;
     }
-    .nav-item svg {
-      width: 20px;
-      height: 20px;
-      fill: currentColor;
-    }
-    .nav-item.active {
-      color: var(--accent);
-    }
-    .nav-item.active svg {
-      filter: drop-shadow(0 0 6px var(--accent));
-    }
+    .nav-item svg { width: 20px; height: 20px; fill: currentColor; }
+    .nav-item.active { color: var(--accent); }
+    .nav-item.active svg { filter: drop-shadow(0 0 6px var(--accent)); }
 
-    /* Floating Thumb Quick Action Bar */
+    /* Floating Thumb Dock */
     .quick-thumb-dock {
       position: fixed;
       bottom: calc(64px + var(--safe-bottom));
@@ -474,7 +439,7 @@
       box-shadow: 0 8px 24px rgba(0,0,0,0.5);
     }
 
-    /* Toast Notifications */
+    /* Toast Notification */
     .toast-center {
       position: fixed;
       top: 60px;
@@ -496,12 +461,9 @@
       align-items: center;
       gap: 8px;
     }
-    .toast-center.show {
-      opacity: 1;
-      transform: translateX(-50%) translateY(0);
-    }
+    .toast-center.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-    /* Batch Selection Bar */
+    /* Batch Bar */
     .batch-bar {
       display: none;
       background: rgba(88, 101, 242, 0.15);
@@ -514,19 +476,46 @@
     }
     .batch-bar.show { display: flex; }
 
-    /* Desktop Responsive Overhaul */
+    /* Modal Sheet */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(8px);
+      z-index: 300;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-card {
+      background: var(--bg-card);
+      border-top: 1px solid var(--border);
+      border-radius: 18px 18px 0 0;
+      padding: 20px;
+      width: 100%;
+      max-width: 500px;
+      max-height: 85vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+    /* Desktop View */
     @media (min-width: 900px) {
       body { padding-bottom: 20px; }
-      .bottom-nav { display: none; }
-      .quick-thumb-dock { display: none; }
+      .bottom-nav, .quick-thumb-dock { display: none; }
       main {
         display: grid;
-        grid-template-columns: 360px 1fr;
+        grid-template-columns: 380px 1fr;
         gap: 20px;
-        max-width: 1280px;
+        max-width: 1300px;
       }
       .tab-content { display: flex !important; }
-      #tab-tokens, #tab-logs { grid-column: span 2; }
+      #tab-tokens, #tab-settings, #tab-logs { grid-column: span 2; }
     }
   </style>
 </head>
@@ -543,8 +532,8 @@
         <span style="width:8px; height:8px; border-radius:50%; background:var(--success); display:inline-block;" id="status-bulb"></span>
         <span id="gateway-status-txt">📱 Mobile Gateway</span>
       </div>
-      <button class="icon-btn" onclick="toggleAmoled()" title="Toggle AMOLED Black Mode">⚡</button>
-      <button class="icon-btn" onclick="refreshAll()" title="Refresh Status">↻</button>
+      <button class="icon-btn" onclick="toggleAmoled()" title="AMOLED Black Toggle">⚡</button>
+      <button class="icon-btn" onclick="refreshAll()" title="Refresh Dashboard">↻</button>
     </div>
   </header>
 
@@ -555,7 +544,7 @@
       <span class="stat-val" id="stat-total">0</span>
     </div>
     <div class="stat-pill">
-      <span class="stat-label">Gateway</span>
+      <span class="stat-label">Online</span>
       <span class="stat-val" style="color:var(--success);" id="stat-online">0</span>
     </div>
     <div class="stat-pill">
@@ -575,8 +564,19 @@
 
       <div class="card">
         <div class="card-title">
-          <span>🔊 Target Voice Destination</span>
-          <span style="font-size:0.75rem; color:var(--text-muted); font-weight:400;" id="guild-status-tag">Saved to .env</span>
+          <span>🔊 Voice Destination</span>
+          <span style="font-size:0.75rem; color:var(--text-muted);" id="guild-status-tag">Synced with .env</span>
+        </div>
+
+        <!-- Presets Quick Switcher Strip -->
+        <div class="field-group">
+          <label class="field-label">
+            <span>Quick Channel Presets</span>
+            <span style="cursor:pointer; color:var(--accent);" onclick="promptAddPreset()">+ Add Preset</span>
+          </label>
+          <div class="presets-container" id="presets-strip">
+            <span style="color:var(--text-muted); font-size:0.75rem;">No presets saved yet. Tap '+ Add Preset' above!</span>
+          </div>
         </div>
 
         <div class="field-group">
@@ -585,9 +585,9 @@
             <span id="active-ch-badge" style="color:var(--accent); font-weight:600; text-transform:none;"></span>
           </label>
           <div class="input-row">
-            <input type="text" id="target-channel-id" placeholder="Paste Channel ID (e.g. 123456789)" oninput="updateActiveBadges()">
+            <input type="text" id="target-channel-id" placeholder="Paste Voice Channel ID (e.g. 123456789)" oninput="updateActiveBadges()">
             <button class="btn btn-secondary btn-sm" onclick="saveDefaultChannel()">Save</button>
-            <button class="btn btn-secondary btn-sm" style="color:var(--accent);" onclick="autoDetectGuild()" title="Auto-detect Server ID from this channel">🔍 Detect Server</button>
+            <button class="btn btn-secondary btn-sm" style="color:var(--accent);" onclick="autoDetectGuild()" title="Auto-detect Server ID">🔍 Detect</button>
           </div>
         </div>
 
@@ -602,12 +602,12 @@
           </div>
         </div>
 
-        <button class="btn btn-secondary btn-sm" style="width:100%; border:1px solid var(--accent); color:var(--accent); margin-top:2px;" onclick="saveBothConfig()">
-          💾 Save Both to .env (Survives Restarts)
+        <button class="btn btn-secondary btn-sm" style="width:100%; border:1px solid var(--accent); color:var(--accent);" onclick="saveBothConfig()">
+          💾 Save Both to .env (Survives Phone Restarts)
         </button>
 
         <!-- Slider & Presets -->
-        <div class="slider-box">
+        <div class="slider-box" style="margin-top:6px;">
           <div class="slider-header">
             <span>Slice Percentage</span>
             <span id="slider-val-txt" style="color:var(--accent);">100% (All Accounts)</span>
@@ -622,25 +622,13 @@
         </div>
 
         <!-- Action Grid -->
-        <div class="action-grid">
-          <button class="btn btn-primary" onclick="triggerAction('move')">
-            🔊 Join / Move
-          </button>
-          <button class="btn btn-danger" onclick="triggerAction('disconnect')">
-            ✕ Disconnect
-          </button>
-          <button class="btn btn-warning" onclick="triggerAction('mute')">
-            🔇 Mute All
-          </button>
-          <button class="btn btn-secondary" onclick="triggerAction('unmute')">
-            🔊 Unmute All
-          </button>
-          <button class="btn btn-warning" onclick="triggerAction('deafen')">
-            🎧 Deafen All
-          </button>
-          <button class="btn btn-secondary" onclick="triggerAction('undeafen')">
-            🎧 Undeafen All
-          </button>
+        <div class="action-grid" style="margin-top:6px;">
+          <button class="btn btn-primary" onclick="triggerAction('move')">🔊 Join / Move</button>
+          <button class="btn btn-danger" onclick="triggerAction('disconnect')">✕ Disconnect</button>
+          <button class="btn btn-warning" onclick="triggerAction('mute')">🔇 Mute All</button>
+          <button class="btn btn-secondary" onclick="triggerAction('unmute')">🔊 Unmute All</button>
+          <button class="btn btn-warning" onclick="triggerAction('deafen')">🎧 Deafen All</button>
+          <button class="btn btn-secondary" onclick="triggerAction('undeafen')">🎧 Undeafen All</button>
         </div>
       </div>
 
@@ -651,17 +639,17 @@
 
       <div class="card">
         <div class="card-title">
-          <span>👥 Connected Accounts</span>
+          <span>👥 Connected Bots</span>
           <div class="acc-header-tools">
             <button class="btn btn-secondary btn-sm" onclick="toggleSelectAll()">Select All</button>
           </div>
         </div>
 
-        <input type="text" id="acc-search" placeholder="🔍 Search accounts by name or ID..." oninput="filterAccounts(this.value)">
+        <input type="text" id="acc-search" placeholder="🔍 Search bots by username or ID..." oninput="filterAccounts(this.value)">
 
         <!-- Batch Selection Toolbar -->
         <div class="batch-bar" id="batch-toolbar">
-          <span id="batch-selected-count">0 accounts selected</span>
+          <span id="batch-selected-count">0 bots selected</span>
           <div style="display:flex; gap:6px;">
             <button class="btn btn-primary btn-sm" onclick="runBatch('move')">Join</button>
             <button class="btn btn-warning btn-sm" onclick="runBatch('mute')">Mute</button>
@@ -670,25 +658,26 @@
         </div>
 
         <div class="acc-list" id="accounts-list-box">
-          <div style="color:var(--text-muted); text-align:center; padding:30px;">
-            Loading accounts...
-          </div>
+          <div style="color:var(--text-muted); text-align:center; padding:30px;">Loading accounts...</div>
         </div>
       </div>
 
     </div>
 
-    <!-- TAB 3: TOKENS HUB -->
+    <!-- TAB 3: TOKENS HUB & IMPORT -->
     <div class="tab-content" id="tab-tokens">
 
       <div class="card">
         <div class="card-title">
           <span>🔑 Token Management</span>
-          <button class="btn btn-secondary btn-sm" onclick="copyAllTokens()">📋 Copy All</button>
+          <div style="display:flex; gap:6px;">
+            <button class="btn btn-secondary btn-sm" onclick="copyAllTokens()">📋 Copy</button>
+            <button class="btn btn-secondary btn-sm" onclick="exportTokensToFile()">💾 Backup</button>
+          </div>
         </div>
 
         <div class="field-group">
-          <label class="field-label">Single Token Quick-Add</label>
+          <label class="field-label">Single Token Add</label>
           <div class="input-row">
             <input type="password" id="single-token-input" placeholder="Paste Discord account token">
             <button class="btn btn-success" onclick="addSingleToken()">+ Add</button>
@@ -696,23 +685,76 @@
         </div>
 
         <div class="field-group" style="margin-top:8px;">
-          <label class="field-label">Bulk Multi-Token Importer</label>
-          <textarea id="bulk-token-area" rows="5" placeholder="Paste 10, 50, or 100+ tokens here (one token per line)..."></textarea>
-          <div style="display:flex; gap:8px; margin-top:4px;">
-            <button class="btn btn-success" style="flex:1;" onclick="importBulkTokens()">📥 Import All Tokens</button>
-            <button class="btn btn-secondary" onclick="exportTokensToFile()">💾 Backup File</button>
-          </div>
+          <label class="field-label">📁 Upload tokens.txt File</label>
+          <input type="file" id="token-file-input" accept=".txt" onchange="handleFileUpload(event)" style="padding:8px;">
+        </div>
+
+        <div class="field-group" style="margin-top:8px;">
+          <label class="field-label">📋 Bulk Multi-Token Importer</label>
+          <textarea id="bulk-token-area" rows="4" placeholder="Paste 10, 50, or 100+ tokens (one per line)..."></textarea>
+          <button class="btn btn-success" style="width:100%; margin-top:4px;" onclick="importBulkTokens()">📥 Import All Pasted Tokens</button>
         </div>
       </div>
 
     </div>
 
-    <!-- TAB 4: LIVE TERMINAL & LOGS -->
+    <!-- TAB 4: SETTINGS & POWER -->
+    <div class="tab-content" id="tab-settings">
+
+      <div class="card">
+        <div class="card-title">
+          <span>📱 Discord Device Appearance</span>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted);">
+          Choose whether your Discord accounts show the green mobile phone indicator (📱) or the standard desktop circle (🟢) on their Discord profiles.
+        </p>
+        <div class="input-row">
+          <button class="btn btn-secondary" style="flex:1;" id="btn-dev-mobile" onclick="setDeviceType('mobile')">
+            📱 Mobile (Phone Icon)
+          </button>
+          <button class="btn btn-secondary" style="flex:1;" id="btn-dev-desktop" onclick="setDeviceType('desktop')">
+            💻 Desktop (Dot)
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>⚙️ Presets Manager</span>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Add New Channel Preset</label>
+          <div class="input-row">
+            <input type="text" id="new-preset-name" placeholder="Preset Name (e.g. Lounge)">
+            <input type="text" id="new-preset-ch" placeholder="Channel ID">
+            <button class="btn btn-primary" onclick="addPresetFromSettings()">Save</button>
+          </div>
+        </div>
+        <div id="presets-manage-list" style="display:flex; flex-direction:column; gap:6px; margin-top:6px;"></div>
+      </div>
+
+      <div class="card" style="border-color: rgba(242, 63, 67, 0.4);">
+        <div class="card-title" style="color:var(--danger);">
+          <span>🛑 Bot Engine Power Controls</span>
+        </div>
+        <div class="input-row">
+          <button class="btn btn-warning" style="flex:1;" onclick="restartAllBots()">
+            🔄 Reconnect All Bots
+          </button>
+          <button class="btn btn-danger" style="flex:1;" onclick="shutdownBotEngine()">
+            🛑 Shut Down Engine
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- TAB 5: LIVE TERMINAL & CONSOLE COMMANDS -->
     <div class="tab-content" id="tab-logs">
 
       <div class="card">
         <div class="card-title">
-          <span>📜 Live Activity Console</span>
+          <span>📜 Live Console Stream</span>
           <div style="display:flex; gap:6px;">
             <button class="btn btn-secondary btn-sm" onclick="clearConsole()">Clear</button>
             <button class="btn btn-secondary btn-sm" onclick="copyConsoleLogs()">Copy</button>
@@ -720,6 +762,15 @@
         </div>
 
         <div class="terminal-box" id="live-console-box">Initializing mobile live stream...</div>
+
+        <!-- Terminal Command Executor -->
+        <div class="field-group" style="margin-top:6px;">
+          <label class="field-label">Execute Terminal Command (e.g. status, move, mute, help)</label>
+          <div class="input-row">
+            <input type="text" id="cmd-input" placeholder="Type command here..." onkeydown="if(event.key==='Enter') executeTerminalCmd()">
+            <button class="btn btn-primary" onclick="executeTerminalCmd()">Send</button>
+          </div>
+        </div>
       </div>
 
     </div>
@@ -734,7 +785,7 @@
     <button class="btn btn-danger btn-sm" style="flex:1;" onclick="triggerAction('disconnect')">✕ Leave</button>
   </div>
 
-  <!-- Bottom App Navigation Bar -->
+  <!-- Bottom App Navigation Bar (5 Tabs) -->
   <nav class="bottom-nav">
     <div class="nav-item active" onclick="switchTab('controls', this)">
       <svg viewBox="0 0 24 24"><path d="M13 2.05v3.03c3.39.49 6 3.39 6 6.92 0 .9-.18 1.75-.48 2.54l2.6 1.53c.56-1.24.88-2.62.88-4.07 0-5.18-3.95-9.45-9-9.95zM12 19c-3.87 0-7-3.13-7-7 0-3.53 2.61-6.43 6-6.92V2.05c-5.06.5-9 4.76-9 9.95 0 5.52 4.47 10 9.99 10 3.31 0 6.24-1.61 8.01-4.09l-2.5-1.46C16.14 17.84 14.21 19 12 19zm1-11v5l4.28 2.54.72-1.21-3.5-2.08V8H13z"/></svg>
@@ -742,17 +793,32 @@
     </div>
     <div class="nav-item" onclick="switchTab('accounts', this)">
       <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
-      <span>Accounts</span>
+      <span>Bots</span>
     </div>
     <div class="nav-item" onclick="switchTab('tokens', this)">
       <svg viewBox="0 0 24 24"><path d="M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>
       <span>Tokens</span>
+    </div>
+    <div class="nav-item" onclick="switchTab('settings', this)">
+      <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+      <span>Settings</span>
     </div>
     <div class="nav-item" onclick="switchTab('logs', this)">
       <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2zm0-4H7V7h10v2zm-4 8H7v-2h6v2z"/></svg>
       <span>Logs</span>
     </div>
   </nav>
+
+  <!-- Modal Sheet for Account Inspector -->
+  <div class="modal-overlay" id="account-modal" onclick="closeModal(event)">
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 id="modal-bot-name" style="color:var(--text-heading);">Bot Details</h3>
+        <button class="btn btn-secondary btn-sm" onclick="closeModal()">✕</button>
+      </div>
+      <div id="modal-bot-body" style="display:flex; flex-direction:column; gap:10px;"></div>
+    </div>
+  </div>
 
   <!-- Central Toast Alert -->
   <div class="toast-center" id="toast-pill">
@@ -763,10 +829,10 @@
   <script>
     let currentPercent = 100;
     let accountsData = [];
+    let savedPresets = [];
     let selectedAccountIds = new Set();
     let isAmoled = false;
 
-    // Haptic feedback for touch devices
     function vibrate(ms = 15) {
       if (navigator.vibrate) {
         try { navigator.vibrate(ms); } catch (e) {}
@@ -789,7 +855,7 @@
       el.classList.add('active');
 
       const dock = document.getElementById('mobile-dock');
-      if (tabId === 'logs' || tabId === 'tokens') {
+      if (tabId === 'logs' || tabId === 'tokens' || tabId === 'settings') {
         dock.style.display = 'none';
       } else {
         dock.style.display = 'flex';
@@ -854,11 +920,20 @@
 
     function renderStatus(data) {
       document.getElementById('status-bulb').style.backgroundColor = 'var(--success)';
-      document.getElementById('gateway-status-txt').innerText = '📱 Mobile Gateway';
+      document.getElementById('gateway-status-txt').innerText = (data.device_type === 'desktop' ? '💻 Desktop' : '📱 Mobile') + ' Gateway';
       document.getElementById('stat-total').innerText = data.total_accounts || 0;
       document.getElementById('stat-online').innerText = data.online_accounts || 0;
       document.getElementById('stat-voice').innerText = data.voice_accounts || 0;
       document.getElementById('stat-uptime').innerText = formatUptime(data.uptime);
+
+      // Active device button highlight
+      if (data.device_type === 'desktop') {
+        document.getElementById('btn-dev-desktop').style.borderColor = 'var(--accent)';
+        document.getElementById('btn-dev-mobile').style.borderColor = 'var(--border)';
+      } else {
+        document.getElementById('btn-dev-mobile').style.borderColor = 'var(--accent)';
+        document.getElementById('btn-dev-desktop').style.borderColor = 'var(--border)';
+      }
 
       if (!document.getElementById('target-channel-id').value && data.default_channel) {
         document.getElementById('target-channel-id').value = data.default_channel;
@@ -867,8 +942,186 @@
         document.getElementById('target-guild-id').value = data.default_guild;
       }
 
+      savedPresets = data.presets || [];
+      renderPresets(savedPresets);
+
       accountsData = data.accounts || [];
       renderAccountsList(accountsData);
+      updateActiveBadges();
+    }
+
+    function renderPresets(presets) {
+      const strip = document.getElementById('presets-strip');
+      const manageBox = document.getElementById('presets-manage-list');
+
+      if (!presets || presets.length === 0) {
+        strip.innerHTML = `<span style="color:var(--text-muted); font-size:0.75rem;">No presets saved yet. Tap '+ Add Preset' above!</span>`;
+        manageBox.innerHTML = `<span style="color:var(--text-muted); font-size:0.8rem;">No saved presets.</span>`;
+        return;
+      }
+
+      let stripHtml = '';
+      let manageHtml = '';
+      presets.forEach(p => {
+        stripHtml += `
+          <div class="preset-chip" onclick="applyPreset('${escapeHtml(p.channel_id)}', '${escapeHtml(p.guild_id || '')}', '${escapeHtml(p.name)}')">
+            <span>🔊 ${escapeHtml(p.name)}</span>
+          </div>`;
+        manageHtml += `
+          <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-dark); padding:8px 12px; border-radius:8px;">
+            <div>
+              <strong style="color:var(--text-heading); font-size:0.85rem;">${escapeHtml(p.name)}</strong>
+              <div style="font-size:0.72rem; color:var(--text-muted);">Channel: ${escapeHtml(p.channel_id)}</div>
+            </div>
+            <button class="btn btn-secondary btn-sm" style="color:var(--danger);" onclick="deletePreset('${escapeHtml(p.name)}')">🗑 Delete</button>
+          </div>`;
+      });
+      strip.innerHTML = stripHtml;
+      manageBox.innerHTML = manageHtml;
+    }
+
+    function applyPreset(ch, gid, name) {
+      vibrate(15);
+      document.getElementById('target-channel-id').value = ch;
+      if (gid) document.getElementById('target-guild-id').value = gid;
+      updateActiveBadges();
+      showToast(`Selected preset: ${name}`);
+      triggerAction('move');
+    }
+
+    function promptAddPreset() {
+      const name = prompt("Enter a name for this preset (e.g. Lobby):");
+      if (!name) return;
+      const ch = document.getElementById('target-channel-id').value.trim();
+      const gid = document.getElementById('target-guild-id').value.trim();
+      if (!ch) return showToast("Enter a Voice Channel ID first", true);
+      savePresetApi(name, ch, gid);
+    }
+
+    function addPresetFromSettings() {
+      const name = document.getElementById('new-preset-name').value.trim();
+      const ch = document.getElementById('new-preset-ch').value.trim();
+      const gid = document.getElementById('target-guild-id').value.trim();
+      if (!name || !ch) return showToast("Name and Channel ID required", true);
+      savePresetApi(name, ch, gid);
+      document.getElementById('new-preset-name').value = '';
+      document.getElementById('new-preset-ch').value = '';
+    }
+
+    async function savePresetApi(name, ch, gid) {
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'save_preset', name: name, channel_id: ch, guild_id: gid })
+        });
+        const json = await res.json();
+        showToast(json.message);
+        fetchStatus();
+      } catch (e) {
+        showToast("Error: " + e.message, true);
+      }
+    }
+
+    async function deletePreset(name) {
+      if (!confirm(`Delete preset '${name}'?`)) return;
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'delete_preset', name: name })
+        });
+        const json = await res.json();
+        showToast(json.message);
+        fetchStatus();
+      } catch (e) {
+        showToast("Error: " + e.message, true);
+      }
+    }
+
+    function updateActiveBadges() {
+      const ch = document.getElementById('target-channel-id').value.trim();
+      const gid = document.getElementById('target-guild-id').value.trim();
+      document.getElementById('active-ch-badge').innerText = ch ? `(${ch.slice(0, 8)}...)` : '';
+      document.getElementById('active-guild-badge').innerText = gid ? `(${gid.slice(0, 8)}...)` : '';
+    }
+
+    async function saveDefaultChannel() {
+      vibrate(15);
+      const ch = document.getElementById('target-channel-id').value.trim();
+      if (!ch) return showToast('Enter channel ID first', true);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set_default_channel', channel_id: ch })
+        });
+        const json = await res.json();
+        showToast(json.message);
+        updateActiveBadges();
+      } catch (err) {
+        showToast('Error: ' + err.message, true);
+      }
+    }
+
+    async function saveGuildId() {
+      vibrate(15);
+      const gid = document.getElementById('target-guild-id').value.trim();
+      if (!gid) return showToast('Enter Server ID first', true);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set_guild_id', guild_id: gid })
+        });
+        const json = await res.json();
+        showToast(json.message);
+        updateActiveBadges();
+      } catch (err) {
+        showToast('Error: ' + err.message, true);
+      }
+    }
+
+    async function saveBothConfig() {
+      vibrate(20);
+      const ch = document.getElementById('target-channel-id').value.trim();
+      const gid = document.getElementById('target-guild-id').value.trim();
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set_config', channel_id: ch, guild_id: gid })
+        });
+        const json = await res.json();
+        showToast('Saved to .env configuration!');
+        updateActiveBadges();
+      } catch (err) {
+        showToast('Error: ' + err.message, true);
+      }
+    }
+
+    async function autoDetectGuild() {
+      vibrate(20);
+      const ch = document.getElementById('target-channel-id').value.trim();
+      if (!ch) return showToast('Enter Channel ID first', true);
+      showToast('Querying Discord API for Server ID...');
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'detect_guild', channel_id: ch })
+        });
+        const json = await res.json();
+        if (json.success && json.guild_id) {
+          document.getElementById('target-guild-id').value = json.guild_id;
+          showToast(`Server ID: ${json.guild_id}`);
+          updateActiveBadges();
+        } else {
+          showToast(json.error || 'Could not detect Server ID', true);
+        }
+      } catch (err) {
+        showToast('Error: ' + err.message, true);
+      }
     }
 
     function renderAccountsList(list) {
@@ -885,7 +1138,7 @@
         const initial = (acc.name || 'U').charAt(0).toUpperCase();
 
         html += `
-          <div class="acc-card ${isSelected ? 'selected' : ''}" onclick="toggleAccountSelect(${acc.id}, event)">
+          <div class="acc-card ${isSelected ? 'selected' : ''}" onclick="openBotModal(${acc.id})">
             <div class="acc-top">
               <div class="acc-avatar-box">
                 ${initial}
@@ -893,7 +1146,7 @@
               </div>
               <div class="acc-meta">
                 <div class="acc-name">${escapeHtml(acc.name || 'Unknown')}</div>
-                <div class="acc-sub">ID: ${acc.id} &bull; ${acc.user_id || 'Authenticating...'}</div>
+                <div class="acc-sub">ID: ${acc.id} &bull; ${acc.token_masked || 'Token loaded'}</div>
               </div>
               <input type="checkbox" ${isSelected ? 'checked' : ''} style="width:20px; height:20px; accent-color:var(--accent);" onclick="event.stopPropagation(); toggleAccountSelect(${acc.id})">
             </div>
@@ -919,6 +1172,39 @@
         `;
       });
       container.innerHTML = html;
+    }
+
+    function openBotModal(aid) {
+      vibrate(15);
+      const acc = accountsData.find(a => a.id === aid);
+      if (!acc) return;
+      document.getElementById('modal-bot-name').innerText = `${acc.name || 'Account'} (#${acc.id})`;
+      document.getElementById('modal-bot-body').innerHTML = `
+        <div style="background:var(--bg-dark); padding:10px; border-radius:8px; font-size:0.85rem;">
+          <div><strong>User ID:</strong> ${acc.user_id || 'Connecting...'}</div>
+          <div><strong>Token:</strong> <code>${acc.token_masked || 'Hidden'}</code></div>
+          <div><strong>Status:</strong> ${acc.online ? '🟢 Online' : '🔴 Offline'}</div>
+          <div><strong>Voice:</strong> ${acc.voice_channel ? '🔊 ' + acc.voice_channel : 'Not connected'}</div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <button class="btn btn-primary" onclick="sendIndividualAction(${acc.id}, 'move'); closeModal()">🔊 Join Default Channel</button>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-secondary" style="flex:1;" onclick="sendIndividualAction(${acc.id}, 'mute'); closeModal()">🔇 Mute</button>
+            <button class="btn btn-secondary" style="flex:1;" onclick="sendIndividualAction(${acc.id}, 'unmute'); closeModal()">🔊 Unmute</button>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-secondary" style="flex:1;" onclick="sendIndividualAction(${acc.id}, 'deafen'); closeModal()">🎧 Deafen</button>
+            <button class="btn btn-secondary" style="flex:1;" onclick="sendIndividualAction(${acc.id}, 'undeafen'); closeModal()">🎧 Undeafen</button>
+          </div>
+          <button class="btn btn-warning" onclick="sendIndividualAction(${acc.id}, 'reconnect'); closeModal()">🔄 Reconnect Account</button>
+          <button class="btn btn-danger" onclick="deleteAccount(${acc.id}); closeModal()">🗑 Delete Account</button>
+        </div>
+      `;
+      document.getElementById('account-modal').classList.add('open');
+    }
+
+    function closeModal(e) {
+      document.getElementById('account-modal').classList.remove('open');
     }
 
     function filterAccounts(query) {
@@ -954,7 +1240,7 @@
       const count = document.getElementById('batch-selected-count');
       if (selectedAccountIds.size > 0) {
         bar.classList.add('show');
-        count.innerText = `${selectedAccountIds.size} accounts selected`;
+        count.innerText = `${selectedAccountIds.size} selected`;
       } else {
         bar.classList.remove('show');
       }
@@ -964,7 +1250,6 @@
       vibrate(20);
       if (selectedAccountIds.size === 0) return showToast('No accounts selected', true);
       const ch = document.getElementById('target-channel-id').value.trim();
-      showToast(`Running ${subAction} on ${selectedAccountIds.size} accounts...`);
       try {
         const res = await fetch('/api/action', {
           method: 'POST',
@@ -977,15 +1262,10 @@
           })
         });
         const json = await res.json();
-        if (json.success) {
-          showToast(`Batch ${subAction} complete!`);
-          logToConsole(`Batch ${subAction} on ${selectedAccountIds.size} bots: Success`);
-          selectedAccountIds.clear();
-          updateBatchBar();
-          fetchStatus();
-        } else {
-          showToast(json.error || 'Batch failed', true);
-        }
+        showToast(json.message || `Batch ${subAction} complete!`);
+        selectedAccountIds.clear();
+        updateBatchBar();
+        fetchStatus();
       } catch (err) {
         showToast('Error: ' + err.message, true);
       }
@@ -994,35 +1274,28 @@
     async function triggerAction(action) {
       vibrate(25);
       const ch = document.getElementById('target-channel-id').value.trim();
-      logToConsole(`Executing action '${action}' (${currentPercent}% slice)...`);
+      logToConsole(`Action '${action}' (${currentPercent}% slice)...`);
       try {
         const res = await fetch('/api/action', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: action,
-            channel_id: ch,
-            percent: currentPercent
-          })
+          body: JSON.stringify({ action: action, channel_id: ch, percent: currentPercent })
         });
         const json = await res.json();
         if (json.success) {
           showToast(json.message || `Action ${action} executed`);
-          logToConsole(`Done: ${json.message}`);
           fetchStatus();
         } else {
-          showToast(json.error || 'Action failed', true);
-          logToConsole(`Error: ${json.error}`);
+          showToast(json.error || 'Failed', true);
         }
       } catch (err) {
-        showToast('Request error: ' + err.message, true);
+        showToast('Error: ' + err.message, true);
       }
     }
 
     async function sendIndividualAction(aid, action) {
       vibrate(15);
       const ch = document.getElementById('target-channel-id').value.trim();
-      logToConsole(`Bot #${aid} action: ${action}`);
       try {
         const res = await fetch('/api/action', {
           method: 'POST',
@@ -1030,12 +1303,8 @@
           body: JSON.stringify({ action: 'account_' + action, id: aid, channel_id: ch })
         });
         const json = await res.json();
-        if (json.success) {
-          showToast(json.message);
-          fetchStatus();
-        } else {
-          showToast(json.error, true);
-        }
+        showToast(json.message);
+        fetchStatus();
       } catch (err) {
         showToast('Error: ' + err.message, true);
       }
@@ -1046,9 +1315,7 @@
       const input = document.getElementById('single-token-input');
       const token = input.value.trim();
       if (!token) return showToast('Please paste a token', true);
-
       showToast('Authenticating token...');
-      logToConsole('Adding single token...');
       try {
         const res = await fetch('/api/action', {
           method: 'POST',
@@ -1059,11 +1326,9 @@
         if (json.success) {
           input.value = '';
           showToast('Account added successfully!');
-          logToConsole(`Success: ${json.message}`);
           fetchStatus();
         } else {
-          showToast(json.error || 'Failed to add', true);
-          logToConsole(`Error: ${json.error}`);
+          showToast(json.error || 'Failed', true);
         }
       } catch (err) {
         showToast('Error: ' + err.message, true);
@@ -1075,9 +1340,7 @@
       const area = document.getElementById('bulk-token-area');
       const lines = area.value.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
       if (lines.length === 0) return showToast('No valid tokens entered', true);
-
       showToast(`Importing ${lines.length} accounts...`);
-      logToConsole(`Bulk importing ${lines.length} tokens...`);
       try {
         const res = await fetch('/api/action', {
           method: 'POST',
@@ -1088,14 +1351,24 @@
         if (json.success) {
           area.value = '';
           showToast(`Imported ${lines.length} accounts!`);
-          logToConsole(`Bulk Success: ${json.message}`);
           fetchStatus();
         } else {
-          showToast(json.error || 'Bulk error', true);
+          showToast(json.error || 'Error', true);
         }
       } catch (err) {
         showToast('Error: ' + err.message, true);
       }
+    }
+
+    function handleFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        document.getElementById('bulk-token-area').value = e.target.result;
+        showToast(`Loaded ${file.name}! Tap 'Import All'`);
+      };
+      reader.readAsText(file);
     }
 
     async function deleteAccount(aid) {
@@ -1141,106 +1414,86 @@
         a.download = 'tokens.txt';
         a.click();
         URL.revokeObjectURL(url);
-        showToast(`Exported ${data.count} tokens to file!`);
+        showToast(`Exported ${data.count} tokens!`);
       } catch (err) {
         showToast('Export failed: ' + err.message, true);
       }
     }
 
-    function updateActiveBadges() {
-      const ch = document.getElementById('target-channel-id').value.trim();
-      const gid = document.getElementById('target-guild-id').value.trim();
-      document.getElementById('active-ch-badge').innerText = ch ? `(Active: ${ch.slice(0, 8)}...)` : '';
-      document.getElementById('active-guild-badge').innerText = gid ? `(Active: ${gid.slice(0, 8)}...)` : '';
-    }
-
-    async function saveDefaultChannel() {
+    async function setDeviceType(type) {
       vibrate(15);
-      const ch = document.getElementById('target-channel-id').value.trim();
-      if (!ch) return showToast('Enter channel ID first', true);
       try {
         const res = await fetch('/api/action', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'set_default_channel', channel_id: ch })
+          body: JSON.stringify({ action: 'set_device_type', device_type: type })
         });
         const json = await res.json();
-        showToast(json.message || `Saved channel: ${ch}`);
-        logToConsole(`Channel updated: ${ch} (persisted to .env)`);
-        updateActiveBadges();
-      } catch (err) {
-        showToast('Error: ' + err.message, true);
+        showToast(json.message);
+        fetchStatus();
+      } catch (e) {
+        showToast("Error: " + e.message, true);
       }
     }
 
-    async function saveGuildId() {
+    async function restartAllBots() {
+      vibrate(25);
+      if (!confirm("Reconnect all active accounts?")) return;
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'restart_all' })
+        });
+        const json = await res.json();
+        showToast(json.message);
+        fetchStatus();
+      } catch (e) {
+        showToast("Error: " + e.message, true);
+      }
+    }
+
+    async function shutdownBotEngine() {
+      vibrate(35);
+      if (!confirm("Are you sure you want to stop the bot engine?")) return;
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'shutdown' })
+        });
+        const json = await res.json();
+        showToast(json.message);
+      } catch (e) {
+        showToast("Stopped.");
+      }
+    }
+
+    async function executeTerminalCmd() {
       vibrate(15);
-      const gid = document.getElementById('target-guild-id').value.trim();
-      if (!gid) return showToast('Enter Server ID first', true);
+      const input = document.getElementById('cmd-input');
+      const cmd = input.value.trim();
+      if (!cmd) return;
+      input.value = '';
+      logToConsole(`> ${cmd}`);
       try {
         const res = await fetch('/api/action', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'set_guild_id', guild_id: gid })
+          body: JSON.stringify({ action: 'exec_command', command: cmd })
         });
         const json = await res.json();
-        showToast(json.message || `Saved Server ID: ${gid}`);
-        logToConsole(`Server ID updated: ${gid} (persisted to .env)`);
-        updateActiveBadges();
-      } catch (err) {
-        showToast('Error: ' + err.message, true);
-      }
-    }
-
-    async function saveBothConfig() {
-      vibrate(20);
-      const ch = document.getElementById('target-channel-id').value.trim();
-      const gid = document.getElementById('target-guild-id').value.trim();
-      try {
-        const res = await fetch('/api/action', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'set_config', channel_id: ch, guild_id: gid })
-        });
-        const json = await res.json();
-        showToast('Configuration saved to .env!');
-        logToConsole(`Configuration saved: Guild=${gid || 'none'}, Channel=${ch || 'none'}`);
-        updateActiveBadges();
-      } catch (err) {
-        showToast('Error: ' + err.message, true);
-      }
-    }
-
-    async function autoDetectGuild() {
-      vibrate(20);
-      const ch = document.getElementById('target-channel-id').value.trim();
-      if (!ch) return showToast('Enter Channel ID first', true);
-      showToast('Querying Discord API for Server ID...');
-      logToConsole(`Auto-detecting Server ID for Channel ${ch}...`);
-      try {
-        const res = await fetch('/api/action', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'detect_guild', channel_id: ch })
-        });
-        const json = await res.json();
-        if (json.success && json.guild_id) {
-          document.getElementById('target-guild-id').value = json.guild_id;
-          showToast(`Found Server ID: ${json.guild_id}`);
-          logToConsole(`Server ID auto-detected: ${json.guild_id} (saved to .env)`);
-          updateActiveBadges();
-        } else {
-          showToast(json.error || 'Could not detect Server ID', true);
-        }
-      } catch (err) {
-        showToast('Error: ' + err.message, true);
+        logToConsole(json.message || "Executed");
+        fetchStatus();
+      } catch (e) {
+        logToConsole(`Error: ${e.message}`);
       }
     }
 
     function refreshAll() {
       vibrate(15);
       fetchStatus();
-      showToast('Dashboard refreshed');
+      showToast('Refreshed');
     }
 
     function formatUptime(sec) {
@@ -1260,7 +1513,6 @@
       return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    // Auto-poll status every 2 seconds
     fetchStatus();
     setInterval(fetchStatus, 2000);
   </script>

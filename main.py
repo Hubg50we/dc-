@@ -137,8 +137,29 @@ def sync_tokens_file():
         print(f"[!] Could not sync tokens.txt: {e}")
 
 
+CHANNELS_PRESETS_FILE = "channels.json"
+
+
+def get_channel_presets():
+    if os.path.exists(CHANNELS_PRESETS_FILE):
+        try:
+            with open(CHANNELS_PRESETS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return []
+    return []
+
+
+def save_channel_presets(presets):
+    try:
+        with open(CHANNELS_PRESETS_FILE, "w", encoding="utf-8") as f:
+            json.dump(presets, f, indent=2)
+    except Exception as e:
+        print(f"[!] Could not save channel presets: {e}")
+
+
 def save_env_config():
-    """Persist current GUILD_ID and CHANNEL_ID to .env file so changes survive restarts."""
+    """Persist current GUILD_ID, CHANNEL_ID, and DEVICE_TYPE to .env file so changes survive restarts."""
     try:
         env_path = ".env"
         lines = []
@@ -148,6 +169,7 @@ def save_env_config():
 
         guild_found = False
         channel_found = False
+        device_found = False
         new_lines = []
         for line in lines:
             if line.startswith("GUILD_ID="):
@@ -156,6 +178,9 @@ def save_env_config():
             elif line.startswith("CHANNEL_ID="):
                 new_lines.append(f"CHANNEL_ID={CHANNEL_ID}\n")
                 channel_found = True
+            elif line.startswith("DEVICE_TYPE="):
+                new_lines.append(f"DEVICE_TYPE={DEVICE_TYPE}\n")
+                device_found = True
             else:
                 new_lines.append(line)
 
@@ -163,6 +188,8 @@ def save_env_config():
             new_lines.append(f"GUILD_ID={GUILD_ID}\n")
         if not channel_found:
             new_lines.append(f"CHANNEL_ID={CHANNEL_ID}\n")
+        if not device_found:
+            new_lines.append(f"DEVICE_TYPE={DEVICE_TYPE}\n")
 
         with open(env_path, "w", encoding="utf-8") as f:
             f.writelines(new_lines)
@@ -899,11 +926,13 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             "default_guild": GUILD_ID,
             "default_channel": CHANNEL_ID,
             "device_type": DEVICE_TYPE,
+            "presets": get_channel_presets(),
             "accounts": [
                 {
                     "id": a["id"],
                     "name": a.get("name") or "Unknown",
                     "user_id": a.get("user_id"),
+                    "token_masked": (a.get("token")[:10] + "..." + a.get("token")[-4:]) if a.get("token") else "",
                     "online": a.get("online", False),
                     "voice_channel": a.get("voice_channel"),
                     "mute": a.get("mute", False),
@@ -946,8 +975,59 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(404, "Not Found")
 
     def execute_action(self, payload):
-        global CHANNEL_ID, GUILD_ID
+        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES
         action = payload.get("action", "")
+
+        if action == "set_device_type":
+            new_dev = payload.get("device_type", "mobile").lower()
+            if new_dev in ("mobile", "desktop"):
+                DEVICE_TYPE = new_dev
+                if DEVICE_TYPE == "desktop":
+                    GATEWAY_PROPERTIES = {"$os": "windows", "$browser": "chrome", "$device": "pc"}
+                else:
+                    GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
+                save_env_config()
+                return {"success": True, "message": f"Device appearance set to {DEVICE_TYPE.upper()} (saved to .env)"}
+            return {"success": False, "error": "Invalid device_type (use 'mobile' or 'desktop')"}
+
+        if action == "save_preset":
+            name = payload.get("name", "").strip()
+            ch = payload.get("channel_id", "").strip()
+            gid = payload.get("guild_id", "").strip()
+            if not name or not ch:
+                return {"success": False, "error": "Name and Channel ID required"}
+            presets = [p for p in get_channel_presets() if p.get("name") != name]
+            presets.append({"name": name, "channel_id": ch, "guild_id": gid})
+            save_channel_presets(presets)
+            return {"success": True, "message": f"Saved channel preset '{name}'", "presets": presets}
+
+        if action == "delete_preset":
+            name = payload.get("name", "").strip()
+            presets = [p for p in get_channel_presets() if p.get("name") != name]
+            save_channel_presets(presets)
+            return {"success": True, "message": f"Deleted preset '{name}'", "presets": presets}
+
+        if action == "restart_all":
+            if MAIN_LOOP and MAIN_LOOP.is_running():
+                for aid in list(ACCOUNTS.keys()):
+                    asyncio.run_coroutine_threadsafe(restart_account(aid), MAIN_LOOP)
+                return {"success": True, "message": "Reconnecting all accounts..."}
+            return {"success": False, "error": "Bot engine not running"}
+
+        if action == "shutdown":
+            if MAIN_LOOP and MAIN_LOOP.is_running():
+                asyncio.run_coroutine_threadsafe(shutdown(), MAIN_LOOP)
+                return {"success": True, "message": "Bot is safely shutting down..."}
+            return {"success": False, "error": "Bot engine not running"}
+
+        if action == "exec_command":
+            raw_cmd = payload.get("command", "").strip()
+            if not raw_cmd:
+                return {"success": False, "error": "Command empty"}
+            if MAIN_LOOP and MAIN_LOOP.is_running():
+                asyncio.run_coroutine_threadsafe(handle_command(raw_cmd), MAIN_LOOP)
+                return {"success": True, "message": f"Command executed: {raw_cmd}"}
+            return {"success": False, "error": "Bot engine not running"}
 
         if action == "set_default_channel":
             new_ch = payload.get("channel_id")

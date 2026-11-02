@@ -105,20 +105,45 @@ bash start.sh
 
 ---
 
-## 🌐 Web UI Dashboard (Mobile & PC)
+## 🌐 All-in-One Web UI Dashboard (100% Mobile & PC Controlled)
 
-`dc-` includes a built-in, responsive **Web Control Panel** that automatically starts on port `5000`:
+`dc-` includes an advanced, zero-dependency **Web Control Panel** running directly on port `5000`. You can configure, manage, and monitor everything **100% within the UI** without ever touching terminal commands:
 
-- **On PC**: Open `http://localhost:5000` in your web browser.
-- **On Mobile (Termux)**: While the bot is running in Termux, open `http://localhost:5000` (or `http://127.0.0.1:5000`) in Chrome / Firefox on your phone!
-- **On Local WiFi**: Access it from another device on the same WiFi network using `http://<YOUR_IP>:5000`.
+- **On Mobile (Termux)**: While running, open `http://localhost:5000` (or `http://127.0.0.1:5000`) in Chrome / Firefox on your phone.
+- **On PC**: Open `http://localhost:5000` in any browser.
+- **On Local WiFi**: Access it from another phone or PC via `http://<YOUR_IP>:5000`.
+- **Installable PWA**: Add to Home Screen as a native mobile app with AMOLED dark theme!
 
-### Web Dashboard Features:
-- 👥 **Real-Time Account Cards**: Live status indicators (🟢 Online, 🔊 In Voice, 🔇 Muted, 🎧 Deafened).
-- 🔊 **Voice Controls**: 1-click Join / Move, Mute All, Unmute All, Deafen All, Disconnect All.
-- 🎚️ **Percent Slices**: Select random percentage (25%, 50%, 75%, 100%) of accounts to move or mute.
-- 🔑 **Token Management**: Add new Discord tokens directly from the browser without restarting.
-- 📜 **Live Activity Terminal**: Real-time log console showing events and connection responses.
+### 🎯 5 Dedicated Tabs (Full UI Management):
+
+1. **🎛️ Controls Tab**:
+   - **Editable Guild & Channel ID**: Edit your Discord Server ID & Voice Channel ID directly in input fields with 1-tap Save.
+   - **Auto-Detect Server ID**: Don't know your Server ID? Just enter your Voice Channel ID, click **Auto-Detect**, and the bot looks up your Server ID automatically via Discord's API!
+   - **Quick Channel Presets**: 1-tap chips to switch between preset rooms (Lounge, Gaming, Music, General, AFK).
+   - **Batch Percentage Slider**: Move, mute, deafen, or disconnect 10%, 25%, 50%, 75%, or 100% of your bots.
+   - **Floating Mobile Thumb Bar**: Bottom-docked quick buttons for instantaneous thumb control on phones.
+
+2. **🤖 Bots Tab**:
+   - **Live Account Cards**: Real-time status indicators (🟢 Online, 🔊 In Voice, 🔇 Muted, 🎧 Deafened, 📱 Mobile).
+   - **Batch Selection Bar**: Select specific bots to perform targeted voice actions.
+   - **Detailed Account Modal**: Tap any bot card to see Ping, Gateway ID, Voice State, and per-bot controls.
+
+3. **🔑 Tokens Tab (100% In-Browser Management)**:
+   - **Upload `tokens.txt`**: Pick and upload token files directly from your phone's file storage.
+   - **Bulk Multi-Line Paste**: Paste multiple tokens at once with instant live validation.
+   - **Single Token Add**: Add new tokens dynamically on the fly without restarting.
+   - **Backup & Download**: 1-click download of your current `tokens.txt` backup.
+   - **Masked Token Security**: Displays masked tokens (`MTAx...w0wQ`) with 1-tap delete.
+
+4. **⚙️ Settings Tab**:
+   - **Device Appearance Toggle**: Choose between **📱 Discord Android (Green Mobile Icon)** or **💻 Desktop/Browser**.
+   - **Channel Presets Manager**: Create, rename, edit, and delete custom voice channel shortcuts.
+   - **Power Controls**: Cleanly **Restart Engine** or **Shut Down** all Discord instances straight from the browser.
+
+5. **📜 Logs Tab**:
+   - **Live Streaming Terminal**: Real-time log stream showing Opcode handshakes, reconnects, and actions.
+   - **Terminal Input Bar**: Execute console commands directly from the UI.
+   - **Copy & Clear**: 1-tap copy logs to clipboard or clear screen.
 
 ---
 
