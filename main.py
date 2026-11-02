@@ -784,6 +784,15 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             self.serve_manifest()
         elif self.path == "/api/status":
             self.serve_status()
+        elif self.path == "/api/tokens":
+            tokens = [a.get("token") for a in ACCOUNTS.values() if a.get("token") and not is_placeholder_token(a.get("token"))]
+            resp = json.dumps({"tokens": tokens, "count": len(tokens)}).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Content-Length", str(len(resp)))
+            self.end_headers()
+            self.wfile.write(resp)
         else:
             self.send_error(404, "Not Found")
 
@@ -924,6 +933,25 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             if not token_list:
                 return {"success": False, "error": "No tokens provided"}
             coro = self._run_bulk_add(token_list)
+        elif action == "batch_action":
+            aids = [int(x) for x in payload.get("ids", []) if str(x).isdigit()]
+            sub = payload.get("sub_action", "")
+            ch = payload.get("channel_id") or CHANNEL_ID
+            targets = [ACCOUNTS[aid] for aid in aids if aid in ACCOUNTS and ACCOUNTS[aid].get("online")]
+            if sub in ("move", "join"):
+                coro = apply(targets, channel=ch)
+            elif sub == "disconnect":
+                coro = apply(targets, channel=None)
+            elif sub == "mute":
+                coro = apply(targets, mute=True)
+            elif sub == "unmute":
+                coro = apply(targets, mute=False)
+            elif sub == "deafen":
+                coro = apply(targets, deaf=True)
+            elif sub == "undeafen":
+                coro = apply(targets, deaf=False)
+            else:
+                return {"success": False, "error": f"Unknown batch sub_action: {sub}"}
         elif action == "token_remove":
             aid = payload.get("id")
             coro = remove_account(aid)

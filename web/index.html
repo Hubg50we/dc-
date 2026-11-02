@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#1e1f22">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#1e1f22" id="meta-theme-color">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="/manifest.json">
-  <title>dc- Mobile Dashboard</title>
+  <title>dc- Mobile Pro</title>
   <style>
     :root {
       --bg-darker: #111214;
@@ -17,6 +17,7 @@
       --bg-hover: #35373c;
       --accent: #5865f2;
       --accent-hover: #4752c4;
+      --accent-glow: rgba(88, 101, 242, 0.35);
       --success: #23a55a;
       --danger: #f23f43;
       --warning: #f0b232;
@@ -24,7 +25,16 @@
       --text-muted: #949ba4;
       --text-heading: #f2f3f5;
       --border: #383a40;
-      --radius: 10px;
+      --radius: 12px;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    body.amoled-mode {
+      --bg-darker: #000000;
+      --bg-dark: #090a0b;
+      --bg-card: #121316;
+      --bg-hover: #1c1d22;
+      --border: #24262b;
     }
 
     * {
@@ -38,188 +48,171 @@
     body {
       background-color: var(--bg-darker);
       color: var(--text);
-      line-height: 1.5;
+      line-height: 1.4;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
+      padding-bottom: calc(72px + var(--safe-bottom));
+      transition: background-color 0.25s ease;
+      overflow-x: hidden;
     }
 
-    /* Top Navigation */
+    /* Top Glass App Bar */
     header {
-      background-color: var(--bg-dark);
+      background: rgba(30, 31, 34, 0.88);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
       border-bottom: 1px solid var(--border);
-      padding: 14px 20px;
+      padding: 12px 16px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       position: sticky;
       top: 0;
-      z-index: 100;
+      z-index: 200;
     }
 
     .brand {
       display: flex;
       align-items: center;
-      gap: 10px;
-      font-weight: 700;
-      font-size: 1.25rem;
+      gap: 8px;
+      font-weight: 800;
+      font-size: 1.15rem;
       color: var(--text-heading);
+      letter-spacing: -0.3px;
     }
 
     .brand-badge {
-      background: rgba(88, 101, 242, 0.2);
-      color: var(--accent);
-      padding: 3px 8px;
+      background: var(--accent);
+      color: #fff;
+      padding: 2px 7px;
       border-radius: 6px;
-      font-size: 0.75rem;
+      font-size: 0.68rem;
+      font-weight: 700;
       text-transform: uppercase;
-      font-weight: 600;
-      letter-spacing: 0.5px;
+      box-shadow: 0 0 10px var(--accent-glow);
     }
 
-    .header-status {
+    .header-actions {
       display: flex;
       align-items: center;
-      gap: 12px;
-      font-size: 0.85rem;
+      gap: 8px;
     }
 
-    .status-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 10px;
-      border-radius: 20px;
+    .icon-btn {
       background: var(--bg-card);
       border: 1px solid var(--border);
-      font-size: 0.8rem;
+      color: var(--text);
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.95rem;
+      cursor: pointer;
     }
 
-    .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background-color: var(--success);
-      display: inline-block;
-    }
+    .icon-btn:active { transform: scale(0.92); }
 
-    /* Main Container */
+    /* Top Stats Pills Strip */
+    .stats-strip {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 12px 16px 4px 16px;
+      scrollbar-width: none;
+    }
+    .stats-strip::-webkit-scrollbar { display: none; }
+
+    .stat-pill {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      min-width: 90px;
+      flex-shrink: 0;
+    }
+    .stat-label { font-size: 0.68rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+    .stat-val { font-size: 1.15rem; font-weight: 700; color: var(--text-heading); margin-top: 1px; }
+
+    /* Content Area & Tab Pages */
     main {
       flex: 1;
-      max-width: 1200px;
+      max-width: 960px;
       width: 100%;
       margin: 0 auto;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
+      padding: 12px 16px;
     }
 
-    /* Stats Grid */
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    .tab-content {
+      display: none;
+      flex-direction: column;
+      gap: 14px;
+      animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .tab-content.active { display: flex; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Cards / Panels */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
       gap: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
     }
 
-    .stat-card {
-      background-color: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 14px 16px;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .stat-title {
-      color: var(--text-muted);
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      font-weight: 600;
-    }
-
-    .stat-value {
-      color: var(--text-heading);
-      font-size: 1.6rem;
+    .card-title {
+      font-size: 0.95rem;
       font-weight: 700;
-      margin-top: 4px;
-    }
-
-    /* Layout Sections */
-    .grid-2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-    }
-
-    @media (max-width: 850px) {
-      .grid-2 {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    .panel {
-      background-color: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 18px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-
-    .panel-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 12px;
-    }
-
-    .panel-title {
-      font-size: 1.05rem;
-      font-weight: 600;
       color: var(--text-heading);
       display: flex;
       align-items: center;
-      gap: 8px;
+      justify-content: space-between;
     }
 
-    /* Forms & Controls */
-    .form-group {
+    /* Inputs & Form Controls */
+    .field-group {
       display: flex;
       flex-direction: column;
       gap: 6px;
     }
-
-    label {
-      font-size: 0.8rem;
+    .field-label {
+      font-size: 0.75rem;
       font-weight: 600;
       color: var(--text-muted);
       text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .input-row {
+      letter-spacing: 0.4px;
       display: flex;
-      gap: 8px;
+      justify-content: space-between;
     }
 
-    input, textarea, select {
-      background-color: var(--bg-dark);
+    .input-row { display: flex; gap: 8px; }
+
+    input, textarea {
+      background: var(--bg-dark);
       border: 1px solid var(--border);
       color: var(--text-heading);
-      padding: 10px 14px;
-      border-radius: 8px;
+      padding: 12px 14px;
+      border-radius: 9px;
       font-size: 0.95rem;
       width: 100%;
       outline: none;
-      transition: border-color 0.2s;
+      transition: all 0.2s;
     }
-
-    input:focus, textarea:focus, select:focus {
+    input:focus, textarea:focus {
       border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
     }
 
     /* Buttons */
@@ -228,106 +221,119 @@
       align-items: center;
       justify-content: center;
       gap: 6px;
-      padding: 10px 16px;
-      border-radius: 8px;
+      padding: 12px 16px;
+      border-radius: 9px;
       font-size: 0.9rem;
       font-weight: 600;
       cursor: pointer;
       border: none;
-      transition: all 0.2s;
       user-select: none;
-      min-height: 42px;
+      transition: all 0.15s ease;
+      min-height: 44px;
     }
+    button:active { transform: scale(0.96); filter: brightness(0.9); }
 
-    .btn-primary { background-color: var(--accent); color: #fff; }
-    .btn-primary:hover { background-color: var(--accent-hover); }
+    .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 4px 12px var(--accent-glow); }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-warning { background: var(--warning); color: #111; }
+    .btn-secondary { background: var(--bg-hover); color: var(--text-heading); }
+    .btn-sm { min-height: 34px; padding: 6px 12px; font-size: 0.8rem; border-radius: 7px; }
 
-    .btn-success { background-color: var(--success); color: #fff; }
-    .btn-success:hover { opacity: 0.9; }
-
-    .btn-danger { background-color: var(--danger); color: #fff; }
-    .btn-danger:hover { opacity: 0.9; }
-
-    .btn-warning { background-color: var(--warning); color: #000; }
-    .btn-warning:hover { opacity: 0.9; }
-
-    .btn-secondary { background-color: var(--bg-hover); color: var(--text-heading); }
-    .btn-secondary:hover { background-color: #404249; }
-
-    .btn-sm {
-      padding: 6px 10px;
-      font-size: 0.8rem;
-      min-height: 32px;
-      border-radius: 6px;
-    }
-
-    /* Action Buttons Grid */
+    /* Action Grid */
     .action-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: 1fr 1fr;
       gap: 10px;
     }
 
-    @media (min-width: 500px) {
-      .action-grid {
-        grid-template-columns: repeat(3, 1fr);
-      }
+    /* Range Slider & Presets */
+    .slider-box {
+      background: var(--bg-dark);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
-
-    .percent-selector {
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+    input[type=range] {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      outline: none;
+      padding: 0;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--accent);
+    }
+    .preset-chips {
       display: flex;
       gap: 6px;
     }
-
-    .percent-btn {
+    .chip {
       flex: 1;
       padding: 6px;
-      background: var(--bg-dark);
+      background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: 6px;
-      color: var(--text);
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       font-weight: 600;
+      color: var(--text-muted);
       cursor: pointer;
+      text-align: center;
     }
-
-    .percent-btn.active {
-      background: var(--accent);
-      color: #fff;
-      border-color: var(--accent);
-    }
+    .chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
     /* Accounts List */
-    .accounts-list {
+    .acc-header-tools {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .acc-list {
       display: flex;
       flex-direction: column;
       gap: 8px;
-      max-height: 480px;
-      overflow-y: auto;
-      padding-right: 4px;
     }
-
-    .account-card {
-      background-color: var(--bg-dark);
+    .acc-card {
+      background: var(--bg-dark);
       border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 12px 14px;
+      border-radius: 10px;
+      padding: 12px;
       display: flex;
-      justify-content: space-between;
+      flex-direction: column;
+      gap: 10px;
+      position: relative;
+    }
+    .acc-card.selected {
+      border-color: var(--accent);
+      background: rgba(88, 101, 242, 0.08);
+    }
+    .acc-top {
+      display: flex;
       align-items: center;
       gap: 10px;
-      flex-wrap: wrap;
     }
-
-    .acc-info {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .acc-avatar {
-      width: 36px;
-      height: 36px;
+    .acc-avatar-box {
+      position: relative;
+      width: 40px;
+      height: 40px;
       border-radius: 50%;
       background: var(--bg-hover);
       display: flex;
@@ -335,366 +341,568 @@
       justify-content: center;
       font-weight: 700;
       color: var(--accent);
-      position: relative;
+      flex-shrink: 0;
     }
-
-    .acc-avatar .dot {
+    .online-indicator {
       position: absolute;
-      bottom: 0;
-      right: 0;
+      bottom: -1px;
+      right: -1px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
       border: 2px solid var(--bg-dark);
+      background: var(--text-muted);
     }
+    .online-indicator.live { background: var(--success); }
 
-    .acc-details {
-      display: flex;
-      flex-direction: column;
+    .acc-meta {
+      flex: 1;
+      min-width: 0;
     }
-
     .acc-name {
-      font-weight: 600;
-      color: var(--text-heading);
+      font-weight: 700;
       font-size: 0.95rem;
+      color: var(--text-heading);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
-
     .acc-sub {
-      font-size: 0.78rem;
+      font-size: 0.74rem;
       color: var(--text-muted);
     }
 
-    .acc-badges {
+    .acc-pills {
       display: flex;
       gap: 4px;
       flex-wrap: wrap;
     }
-
     .badge {
-      font-size: 0.72rem;
-      padding: 2px 6px;
-      border-radius: 4px;
+      font-size: 0.7rem;
+      padding: 2px 7px;
+      border-radius: 5px;
       font-weight: 600;
     }
-
     .badge-voice { background: rgba(35, 165, 90, 0.2); color: var(--success); }
     .badge-mute { background: rgba(240, 178, 50, 0.2); color: var(--warning); }
     .badge-deaf { background: rgba(242, 63, 67, 0.2); color: var(--danger); }
 
-    .acc-actions {
+    .acc-card-actions {
       display: flex;
       gap: 6px;
+      justify-content: flex-end;
+      border-top: 1px solid rgba(255,255,255,0.05);
+      padding-top: 8px;
     }
 
-    /* Logs Terminal */
-    .terminal {
-      background-color: #0b0c0e;
+    /* Terminal Console */
+    .terminal-box {
+      background: #08090b;
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: 10px;
       padding: 12px;
-      font-family: "Courier New", Courier, monospace;
-      font-size: 0.82rem;
-      color: #4ade80;
-      height: 180px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.78rem;
+      color: #38ef7d;
+      height: 260px;
       overflow-y: auto;
       white-space: pre-wrap;
       word-break: break-all;
+      line-height: 1.5;
     }
 
-    /* Toast Notification */
-    .toast {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      background: var(--bg-card);
-      border: 1px solid var(--accent);
-      color: var(--text-heading);
-      padding: 12px 18px;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-      z-index: 1000;
-      opacity: 0;
-      transform: translateY(20px);
-      transition: all 0.3s;
-      pointer-events: none;
-    }
-
-    .toast.show {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    .mobile-bottom-bar {
-      display: none;
+    /* Bottom App Navigation Bar */
+    .bottom-nav {
       position: fixed;
       bottom: 0;
       left: 0;
       right: 0;
-      background: rgba(30, 31, 34, 0.96);
-      backdrop-filter: blur(10px);
+      height: calc(60px + var(--safe-bottom));
+      background: rgba(30, 31, 34, 0.92);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
       border-top: 1px solid var(--border);
-      padding: 10px 14px;
+      display: flex;
+      justify-content: space-around;
+      align-items: flex-start;
+      padding-top: 6px;
+      z-index: 250;
+    }
+
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 0.68rem;
+      font-weight: 600;
+      flex: 1;
+      padding: 4px 0;
+      user-select: none;
+      transition: color 0.15s;
+    }
+    .nav-item svg {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
+    }
+    .nav-item.active {
+      color: var(--accent);
+    }
+    .nav-item.active svg {
+      filter: drop-shadow(0 0 6px var(--accent));
+    }
+
+    /* Floating Thumb Quick Action Bar */
+    .quick-thumb-dock {
+      position: fixed;
+      bottom: calc(64px + var(--safe-bottom));
+      left: 12px;
+      right: 12px;
+      max-width: 500px;
+      margin: 0 auto;
+      background: rgba(43, 45, 49, 0.95);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--accent);
+      border-radius: 12px;
+      padding: 8px 10px;
+      display: flex;
+      gap: 6px;
+      z-index: 240;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+
+    /* Toast Notifications */
+    .toast-center {
+      position: fixed;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      background: var(--bg-card);
+      border: 1px solid var(--accent);
+      color: var(--text-heading);
+      padding: 10px 18px;
+      border-radius: 30px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      font-size: 0.85rem;
+      font-weight: 600;
       z-index: 999;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      align-items: center;
       gap: 8px;
     }
-
-    /* Mobile adjustments */
-    @media (max-width: 768px) {
-      body { padding-bottom: 74px; }
-      .mobile-bottom-bar { display: flex; }
+    .toast-center.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
     }
 
-    @media (max-width: 600px) {
-      main { padding: 12px; gap: 14px; }
-      header { padding: 12px 14px; }
-      .account-card { flex-direction: column; align-items: flex-start; }
-      .acc-actions { width: 100%; justify-content: flex-end; margin-top: 6px; }
-      .toast { left: 14px; right: 14px; bottom: 80px; text-align: center; }
+    /* Batch Selection Bar */
+    .batch-bar {
+      display: none;
+      background: rgba(88, 101, 242, 0.15);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      padding: 8px 12px;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.82rem;
+    }
+    .batch-bar.show { display: flex; }
+
+    /* Desktop Responsive Overhaul */
+    @media (min-width: 900px) {
+      body { padding-bottom: 20px; }
+      .bottom-nav { display: none; }
+      .quick-thumb-dock { display: none; }
+      main {
+        display: grid;
+        grid-template-columns: 360px 1fr;
+        gap: 20px;
+        max-width: 1280px;
+      }
+      .tab-content { display: flex !important; }
+      #tab-tokens, #tab-logs { grid-column: span 2; }
     }
   </style>
 </head>
 <body>
 
+  <!-- Top App Header -->
   <header>
     <div class="brand">
       <span>dc-</span>
-      <span class="brand-badge">Control Panel</span>
+      <span class="brand-badge">PRO</span>
     </div>
-    <div class="header-status">
-      <div class="status-pill">
-        <span class="dot" id="header-dot"></span>
-        <span id="header-mode">📱 Mobile Status</span>
+    <div class="header-actions">
+      <div id="live-indicator-pill" style="display:flex; align-items:center; gap:6px; font-size:0.75rem; background:var(--bg-card); border:1px solid var(--border); padding:4px 10px; border-radius:16px;">
+        <span style="width:8px; height:8px; border-radius:50%; background:var(--success); display:inline-block;" id="status-bulb"></span>
+        <span id="gateway-status-txt">📱 Mobile Gateway</span>
       </div>
+      <button class="icon-btn" onclick="toggleAmoled()" title="Toggle AMOLED Black Mode">⚡</button>
+      <button class="icon-btn" onclick="refreshAll()" title="Refresh Status">↻</button>
     </div>
   </header>
 
+  <!-- Horizontal Stats Strip -->
+  <div class="stats-strip">
+    <div class="stat-pill">
+      <span class="stat-label">Total Bots</span>
+      <span class="stat-val" id="stat-total">0</span>
+    </div>
+    <div class="stat-pill">
+      <span class="stat-label">Gateway</span>
+      <span class="stat-val" style="color:var(--success);" id="stat-online">0</span>
+    </div>
+    <div class="stat-pill">
+      <span class="stat-label">In Voice</span>
+      <span class="stat-val" style="color:var(--accent);" id="stat-voice">0</span>
+    </div>
+    <div class="stat-pill">
+      <span class="stat-label">Uptime</span>
+      <span class="stat-val" style="font-size:0.95rem; line-height:1.7rem;" id="stat-uptime">0s</span>
+    </div>
+  </div>
+
   <main>
 
-    <!-- Top Stats -->
-    <div class="stats-grid">
-      <div class="stat-card">
-        <span class="stat-title">Total Accounts</span>
-        <span class="stat-value" id="stat-total">0</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-title">Online (Gateway)</span>
-        <span class="stat-value" style="color: var(--success);" id="stat-online">0</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-title">In Voice</span>
-        <span class="stat-value" style="color: var(--accent);" id="stat-voice">0</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-title">Uptime</span>
-        <span class="stat-value" style="font-size: 1.25rem; line-height: 2rem;" id="stat-uptime">0s</span>
-      </div>
-    </div>
+    <!-- TAB 1: QUICK CONTROLS -->
+    <div class="tab-content active" id="tab-controls">
 
-    <!-- Main Grid -->
-    <div class="grid-2">
-
-      <!-- Left Column: Voice & Bulk Actions -->
-      <div class="panel">
-        <div class="panel-header">
-          <span class="panel-title">🔊 Voice Controls</span>
-          <span style="font-size: 0.75rem; color: var(--text-muted);">Affects active accounts</span>
+      <div class="card">
+        <div class="card-title">
+          <span>🔊 Target Voice Destination</span>
+          <span style="font-size:0.75rem; color:var(--text-muted); font-weight:400;" id="guild-status-tag">Auto-resolves Server</span>
         </div>
 
-        <div class="form-group">
-          <label>Target Voice Channel ID</label>
+        <div class="field-group">
+          <label class="field-label">Voice Channel ID</label>
           <div class="input-row">
-            <input type="text" id="voice-channel-id" placeholder="Enter numeric Channel ID (e.g. 123456789)">
-            <button class="btn btn-secondary btn-sm" onclick="setAsDefaultChannel()">Set Default</button>
+            <input type="text" id="target-channel-id" placeholder="Paste Channel ID (e.g. 123456789)">
+            <button class="btn btn-secondary btn-sm" onclick="saveDefaultChannel()">Save</button>
           </div>
         </div>
 
-        <div class="form-group">
-          <label>Server (Guild) ID <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: none;">(Auto-detected from channel if blank)</span></label>
+        <div class="field-group">
+          <label class="field-label">Server (Guild) ID <span style="text-transform:none; font-weight:400;">(Auto-filled from channel)</span></label>
           <div class="input-row">
-            <input type="text" id="guild-id" placeholder="Optional: Discord Server ID">
-            <button class="btn btn-secondary btn-sm" onclick="setGuildId()">Set Guild</button>
+            <input type="text" id="target-guild-id" placeholder="Auto-detected if left empty">
+            <button class="btn btn-secondary btn-sm" onclick="saveGuildId()">Save</button>
           </div>
         </div>
 
-        <div class="form-group">
-          <label>Random Percent Slice</label>
-          <div class="percent-selector">
-            <button class="percent-btn" onclick="selectPercent(25, this)">25%</button>
-            <button class="percent-btn" onclick="selectPercent(50, this)">50%</button>
-            <button class="percent-btn" onclick="selectPercent(75, this)">75%</button>
-            <button class="percent-btn active" onclick="selectPercent(100, this)">100% (All)</button>
+        <!-- Slider & Presets -->
+        <div class="slider-box">
+          <div class="slider-header">
+            <span>Slice Percentage</span>
+            <span id="slider-val-txt" style="color:var(--accent);">100% (All Accounts)</span>
+          </div>
+          <input type="range" id="percent-range" min="1" max="100" value="100" oninput="onSliderMove(this.value)">
+          <div class="preset-chips">
+            <div class="chip" onclick="setPreset(25)">25%</div>
+            <div class="chip" onclick="setPreset(50)">50%</div>
+            <div class="chip" onclick="setPreset(75)">75%</div>
+            <div class="chip active" id="chip-100" onclick="setPreset(100)">100%</div>
           </div>
         </div>
 
+        <!-- Action Grid -->
         <div class="action-grid">
-          <button class="btn btn-primary" onclick="sendAction('move')">
+          <button class="btn btn-primary" onclick="triggerAction('move')">
             🔊 Join / Move
           </button>
-          <button class="btn btn-danger" onclick="sendAction('disconnect')">
-            ❌ Disconnect
+          <button class="btn btn-danger" onclick="triggerAction('disconnect')">
+            ✕ Disconnect
           </button>
-          <button class="btn btn-warning" onclick="sendAction('mute')">
-            🔇 Mute
+          <button class="btn btn-warning" onclick="triggerAction('mute')">
+            🔇 Mute All
           </button>
-          <button class="btn btn-secondary" onclick="sendAction('unmute')">
-            🔊 Unmute
+          <button class="btn btn-secondary" onclick="triggerAction('unmute')">
+            🔊 Unmute All
           </button>
-          <button class="btn btn-warning" onclick="sendAction('deafen')">
-            🎧 Deafen
+          <button class="btn btn-warning" onclick="triggerAction('deafen')">
+            🎧 Deafen All
           </button>
-          <button class="btn btn-secondary" onclick="sendAction('undeafen')">
-            🎧 Undeafen
+          <button class="btn btn-secondary" onclick="triggerAction('undeafen')">
+            🎧 Undeafen All
           </button>
-        </div>
-
-        <!-- Add Token Panel -->
-        <div style="border-top: 1px solid var(--border); padding-top: 14px; margin-top: 4px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-            <label style="margin-bottom: 0;">Add Discord Tokens</label>
-            <button class="btn btn-secondary btn-sm" style="font-size: 0.75rem;" onclick="toggleBulkModal()">📋 Paste Multiple Tokens</button>
-          </div>
-          <div class="input-row" id="single-token-row">
-            <input type="password" id="new-token" placeholder="Paste Discord token here">
-            <button class="btn btn-success" onclick="addToken()">+ Add</button>
-          </div>
-          <div id="bulk-token-row" style="display: none; flex-direction: column; gap: 8px; margin-top: 8px;">
-            <textarea id="bulk-tokens" rows="4" placeholder="Paste multiple tokens here (one token per line)"></textarea>
-            <div style="display: flex; gap: 8px;">
-              <button class="btn btn-success" style="flex: 1;" onclick="addBulkTokens()">Import All Tokens</button>
-              <button class="btn btn-secondary" onclick="toggleBulkModal()">Cancel</button>
-            </div>
-          </div>
         </div>
       </div>
 
-      <!-- Right Column: Connected Accounts -->
-      <div class="panel">
-        <div class="panel-header">
-          <span class="panel-title">👥 Connected Accounts (<span id="acc-count-title">0</span>)</span>
-          <button class="btn btn-secondary btn-sm" onclick="refreshStatus()">↻ Refresh</button>
+    </div>
+
+    <!-- TAB 2: ACCOUNTS LIST -->
+    <div class="tab-content" id="tab-accounts">
+
+      <div class="card">
+        <div class="card-title">
+          <span>👥 Connected Accounts</span>
+          <div class="acc-header-tools">
+            <button class="btn btn-secondary btn-sm" onclick="toggleSelectAll()">Select All</button>
+          </div>
         </div>
 
-        <div class="accounts-list" id="accounts-container">
-          <div style="color: var(--text-muted); text-align: center; padding: 30px;">
-            No accounts connected yet. Add a token above or edit tokens.txt.
+        <input type="text" id="acc-search" placeholder="🔍 Search accounts by name or ID..." oninput="filterAccounts(this.value)">
+
+        <!-- Batch Selection Toolbar -->
+        <div class="batch-bar" id="batch-toolbar">
+          <span id="batch-selected-count">0 accounts selected</span>
+          <div style="display:flex; gap:6px;">
+            <button class="btn btn-primary btn-sm" onclick="runBatch('move')">Join</button>
+            <button class="btn btn-warning btn-sm" onclick="runBatch('mute')">Mute</button>
+            <button class="btn btn-danger btn-sm" onclick="runBatch('disconnect')">Kick</button>
+          </div>
+        </div>
+
+        <div class="acc-list" id="accounts-list-box">
+          <div style="color:var(--text-muted); text-align:center; padding:30px;">
+            Loading accounts...
           </div>
         </div>
       </div>
 
     </div>
 
-    <!-- Live Activity Logs -->
-    <div class="panel">
-      <div class="panel-header">
-        <span class="panel-title">📜 Activity Logs</span>
-        <button class="btn btn-secondary btn-sm" onclick="clearLogs()">Clear</button>
+    <!-- TAB 3: TOKENS HUB -->
+    <div class="tab-content" id="tab-tokens">
+
+      <div class="card">
+        <div class="card-title">
+          <span>🔑 Token Management</span>
+          <button class="btn btn-secondary btn-sm" onclick="copyAllTokens()">📋 Copy All</button>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Single Token Quick-Add</label>
+          <div class="input-row">
+            <input type="password" id="single-token-input" placeholder="Paste Discord account token">
+            <button class="btn btn-success" onclick="addSingleToken()">+ Add</button>
+          </div>
+        </div>
+
+        <div class="field-group" style="margin-top:8px;">
+          <label class="field-label">Bulk Multi-Token Importer</label>
+          <textarea id="bulk-token-area" rows="5" placeholder="Paste 10, 50, or 100+ tokens here (one token per line)..."></textarea>
+          <div style="display:flex; gap:8px; margin-top:4px;">
+            <button class="btn btn-success" style="flex:1;" onclick="importBulkTokens()">📥 Import All Tokens</button>
+            <button class="btn btn-secondary" onclick="exportTokensToFile()">💾 Backup File</button>
+          </div>
+        </div>
       </div>
-      <div class="terminal" id="terminal-logs">Waiting for events...</div>
+
+    </div>
+
+    <!-- TAB 4: LIVE TERMINAL & LOGS -->
+    <div class="tab-content" id="tab-logs">
+
+      <div class="card">
+        <div class="card-title">
+          <span>📜 Live Activity Console</span>
+          <div style="display:flex; gap:6px;">
+            <button class="btn btn-secondary btn-sm" onclick="clearConsole()">Clear</button>
+            <button class="btn btn-secondary btn-sm" onclick="copyConsoleLogs()">Copy</button>
+          </div>
+        </div>
+
+        <div class="terminal-box" id="live-console-box">Initializing mobile live stream...</div>
+      </div>
+
     </div>
 
   </main>
 
-  <div class="toast" id="toast"></div>
+  <!-- Sticky Mobile Quick-Dock (Visible on Tab 1 & 2) -->
+  <div class="quick-thumb-dock" id="mobile-dock">
+    <button class="btn btn-primary btn-sm" style="flex:2;" onclick="triggerAction('move')">🔊 Join</button>
+    <button class="btn btn-warning btn-sm" style="flex:1;" onclick="triggerAction('mute')">🔇 Mute</button>
+    <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="triggerAction('unmute')">🔊 Unmute</button>
+    <button class="btn btn-danger btn-sm" style="flex:1;" onclick="triggerAction('disconnect')">✕ Leave</button>
+  </div>
+
+  <!-- Bottom App Navigation Bar -->
+  <nav class="bottom-nav">
+    <div class="nav-item active" onclick="switchTab('controls', this)">
+      <svg viewBox="0 0 24 24"><path d="M13 2.05v3.03c3.39.49 6 3.39 6 6.92 0 .9-.18 1.75-.48 2.54l2.6 1.53c.56-1.24.88-2.62.88-4.07 0-5.18-3.95-9.45-9-9.95zM12 19c-3.87 0-7-3.13-7-7 0-3.53 2.61-6.43 6-6.92V2.05c-5.06.5-9 4.76-9 9.95 0 5.52 4.47 10 9.99 10 3.31 0 6.24-1.61 8.01-4.09l-2.5-1.46C16.14 17.84 14.21 19 12 19zm1-11v5l4.28 2.54.72-1.21-3.5-2.08V8H13z"/></svg>
+      <span>Controls</span>
+    </div>
+    <div class="nav-item" onclick="switchTab('accounts', this)">
+      <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+      <span>Accounts</span>
+    </div>
+    <div class="nav-item" onclick="switchTab('tokens', this)">
+      <svg viewBox="0 0 24 24"><path d="M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>
+      <span>Tokens</span>
+    </div>
+    <div class="nav-item" onclick="switchTab('logs', this)">
+      <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2zm0-4H7V7h10v2zm-4 8H7v-2h6v2z"/></svg>
+      <span>Logs</span>
+    </div>
+  </nav>
+
+  <!-- Central Toast Alert -->
+  <div class="toast-center" id="toast-pill">
+    <span id="toast-icon">⚡</span>
+    <span id="toast-text">Message</span>
+  </div>
 
   <script>
     let currentPercent = 100;
+    let accountsData = [];
+    let selectedAccountIds = new Set();
+    let isAmoled = false;
 
-    function selectPercent(val, el) {
-      currentPercent = val;
-      document.querySelectorAll('.percent-btn').forEach(b => b.classList.remove('active'));
+    // Haptic feedback for touch devices
+    function vibrate(ms = 15) {
+      if (navigator.vibrate) {
+        try { navigator.vibrate(ms); } catch (e) {}
+      }
+    }
+
+    function toggleAmoled() {
+      vibrate(25);
+      isAmoled = !isAmoled;
+      document.body.classList.toggle('amoled-mode', isAmoled);
+      document.getElementById('meta-theme-color').setAttribute('content', isAmoled ? '#000000' : '#1e1f22');
+      showToast(isAmoled ? 'AMOLED Black Enabled' : 'Discord Dark Enabled');
+    }
+
+    function switchTab(tabId, el) {
+      vibrate(15);
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.getElementById('tab-' + tabId).classList.add('active');
       el.classList.add('active');
+
+      const dock = document.getElementById('mobile-dock');
+      if (tabId === 'logs' || tabId === 'tokens') {
+        dock.style.display = 'none';
+      } else {
+        dock.style.display = 'flex';
+      }
     }
 
-    function showToast(msg, isError = false) {
-      const toast = document.getElementById('toast');
-      toast.innerText = msg;
-      toast.style.borderColor = isError ? 'var(--danger)' : 'var(--accent)';
+    function showToast(msg, isErr = false) {
+      const toast = document.getElementById('toast-pill');
+      const txt = document.getElementById('toast-text');
+      const icon = document.getElementById('toast-icon');
+      txt.innerText = msg;
+      icon.innerText = isErr ? '⚠️' : '✓';
+      toast.style.borderColor = isErr ? 'var(--danger)' : 'var(--accent)';
       toast.classList.add('show');
-      setTimeout(() => toast.classList.remove('show'), 3000);
+      setTimeout(() => toast.classList.remove('show'), 2600);
     }
 
-    function logToTerminal(msg) {
-      const term = document.getElementById('terminal-logs');
+    function logToConsole(msg) {
+      const box = document.getElementById('live-console-box');
       const time = new Date().toLocaleTimeString();
-      term.innerText += `\n[${time}] ${msg}`;
-      term.scrollTop = term.scrollHeight;
+      box.innerText += `\n[${time}] ${msg}`;
+      box.scrollTop = box.scrollHeight;
     }
 
-    function clearLogs() {
-      document.getElementById('terminal-logs').innerText = "Logs cleared.";
+    function clearConsole() {
+      document.getElementById('live-console-box').innerText = "Console cleared.";
+      vibrate(10);
+    }
+
+    function copyConsoleLogs() {
+      const text = document.getElementById('live-console-box').innerText;
+      navigator.clipboard.writeText(text).then(() => showToast('Logs copied to clipboard'));
+    }
+
+    function onSliderMove(val) {
+      currentPercent = parseInt(val);
+      document.getElementById('slider-val-txt').innerText = `${currentPercent}%`;
+      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    }
+
+    function setPreset(val) {
+      vibrate(10);
+      currentPercent = val;
+      document.getElementById('percent-range').value = val;
+      document.getElementById('slider-val-txt').innerText = `${val}%`;
+      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      const activeChip = Array.from(document.querySelectorAll('.chip')).find(c => c.innerText.includes(val + '%'));
+      if (activeChip) activeChip.classList.add('active');
     }
 
     async function fetchStatus() {
       try {
         const res = await fetch('/api/status');
-        if (!res.ok) throw new Error('HTTP ' + res.status);
+        if (!res.ok) throw new Error('Status ' + res.status);
         const data = await res.json();
         renderStatus(data);
       } catch (err) {
-        document.getElementById('header-dot').style.backgroundColor = 'var(--danger)';
+        document.getElementById('status-bulb').style.backgroundColor = 'var(--danger)';
+        document.getElementById('gateway-status-txt').innerText = 'Offline';
       }
     }
 
     function renderStatus(data) {
-      document.getElementById('header-dot').style.backgroundColor = 'var(--success)';
-      document.getElementById('stat-total').innerText = data.total_accounts;
-      document.getElementById('stat-online').innerText = data.online_accounts;
-      document.getElementById('stat-voice').innerText = data.voice_accounts;
+      document.getElementById('status-bulb').style.backgroundColor = 'var(--success)';
+      document.getElementById('gateway-status-txt').innerText = '📱 Mobile Gateway';
+      document.getElementById('stat-total').innerText = data.total_accounts || 0;
+      document.getElementById('stat-online').innerText = data.online_accounts || 0;
+      document.getElementById('stat-voice').innerText = data.voice_accounts || 0;
       document.getElementById('stat-uptime').innerText = formatUptime(data.uptime);
-      document.getElementById('acc-count-title').innerText = data.total_accounts;
 
-      if (!document.getElementById('voice-channel-id').value && data.default_channel) {
-        document.getElementById('voice-channel-id').value = data.default_channel;
+      if (!document.getElementById('target-channel-id').value && data.default_channel) {
+        document.getElementById('target-channel-id').value = data.default_channel;
       }
-      if (!document.getElementById('guild-id').value && data.default_guild && data.default_guild !== 'YOUR_GUILD_ID') {
-        document.getElementById('guild-id').value = data.default_guild;
+      if (!document.getElementById('target-guild-id').value && data.default_guild && data.default_guild !== 'YOUR_GUILD_ID') {
+        document.getElementById('target-guild-id').value = data.default_guild;
       }
 
-      const container = document.getElementById('accounts-container');
-      if (!data.accounts || data.accounts.length === 0) {
-        container.innerHTML = `
-          <div style="color: var(--text-muted); text-align: center; padding: 30px;">
-            No accounts connected yet. Add a token above or edit tokens.txt.
-          </div>`;
+      accountsData = data.accounts || [];
+      renderAccountsList(accountsData);
+    }
+
+    function renderAccountsList(list) {
+      const container = document.getElementById('accounts-list-box');
+      if (!list || list.length === 0) {
+        container.innerHTML = `<div style="color:var(--text-muted); text-align:center; padding:30px;">No accounts active yet. Add tokens in the Tokens tab!</div>`;
         return;
       }
 
       let html = '';
-      data.accounts.forEach(acc => {
-        const isOnline = acc.online;
+      list.forEach(acc => {
+        const isSelected = selectedAccountIds.has(acc.id);
         const inVoice = !!acc.voice_channel;
         const initial = (acc.name || 'U').charAt(0).toUpperCase();
 
         html += `
-          <div class="account-card">
-            <div class="acc-info">
-              <div class="acc-avatar">
+          <div class="acc-card ${isSelected ? 'selected' : ''}" onclick="toggleAccountSelect(${acc.id}, event)">
+            <div class="acc-top">
+              <div class="acc-avatar-box">
                 ${initial}
-                <span class="dot" style="background: ${isOnline ? 'var(--success)' : 'var(--text-muted)'};"></span>
+                <div class="online-indicator ${acc.online ? 'live' : ''}"></div>
               </div>
-              <div class="acc-details">
-                <span class="acc-name">${escapeHtml(acc.name || 'Unknown')}</span>
-                <span class="acc-sub">ID: ${acc.id} &bull; ${acc.user_id || 'Connecting...'}</span>
+              <div class="acc-meta">
+                <div class="acc-name">${escapeHtml(acc.name || 'Unknown')}</div>
+                <div class="acc-sub">ID: ${acc.id} &bull; ${acc.user_id || 'Authenticating...'}</div>
               </div>
+              <input type="checkbox" ${isSelected ? 'checked' : ''} style="width:20px; height:20px; accent-color:var(--accent);" onclick="event.stopPropagation(); toggleAccountSelect(${acc.id})">
             </div>
 
-            <div class="acc-badges">
-              ${inVoice ? `<span class="badge badge-voice">🔊 ${acc.voice_channel}</span>` : `<span class="badge" style="background:#202225; color:#888;">No Voice</span>`}
+            <div class="acc-pills">
+              ${inVoice ? `<span class="badge badge-voice">🔊 ${acc.voice_channel}</span>` : `<span class="badge" style="background:#202225; color:#888;">Idle</span>`}
               ${acc.mute ? `<span class="badge badge-mute">Muted</span>` : ''}
               ${acc.deaf ? `<span class="badge badge-deaf">Deafened</span>` : ''}
-              ${acc.error ? `<span class="badge" style="background:rgba(242,63,67,0.2); color:var(--danger);" title="${escapeHtml(acc.error)}">Error</span>` : ''}
+              ${acc.error ? `<span class="badge" style="background:rgba(242,63,67,0.2); color:var(--danger);">${escapeHtml(acc.error)}</span>` : ''}
             </div>
 
-            <div class="acc-actions">
+            <div class="acc-card-actions" onclick="event.stopPropagation()">
               ${inVoice ? `
-                <button class="btn btn-secondary btn-sm" onclick="sendAccountAction(${acc.id}, '${acc.mute ? 'unmute' : 'mute'}')">
-                  ${acc.mute ? '🔊' : '🔇'}
-                </button>
-                <button class="btn btn-secondary btn-sm" onclick="sendAccountAction(${acc.id}, '${acc.deaf ? 'undeafen' : 'deafen'}')">
-                  ${acc.deaf ? '🎧' : '🙉'}
-                </button>
-                <button class="btn btn-danger btn-sm" onclick="sendAccountAction(${acc.id}, 'disconnect')">✕</button>
+                <button class="btn btn-secondary btn-sm" onclick="sendIndividualAction(${acc.id}, '${acc.mute ? 'unmute' : 'mute'}')">${acc.mute ? '🔊 Unmute' : '🔇 Mute'}</button>
+                <button class="btn btn-secondary btn-sm" onclick="sendIndividualAction(${acc.id}, '${acc.deaf ? 'undeafen' : 'deafen'}')">${acc.deaf ? '🎧 Undeaf' : '🙉 Deaf'}</button>
+                <button class="btn btn-danger btn-sm" onclick="sendIndividualAction(${acc.id}, 'disconnect')">✕</button>
               ` : `
-                <button class="btn btn-primary btn-sm" onclick="sendAccountAction(${acc.id}, 'move')">Join</button>
+                <button class="btn btn-primary btn-sm" onclick="sendIndividualAction(${acc.id}, 'move')">🔊 Join</button>
               `}
-              <button class="btn btn-secondary btn-sm" style="color: var(--danger);" onclick="removeAccount(${acc.id})">🗑</button>
+              <button class="btn btn-secondary btn-sm" style="color:var(--danger);" onclick="deleteAccount(${acc.id})">🗑</button>
             </div>
           </div>
         `;
@@ -702,43 +910,113 @@
       container.innerHTML = html;
     }
 
-    async function sendAction(action) {
-      const channelId = document.getElementById('voice-channel-id').value.trim();
-      const payload = {
-        action: action,
-        channel_id: channelId,
-        percent: currentPercent
-      };
+    function filterAccounts(query) {
+      const q = query.toLowerCase().trim();
+      const filtered = accountsData.filter(a => (a.name || '').toLowerCase().includes(q) || String(a.id).includes(q) || String(a.user_id || '').includes(q));
+      renderAccountsList(filtered);
+    }
 
-      logToTerminal(`Executing action: ${action} (${currentPercent}%)`);
+    function toggleAccountSelect(aid) {
+      vibrate(10);
+      if (selectedAccountIds.has(aid)) {
+        selectedAccountIds.delete(aid);
+      } else {
+        selectedAccountIds.add(aid);
+      }
+      updateBatchBar();
+      renderAccountsList(accountsData);
+    }
+
+    function toggleSelectAll() {
+      vibrate(15);
+      if (selectedAccountIds.size === accountsData.length) {
+        selectedAccountIds.clear();
+      } else {
+        accountsData.forEach(a => selectedAccountIds.add(a.id));
+      }
+      updateBatchBar();
+      renderAccountsList(accountsData);
+    }
+
+    function updateBatchBar() {
+      const bar = document.getElementById('batch-toolbar');
+      const count = document.getElementById('batch-selected-count');
+      if (selectedAccountIds.size > 0) {
+        bar.classList.add('show');
+        count.innerText = `${selectedAccountIds.size} accounts selected`;
+      } else {
+        bar.classList.remove('show');
+      }
+    }
+
+    async function runBatch(subAction) {
+      vibrate(20);
+      if (selectedAccountIds.size === 0) return showToast('No accounts selected', true);
+      const ch = document.getElementById('target-channel-id').value.trim();
+      showToast(`Running ${subAction} on ${selectedAccountIds.size} accounts...`);
       try {
         const res = await fetch('/api/action', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: JSON.stringify({
+            action: 'batch_action',
+            sub_action: subAction,
+            ids: Array.from(selectedAccountIds),
+            channel_id: ch
+          })
+        });
+        const json = await res.json();
+        if (json.success) {
+          showToast(`Batch ${subAction} complete!`);
+          logToConsole(`Batch ${subAction} on ${selectedAccountIds.size} bots: Success`);
+          selectedAccountIds.clear();
+          updateBatchBar();
+          fetchStatus();
+        } else {
+          showToast(json.error || 'Batch failed', true);
+        }
+      } catch (err) {
+        showToast('Error: ' + err.message, true);
+      }
+    }
+
+    async function triggerAction(action) {
+      vibrate(25);
+      const ch = document.getElementById('target-channel-id').value.trim();
+      logToConsole(`Executing action '${action}' (${currentPercent}% slice)...`);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: action,
+            channel_id: ch,
+            percent: currentPercent
+          })
         });
         const json = await res.json();
         if (json.success) {
           showToast(json.message || `Action ${action} executed`);
-          logToTerminal(`Success: ${json.message}`);
+          logToConsole(`Done: ${json.message}`);
           fetchStatus();
         } else {
           showToast(json.error || 'Action failed', true);
-          logToTerminal(`Error: ${json.error}`);
+          logToConsole(`Error: ${json.error}`);
         }
       } catch (err) {
         showToast('Request error: ' + err.message, true);
       }
     }
 
-    async function sendAccountAction(aid, action) {
-      const channelId = document.getElementById('voice-channel-id').value.trim();
-      logToTerminal(`Account ${aid} action: ${action}`);
+    async function sendIndividualAction(aid, action) {
+      vibrate(15);
+      const ch = document.getElementById('target-channel-id').value.trim();
+      logToConsole(`Bot #${aid} action: ${action}`);
       try {
         const res = await fetch('/api/action', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'account_' + action, id: aid, channel_id: channelId })
+          body: JSON.stringify({ action: 'account_' + action, id: aid, channel_id: ch })
         });
         const json = await res.json();
         if (json.success) {
@@ -752,13 +1030,14 @@
       }
     }
 
-    async function addToken() {
-      const input = document.getElementById('new-token');
+    async function addSingleToken() {
+      vibrate(20);
+      const input = document.getElementById('single-token-input');
       const token = input.value.trim();
-      if (!token) return showToast('Please enter a token', true);
+      if (!token) return showToast('Please paste a token', true);
 
-      showToast('Adding token...');
-      logToTerminal('Adding new token...');
+      showToast('Authenticating token...');
+      logToConsole('Adding single token...');
       try {
         const res = await fetch('/api/action', {
           method: 'POST',
@@ -768,19 +1047,48 @@
         const json = await res.json();
         if (json.success) {
           input.value = '';
-          showToast(json.message || 'Token added successfully');
-          logToTerminal(`Success: ${json.message}`);
+          showToast('Account added successfully!');
+          logToConsole(`Success: ${json.message}`);
           fetchStatus();
         } else {
-          showToast(json.error || 'Failed to add token', true);
-          logToTerminal(`Error: ${json.error}`);
+          showToast(json.error || 'Failed to add', true);
+          logToConsole(`Error: ${json.error}`);
         }
       } catch (err) {
         showToast('Error: ' + err.message, true);
       }
     }
 
-    async function removeAccount(aid) {
+    async function importBulkTokens() {
+      vibrate(30);
+      const area = document.getElementById('bulk-token-area');
+      const lines = area.value.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+      if (lines.length === 0) return showToast('No valid tokens entered', true);
+
+      showToast(`Importing ${lines.length} accounts...`);
+      logToConsole(`Bulk importing ${lines.length} tokens...`);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'tokens_bulk_add', tokens: lines })
+        });
+        const json = await res.json();
+        if (json.success) {
+          area.value = '';
+          showToast(`Imported ${lines.length} accounts!`);
+          logToConsole(`Bulk Success: ${json.message}`);
+          fetchStatus();
+        } else {
+          showToast(json.error || 'Bulk error', true);
+        }
+      } catch (err) {
+        showToast('Error: ' + err.message, true);
+      }
+    }
+
+    async function deleteAccount(aid) {
+      vibrate(20);
       if (!confirm(`Remove account #${aid}?`)) return;
       try {
         const res = await fetch('/api/action', {
@@ -796,104 +1104,86 @@
       }
     }
 
-    function setAsDefaultChannel() {
-      const ch = document.getElementById('voice-channel-id').value.trim();
+    async function copyAllTokens() {
+      vibrate(15);
+      try {
+        const res = await fetch('/api/tokens');
+        const data = await res.json();
+        if (!data.tokens || data.tokens.length === 0) return showToast('No tokens loaded yet', true);
+        await navigator.clipboard.writeText(data.tokens.join('\n'));
+        showToast(`Copied ${data.count} tokens to clipboard!`);
+      } catch (err) {
+        showToast('Copy failed: ' + err.message, true);
+      }
+    }
+
+    async function exportTokensToFile() {
+      vibrate(15);
+      try {
+        const res = await fetch('/api/tokens');
+        const data = await res.json();
+        if (!data.tokens || data.tokens.length === 0) return showToast('No tokens to export', true);
+        const blob = new Blob([data.tokens.join('\n')], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'tokens.txt';
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast(`Exported ${data.count} tokens to file!`);
+      } catch (err) {
+        showToast('Export failed: ' + err.message, true);
+      }
+    }
+
+    function saveDefaultChannel() {
+      vibrate(10);
+      const ch = document.getElementById('target-channel-id').value.trim();
       if (!ch) return showToast('Enter channel ID first', true);
       fetch('/api/action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'set_default_channel', channel_id: ch })
-      }).then(() => showToast(`Default channel updated to: ${ch}`));
+      }).then(() => showToast(`Saved default channel: ${ch}`));
     }
 
-    function setGuildId() {
-      const gid = document.getElementById('guild-id').value.trim();
+    function saveGuildId() {
+      vibrate(10);
+      const gid = document.getElementById('target-guild-id').value.trim();
       if (!gid) return showToast('Enter Server ID first', true);
       fetch('/api/action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'set_guild_id', guild_id: gid })
-      }).then(() => showToast(`Server (Guild) ID set to: ${gid}`));
+      }).then(() => showToast(`Saved Server ID: ${gid}`));
     }
 
-    function toggleBulkModal() {
-      const single = document.getElementById('single-token-row');
-      const bulk = document.getElementById('bulk-token-row');
-      if (bulk.style.display === 'none') {
-        bulk.style.display = 'flex';
-        single.style.display = 'none';
-      } else {
-        bulk.style.display = 'none';
-        single.style.display = 'flex';
-      }
-    }
-
-    async function addBulkTokens() {
-      const text = document.getElementById('bulk-tokens').value.trim();
-      if (!text) return showToast('Paste tokens into the box', true);
-      const lines = text.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
-      if (lines.length === 0) return showToast('No valid tokens found', true);
-
-      showToast(`Importing ${lines.length} token(s)...`);
-      logToTerminal(`Bulk importing ${lines.length} token(s)...`);
-      try {
-        const res = await fetch('/api/action', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'tokens_bulk_add', tokens: lines })
-        });
-        const json = await res.json();
-        if (json.success) {
-          document.getElementById('bulk-tokens').value = '';
-          toggleBulkModal();
-          showToast(json.message || 'Tokens imported');
-          logToTerminal(`Success: ${json.message}`);
-          fetchStatus();
-        } else {
-          showToast(json.error || 'Bulk import failed', true);
-        }
-      } catch (err) {
-        showToast('Error: ' + err.message, true);
-      }
-    }
-
-    function refreshStatus() {
+    function refreshAll() {
+      vibrate(15);
       fetchStatus();
-      showToast('Status refreshed');
+      showToast('Dashboard refreshed');
     }
 
-    function formatUptime(seconds) {
-      if (!seconds) return '0s';
-      const d = Math.floor(seconds / (3600*24));
-      const h = Math.floor((seconds % (3600*24)) / 3600);
-      const m = Math.floor((seconds % 3600) / 60);
-      const s = Math.floor(seconds % 60);
-      if (d > 0) return `${d}d ${h}h ${m}m`;
-      if (h > 0) return `${h}h ${m}m ${s}s`;
+    function formatUptime(sec) {
+      if (!sec) return '0s';
+      const d = Math.floor(sec / (3600*24));
+      const h = Math.floor((sec % (3600*24)) / 3600);
+      const m = Math.floor((sec % 3600) / 60);
+      const s = Math.floor(sec % 60);
+      if (d > 0) return `${d}d ${h}h`;
+      if (h > 0) return `${h}h ${m}m`;
       if (m > 0) return `${m}m ${s}s`;
       return `${s}s`;
     }
 
     function escapeHtml(str) {
       if (!str) return '';
-      return String(str)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+      return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
     // Auto-poll status every 2 seconds
     fetchStatus();
     setInterval(fetchStatus, 2000);
   </script>
-  <!-- Floating Mobile Thumb Bar -->
-  <div class="mobile-bottom-bar">
-    <button class="btn btn-primary" style="flex: 2;" onclick="sendAction('move')">🔊 Join All</button>
-    <button class="btn btn-warning" style="flex: 1;" onclick="sendAction('mute')">🔇 Mute</button>
-    <button class="btn btn-secondary" style="flex: 1;" onclick="sendAction('unmute')">🔊 Unmute</button>
-    <button class="btn btn-danger" style="flex: 1;" onclick="sendAction('disconnect')">✕ Leave</button>
-  </div>
 </body>
 </html>
