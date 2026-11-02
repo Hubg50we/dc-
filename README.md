@@ -75,6 +75,23 @@ bash start.sh
 
 ---
 
+## 🌐 Web UI Dashboard (Mobile & PC)
+
+`dc-` includes a built-in, responsive **Web Control Panel** that automatically starts on port `5000`:
+
+- **On PC**: Open `http://localhost:5000` in your web browser.
+- **On Mobile (Termux)**: While the bot is running in Termux, open `http://localhost:5000` (or `http://127.0.0.1:5000`) in Chrome / Firefox on your phone!
+- **On Local WiFi**: Access it from another device on the same WiFi network using `http://<YOUR_IP>:5000`.
+
+### Web Dashboard Features:
+- 👥 **Real-Time Account Cards**: Live status indicators (🟢 Online, 🔊 In Voice, 🔇 Muted, 🎧 Deafened).
+- 🔊 **Voice Controls**: 1-click Join / Move, Mute All, Unmute All, Deafen All, Disconnect All.
+- 🎚️ **Percent Slices**: Select random percentage (25%, 50%, 75%, 100%) of accounts to move or mute.
+- 🔑 **Token Management**: Add new Discord tokens directly from the browser without restarting.
+- 📜 **Live Activity Terminal**: Real-time log console showing events and connection responses.
+
+---
+
 ## 📱 Running 24/7 in Background on Android (Termux)
 
 To prevent Android from killing Termux when you minimize the app or turn off the screen:

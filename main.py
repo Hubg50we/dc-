@@ -1,12 +1,24 @@
 import asyncio
+import http.server
 import json
 import os
 import random
 import signal
+import socketserver
 import sys
+import threading
 import time
 import requests
 import websockets
+
+# Ensure UTF-8 output across Windows, Linux, and Android Termux
+try:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
 
 # Try loading .env if python-dotenv is installed
 try:
@@ -19,6 +31,9 @@ except ImportError:
 GUILD_ID = os.environ.get("GUILD_ID", "YOUR_GUILD_ID")
 CHANNEL_ID = os.environ.get("CHANNEL_ID", "YOUR_CHANNEL_ID")
 COMMAND_FILE = os.environ.get("COMMAND_FILE", "commands.txt")
+WEB_PORT = int(os.environ.get("PORT", "5000"))
+WEB_HOST = os.environ.get("HOST", "0.0.0.0")
+MAIN_LOOP = None
 
 # Device appearance: "mobile" (shows 📱 phone icon on Discord) or "desktop" (shows 🟢 dot)
 DEVICE_TYPE = os.environ.get("DEVICE_TYPE", "mobile").lower()
@@ -42,7 +57,7 @@ if _env_tokens:
     TOKENS = [t.strip() for t in _env_tokens.split(",") if t.strip()]
 
 MENU_TEXT = """\
-================ 📱 MOBILE QUICK KEYPAD ================
+================ [MOBILE QUICK KEYPAD] ================
   1  -> Move All to Default Channel
   2  -> Move All to Custom Channel (e.g. 2 123456789)
   3  -> Mute All in Voice
@@ -54,12 +69,12 @@ MENU_TEXT = """\
   9  -> Add Token (e.g. 9 <token>)
   0  -> Safely Disconnect & Exit
   menu -> Show this keypad again
-=========================================================
+========================================================
 """
 
 HELP = """\
 ======================= COMMAND MENU =======================
-📱 Mobile Keypad Shortcuts (just type the number):
+[Mobile Keypad Shortcuts] (just type the number):
   1: Join/Move all to default channel   5: Deafen all
   2: Move all (2 <channel_id>)          6: Undeafen all
   3: Mute all                           7: Disconnect all
@@ -699,9 +714,208 @@ async def command_file_loop():
         await asyncio.sleep(1)
 
 
+class DashboardHandler(http.server.BaseHTTPRequestHandler):
+    def log_message(self, format, *args):
+        # Suppress periodic polling logs to keep terminal output clean
+        return
+
+    def do_GET(self):
+        if self.path == "/" or self.path.startswith("/?"):
+            self.serve_file()
+        elif self.path == "/api/status":
+            self.serve_status()
+        else:
+            self.send_error(404, "Not Found")
+
+    def serve_file(self):
+        index_path = os.path.join(os.path.dirname(__file__), "web", "index.html")
+        if not os.path.exists(index_path):
+            index_path = "web/index.html"
+        try:
+            with open(index_path, "rb") as f:
+                content = f.read()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+        except Exception as e:
+            self.send_error(500, f"Error reading UI file: {e}")
+
+    def serve_status(self):
+        data = {
+            "total_accounts": len(ACCOUNTS),
+            "online_accounts": sum(1 for a in ACCOUNTS.values() if a.get("online")),
+            "voice_accounts": len(voice_accounts()),
+            "uptime": int(time.time() - START_TIME) if START_TIME else 0,
+            "default_guild": GUILD_ID,
+            "default_channel": CHANNEL_ID,
+            "device_type": DEVICE_TYPE,
+            "accounts": [
+                {
+                    "id": a["id"],
+                    "name": a.get("name") or "Unknown",
+                    "user_id": a.get("user_id"),
+                    "online": a.get("online", False),
+                    "voice_channel": a.get("voice_channel"),
+                    "mute": a.get("mute", False),
+                    "deaf": a.get("deaf", False),
+                    "error": a.get("error"),
+                }
+                for a in sorted(ACCOUNTS.values(), key=lambda x: x["id"])
+            ],
+        }
+        resp = json.dumps(data).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(resp)))
+        self.end_headers()
+        self.wfile.write(resp)
+
+    def do_POST(self):
+        if self.path == "/api/action":
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length).decode("utf-8")
+            try:
+                payload = json.loads(body)
+                result = self.execute_action(payload)
+                resp = json.dumps(result).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Content-Length", str(len(resp)))
+                self.end_headers()
+                self.wfile.write(resp)
+            except Exception as e:
+                err = json.dumps({"success": False, "error": str(e)}).encode("utf-8")
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(err)))
+                self.end_headers()
+                self.wfile.write(err)
+        else:
+            self.send_error(404, "Not Found")
+
+    def execute_action(self, payload):
+        global CHANNEL_ID
+        action = payload.get("action", "")
+
+        if action == "set_default_channel":
+            new_ch = payload.get("channel_id")
+            if new_ch:
+                CHANNEL_ID = str(new_ch)
+                return {"success": True, "message": f"Default channel set to {CHANNEL_ID}"}
+            return {"success": False, "error": "Missing channel_id"}
+
+        if MAIN_LOOP is None or not MAIN_LOOP.is_running():
+            return {"success": False, "error": "Main loop not running"}
+
+        percent = int(payload.get("percent", 100))
+        ch = payload.get("channel_id") or CHANNEL_ID
+
+        if action in ("move", "join"):
+            coro = self._run_move(ch, percent)
+        elif action == "disconnect":
+            coro = self._run_disconnect(percent)
+        elif action == "mute":
+            coro = self._run_mute(percent, True)
+        elif action == "unmute":
+            coro = self._run_mute(percent, False)
+        elif action == "deafen":
+            coro = self._run_deaf(percent, True)
+        elif action == "undeafen":
+            coro = self._run_deaf(percent, False)
+        elif action == "token_add":
+            tok = payload.get("token", "").strip()
+            if not tok:
+                return {"success": False, "error": "Token is empty"}
+            coro = add_account(tok)
+        elif action == "token_remove":
+            aid = payload.get("id")
+            coro = remove_account(aid)
+        elif action.startswith("account_"):
+            aid = payload.get("id")
+            sub = action.replace("account_", "")
+            coro = self._run_account_action(aid, sub, payload.get("channel_id"))
+        else:
+            return {"success": False, "error": f"Unknown action: {action}"}
+
+        fut = asyncio.run_coroutine_threadsafe(coro, MAIN_LOOP)
+        try:
+            res = fut.result(timeout=10)
+            return {"success": True, "message": f"Action '{action}' executed.", "result": str(res)}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    async def _run_move(self, channel_id, percent):
+        targets = pick_targets(percent, online_accounts())
+        done = await apply(targets, channel=channel_id)
+        return f"{done}/{len(targets)} account(s) moved to {channel_id}"
+
+    async def _run_disconnect(self, percent):
+        targets = pick_targets(percent, voice_accounts())
+        done = await apply(targets, channel=None)
+        return f"{done}/{len(targets)} account(s) disconnected"
+
+    async def _run_mute(self, percent, state):
+        targets = pick_targets(percent, voice_accounts())
+        done = await apply(targets, mute=state)
+        return f"{done}/{len(targets)} account(s) mute={state}"
+
+    async def _run_deaf(self, percent, state):
+        targets = pick_targets(percent, voice_accounts())
+        done = await apply(targets, deaf=state)
+        return f"{done}/{len(targets)} account(s) deafen={state}"
+
+    async def _run_account_action(self, aid, sub, ch):
+        acc = find_account(aid)
+        if not acc:
+            raise ValueError("Account not found")
+        if sub in ("move", "join"):
+            target_ch = ch or CHANNEL_ID
+            await apply([acc], channel=target_ch)
+            return f"Moved to {target_ch}"
+        elif sub == "disconnect":
+            await apply([acc], channel=None)
+            return "Disconnected"
+        elif sub == "mute":
+            await apply([acc], mute=True)
+            return "Muted"
+        elif sub == "unmute":
+            await apply([acc], mute=False)
+            return "Unmuted"
+        elif sub == "deafen":
+            await apply([acc], deaf=True)
+            return "Deafened"
+        elif sub == "undeafen":
+            await apply([acc], deaf=False)
+            return "Undeafened"
+        raise ValueError(f"Unknown subaction: {sub}")
+
+
+def start_web_server():
+    class ThreadingHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
+        daemon_threads = True
+        allow_reuse_address = True
+
+    try:
+        server = ThreadingHTTPServer((WEB_HOST, WEB_PORT), DashboardHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        print(f"[WEB UI] Dashboard running at: http://localhost:{WEB_PORT}")
+        print(f"[MOBILE] Browser link:         http://127.0.0.1:{WEB_PORT}")
+    except Exception as e:
+        print(f"[!] Warning: Could not start Web UI on port {WEB_PORT}: {e}")
+
+
 async def main():
-    global START_TIME
+    global START_TIME, MAIN_LOOP
     START_TIME = time.time()
+    MAIN_LOOP = asyncio.get_running_loop()
+
+    # Start built-in Web UI dashboard
+    start_web_server()
 
     # Register OS signal handlers for clean SIGINT / SIGTERM
     try:

@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>dc- Control Panel</title>
+  <style>
+    :root {
+      --bg-darker: #111214;
+      --bg-dark: #1e1f22;
+      --bg-card: #2b2d31;
+      --bg-hover: #35373c;
+      --accent: #5865f2;
+      --accent-hover: #4752c4;
+      --success: #23a55a;
+      --danger: #f23f43;
+      --warning: #f0b232;
+      --text: #dbdee1;
+      --text-muted: #949ba4;
+      --text-heading: #f2f3f5;
+      --border: #383a40;
+      --radius: 10px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-darker);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top Navigation */
+    header {
+      background-color: var(--bg-dark);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 1.25rem;
+      color: var(--text-heading);
+    }
+
+    .brand-badge {
+      background: rgba(88, 101, 242, 0.2);
+      color: var(--accent);
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    .header-status {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.85rem;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      font-size: 0.8rem;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--success);
+      display: inline-block;
+    }
+
+    /* Main Container */
+    main {
+      flex: 1;
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+    }
+
+    .stat-card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stat-title {
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+    }
+
+    .stat-value {
+      color: var(--text-heading);
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin-top: 4px;
+    }
+
+    /* Layout Sections */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 850px) {
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+    }
+
+    .panel-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--text-heading);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Forms & Controls */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    input, textarea, select {
+      background-color: var(--bg-dark);
+      border: 1px solid var(--border);
+      color: var(--text-heading);
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--accent);
+    }
+
+    /* Buttons */
+    button, .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+      user-select: none;
+      min-height: 42px;
+    }
+
+    .btn-primary { background-color: var(--accent); color: #fff; }
+    .btn-primary:hover { background-color: var(--accent-hover); }
+
+    .btn-success { background-color: var(--success); color: #fff; }
+    .btn-success:hover { opacity: 0.9; }
+
+    .btn-danger { background-color: var(--danger); color: #fff; }
+    .btn-danger:hover { opacity: 0.9; }
+
+    .btn-warning { background-color: var(--warning); color: #000; }
+    .btn-warning:hover { opacity: 0.9; }
+
+    .btn-secondary { background-color: var(--bg-hover); color: var(--text-heading); }
+    .btn-secondary:hover { background-color: #404249; }
+
+    .btn-sm {
+      padding: 6px 10px;
+      font-size: 0.8rem;
+      min-height: 32px;
+      border-radius: 6px;
+    }
+
+    /* Action Buttons Grid */
+    .action-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    @media (min-width: 500px) {
+      .action-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    .percent-selector {
+      display: flex;
+      gap: 6px;
+    }
+
+    .percent-btn {
+      flex: 1;
+      padding: 6px;
+      background: var(--bg-dark);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .percent-btn.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    /* Accounts List */
+    .accounts-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 480px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .account-card {
+      background-color: var(--bg-dark);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .acc-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .acc-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--bg-hover);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      color: var(--accent);
+      position: relative;
+    }
+
+    .acc-avatar .dot {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      border: 2px solid var(--bg-dark);
+    }
+
+    .acc-details {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .acc-name {
+      font-weight: 600;
+      color: var(--text-heading);
+      font-size: 0.95rem;
+    }
+
+    .acc-sub {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .acc-badges {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      font-size: 0.72rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .badge-voice { background: rgba(35, 165, 90, 0.2); color: var(--success); }
+    .badge-mute { background: rgba(240, 178, 50, 0.2); color: var(--warning); }
+    .badge-deaf { background: rgba(242, 63, 67, 0.2); color: var(--danger); }
+
+    .acc-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    /* Logs Terminal */
+    .terminal {
+      background-color: #0b0c0e;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 0.82rem;
+      color: #4ade80;
+      height: 180px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--accent);
+      color: var(--text-heading);
+      padding: 12px 18px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      z-index: 1000;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.3s;
+      pointer-events: none;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Mobile adjustments */
+    @media (max-width: 600px) {
+      main { padding: 12px; gap: 14px; }
+      header { padding: 12px 14px; }
+      .account-card { flex-direction: column; align-items: flex-start; }
+      .acc-actions { width: 100%; justify-content: flex-end; margin-top: 6px; }
+      .toast { left: 14px; right: 14px; bottom: 14px; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <span>dc-</span>
+      <span class="brand-badge">Control Panel</span>
+    </div>
+    <div class="header-status">
+      <div class="status-pill">
+        <span class="dot" id="header-dot"></span>
+        <span id="header-mode">📱 Mobile Status</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- Top Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <span class="stat-title">Total Accounts</span>
+        <span class="stat-value" id="stat-total">0</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-title">Online (Gateway)</span>
+        <span class="stat-value" style="color: var(--success);" id="stat-online">0</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-title">In Voice</span>
+        <span class="stat-value" style="color: var(--accent);" id="stat-voice">0</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-title">Uptime</span>
+        <span class="stat-value" style="font-size: 1.25rem; line-height: 2rem;" id="stat-uptime">0s</span>
+      </div>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="grid-2">
+
+      <!-- Left Column: Voice & Bulk Actions -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">🔊 Voice Controls</span>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">Affects active accounts</span>
+        </div>
+
+        <div class="form-group">
+          <label>Target Voice Channel ID</label>
+          <div class="input-row">
+            <input type="text" id="voice-channel-id" placeholder="Enter numeric Channel ID (e.g. 123456789)">
+            <button class="btn btn-secondary btn-sm" onclick="setAsDefaultChannel()">Set Default</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Random Percent Slice</label>
+          <div class="percent-selector">
+            <button class="percent-btn" onclick="selectPercent(25, this)">25%</button>
+            <button class="percent-btn" onclick="selectPercent(50, this)">50%</button>
+            <button class="percent-btn" onclick="selectPercent(75, this)">75%</button>
+            <button class="percent-btn active" onclick="selectPercent(100, this)">100% (All)</button>
+          </div>
+        </div>
+
+        <div class="action-grid">
+          <button class="btn btn-primary" onclick="sendAction('move')">
+            🔊 Join / Move
+          </button>
+          <button class="btn btn-danger" onclick="sendAction('disconnect')">
+            ❌ Disconnect
+          </button>
+          <button class="btn btn-warning" onclick="sendAction('mute')">
+            🔇 Mute
+          </button>
+          <button class="btn btn-secondary" onclick="sendAction('unmute')">
+            🔊 Unmute
+          </button>
+          <button class="btn btn-warning" onclick="sendAction('deafen')">
+            🎧 Deafen
+          </button>
+          <button class="btn btn-secondary" onclick="sendAction('undeafen')">
+            🎧 Undeafen
+          </button>
+        </div>
+
+        <!-- Add Token Panel -->
+        <div style="border-top: 1px solid var(--border); padding-top: 14px; margin-top: 4px;">
+          <div class="form-group">
+            <label>Add Discord Token</label>
+            <div class="input-row">
+              <input type="password" id="new-token" placeholder="Paste Discord token here">
+              <button class="btn btn-success" onclick="addToken()">+ Add</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Connected Accounts -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">👥 Connected Accounts (<span id="acc-count-title">0</span>)</span>
+          <button class="btn btn-secondary btn-sm" onclick="refreshStatus()">↻ Refresh</button>
+        </div>
+
+        <div class="accounts-list" id="accounts-container">
+          <div style="color: var(--text-muted); text-align: center; padding: 30px;">
+            No accounts connected yet. Add a token above or edit tokens.txt.
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Live Activity Logs -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">📜 Activity Logs</span>
+        <button class="btn btn-secondary btn-sm" onclick="clearLogs()">Clear</button>
+      </div>
+      <div class="terminal" id="terminal-logs">Waiting for events...</div>
+    </div>
+
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let currentPercent = 100;
+
+    function selectPercent(val, el) {
+      currentPercent = val;
+      document.querySelectorAll('.percent-btn').forEach(b => b.classList.remove('active'));
+      el.classList.add('active');
+    }
+
+    function showToast(msg, isError = false) {
+      const toast = document.getElementById('toast');
+      toast.innerText = msg;
+      toast.style.borderColor = isError ? 'var(--danger)' : 'var(--accent)';
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
+    function logToTerminal(msg) {
+      const term = document.getElementById('terminal-logs');
+      const time = new Date().toLocaleTimeString();
+      term.innerText += `\n[${time}] ${msg}`;
+      term.scrollTop = term.scrollHeight;
+    }
+
+    function clearLogs() {
+      document.getElementById('terminal-logs').innerText = "Logs cleared.";
+    }
+
+    async function fetchStatus() {
+      try {
+        const res = await fetch('/api/status');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        renderStatus(data);
+      } catch (err) {
+        document.getElementById('header-dot').style.backgroundColor = 'var(--danger)';
+      }
+    }
+
+    function renderStatus(data) {
+      document.getElementById('header-dot').style.backgroundColor = 'var(--success)';
+      document.getElementById('stat-total').innerText = data.total_accounts;
+      document.getElementById('stat-online').innerText = data.online_accounts;
+      document.getElementById('stat-voice').innerText = data.voice_accounts;
+      document.getElementById('stat-uptime').innerText = formatUptime(data.uptime);
+      document.getElementById('acc-count-title').innerText = data.total_accounts;
+
+      if (!document.getElementById('voice-channel-id').value && data.default_channel) {
+        document.getElementById('voice-channel-id').value = data.default_channel;
+      }
+
+      const container = document.getElementById('accounts-container');
+      if (!data.accounts || data.accounts.length === 0) {
+        container.innerHTML = `
+          <div style="color: var(--text-muted); text-align: center; padding: 30px;">
+            No accounts connected yet. Add a token above or edit tokens.txt.
+          </div>`;
+        return;
+      }
+
+      let html = '';
+      data.accounts.forEach(acc => {
+        const isOnline = acc.online;
+        const inVoice = !!acc.voice_channel;
+        const initial = (acc.name || 'U').charAt(0).toUpperCase();
+
+        html += `
+          <div class="account-card">
+            <div class="acc-info">
+              <div class="acc-avatar">
+                ${initial}
+                <span class="dot" style="background: ${isOnline ? 'var(--success)' : 'var(--text-muted)'};"></span>
+              </div>
+              <div class="acc-details">
+                <span class="acc-name">${escapeHtml(acc.name || 'Unknown')}</span>
+                <span class="acc-sub">ID: ${acc.id} &bull; ${acc.user_id || 'Connecting...'}</span>
+              </div>
+            </div>
+
+            <div class="acc-badges">
+              ${inVoice ? `<span class="badge badge-voice">🔊 ${acc.voice_channel}</span>` : `<span class="badge" style="background:#202225; color:#888;">No Voice</span>`}
+              ${acc.mute ? `<span class="badge badge-mute">Muted</span>` : ''}
+              ${acc.deaf ? `<span class="badge badge-deaf">Deafened</span>` : ''}
+              ${acc.error ? `<span class="badge" style="background:rgba(242,63,67,0.2); color:var(--danger);" title="${escapeHtml(acc.error)}">Error</span>` : ''}
+            </div>
+
+            <div class="acc-actions">
+              ${inVoice ? `
+                <button class="btn btn-secondary btn-sm" onclick="sendAccountAction(${acc.id}, '${acc.mute ? 'unmute' : 'mute'}')">
+                  ${acc.mute ? '🔊' : '🔇'}
+                </button>
+                <button class="btn btn-secondary btn-sm" onclick="sendAccountAction(${acc.id}, '${acc.deaf ? 'undeafen' : 'deafen'}')">
+                  ${acc.deaf ? '🎧' : '🙉'}
+                </button>
+                <button class="btn btn-danger btn-sm" onclick="sendAccountAction(${acc.id}, 'disconnect')">✕</button>
+              ` : `
+                <button class="btn btn-primary btn-sm" onclick="sendAccountAction(${acc.id}, 'move')">Join</button>
+              `}
+              <button class="btn btn-secondary btn-sm" style="color: var(--danger);" onclick="removeAccount(${acc.id})">🗑</button>
+            </div>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    async function sendAction(action) {
+      const channelId = document.getElementById('voice-channel-id').value.trim();
+      const payload = {
+        action: action,
+        channel_id: channelId,
+        percent: currentPercent
+      };
+
+      logToTerminal(`Executing action: ${action} (${currentPercent}%)`);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const json = await res.json();
+        if (json.success) {
+          showToast(json.message || `Action ${action} executed`);
+          logToTerminal(`Success: ${json.message}`);
+          fetchStatus();
+        } else {
+          showToast(json.error || 'Action failed', true);
+          logToTerminal(`Error: ${json.error}`);
+        }
+      } catch (err) {
+        showToast('Request error: ' + err.message, true);
+      }
+    }
+
+    async function sendAccountAction(aid, action) {
+      const channelId = document.getElementById('voice-channel-id').value.trim();
+      logToTerminal(`Account ${aid} action: ${action}`);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'account_' + action, id: aid, channel_id: channelId })
+        });
+        const json = await res.json();
+        if (json.success) {
+          showToast(json.message);
+          fetchStatus();
+        } else {
+          showToast(json.error, true);
+        }
+      } catch (err) {
+        showToast('Error: ' + err.message, true);
+      }
+    }
+
+    async function addToken() {
+      const input = document.getElementById('new-token');
+      const token = input.value.trim();
+      if (!token) return showToast('Please enter a token', true);
+
+      showToast('Adding token...');
+      logToTerminal('Adding new token...');
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'token_add', token: token })
+        });
+        const json = await res.json();
+        if (json.success) {
+          input.value = '';
+          showToast(json.message || 'Token added successfully');
+          logToTerminal(`Success: ${json.message}`);
+          fetchStatus();
+        } else {
+          showToast(json.error || 'Failed to add token', true);
+          logToTerminal(`Error: ${json.error}`);
+        }
+      } catch (err) {
+        showToast('Error: ' + err.message, true);
+      }
+    }
+
+    async function removeAccount(aid) {
+      if (!confirm(`Remove account #${aid}?`)) return;
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'token_remove', id: aid })
+        });
+        const json = await res.json();
+        showToast(json.message || 'Removed account');
+        fetchStatus();
+      } catch (err) {
+        showToast('Error: ' + err.message, true);
+      }
+    }
+
+    function setAsDefaultChannel() {
+      const ch = document.getElementById('voice-channel-id').value.trim();
+      if (!ch) return showToast('Enter channel ID first', true);
+      fetch('/api/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set_default_channel', channel_id: ch })
+      }).then(() => showToast(`Default channel updated to: ${ch}`));
+    }
+
+    function refreshStatus() {
+      fetchStatus();
+      showToast('Status refreshed');
+    }
+
+    function formatUptime(seconds) {
+      if (!seconds) return '0s';
+      const d = Math.floor(seconds / (3600*24));
+      const h = Math.floor((seconds % (3600*24)) / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = Math.floor(seconds % 60);
+      if (d > 0) return `${d}d ${h}h ${m}m`;
+      if (h > 0) return `${h}h ${m}m ${s}s`;
+      if (m > 0) return `${m}m ${s}s`;
+      return `${s}s`;
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    // Auto-poll status every 2 seconds
+    fetchStatus();
+    setInterval(fetchStatus, 2000);
+  </script>
+</body>
+</html>
