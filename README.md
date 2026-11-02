@@ -38,6 +38,9 @@ You can control everything directly from your Termux terminal without ever openi
 | `dc mute` | Mutes all accounts in voice |
 | `dc unmute` | Unmutes all accounts in voice |
 | `dc leave` | Disconnects all accounts from voice |
+| `dc channel <id>` | Sets default Voice Channel ID (saves to `.env`) |
+| `dc guild <id>` | Sets Discord Server (Guild) ID (saves to `.env`) |
+| `dc config` | Displays and edits Server ID & Channel ID interactively |
 | `dc widget` | Installs 1-tap start/stop widgets for **Termux:Widget** |
 | `dc boot` | Sets up auto-start on phone reboot for **Termux:Boot** |
 

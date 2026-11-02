@@ -576,24 +576,35 @@
       <div class="card">
         <div class="card-title">
           <span>🔊 Target Voice Destination</span>
-          <span style="font-size:0.75rem; color:var(--text-muted); font-weight:400;" id="guild-status-tag">Auto-resolves Server</span>
+          <span style="font-size:0.75rem; color:var(--text-muted); font-weight:400;" id="guild-status-tag">Saved to .env</span>
         </div>
 
         <div class="field-group">
-          <label class="field-label">Voice Channel ID</label>
+          <label class="field-label">
+            <span>Voice Channel ID</span>
+            <span id="active-ch-badge" style="color:var(--accent); font-weight:600; text-transform:none;"></span>
+          </label>
           <div class="input-row">
-            <input type="text" id="target-channel-id" placeholder="Paste Channel ID (e.g. 123456789)">
+            <input type="text" id="target-channel-id" placeholder="Paste Channel ID (e.g. 123456789)" oninput="updateActiveBadges()">
             <button class="btn btn-secondary btn-sm" onclick="saveDefaultChannel()">Save</button>
+            <button class="btn btn-secondary btn-sm" style="color:var(--accent);" onclick="autoDetectGuild()" title="Auto-detect Server ID from this channel">🔍 Detect Server</button>
           </div>
         </div>
 
         <div class="field-group">
-          <label class="field-label">Server (Guild) ID <span style="text-transform:none; font-weight:400;">(Auto-filled from channel)</span></label>
+          <label class="field-label">
+            <span>Server (Guild) ID</span>
+            <span id="active-guild-badge" style="color:var(--success); font-weight:600; text-transform:none;"></span>
+          </label>
           <div class="input-row">
-            <input type="text" id="target-guild-id" placeholder="Auto-detected if left empty">
+            <input type="text" id="target-guild-id" placeholder="Paste Server ID or click Detect above" oninput="updateActiveBadges()">
             <button class="btn btn-secondary btn-sm" onclick="saveGuildId()">Save</button>
           </div>
         </div>
+
+        <button class="btn btn-secondary btn-sm" style="width:100%; border:1px solid var(--accent); color:var(--accent); margin-top:2px;" onclick="saveBothConfig()">
+          💾 Save Both to .env (Survives Restarts)
+        </button>
 
         <!-- Slider & Presets -->
         <div class="slider-box">
@@ -1136,26 +1147,94 @@
       }
     }
 
-    function saveDefaultChannel() {
-      vibrate(10);
+    function updateActiveBadges() {
       const ch = document.getElementById('target-channel-id').value.trim();
-      if (!ch) return showToast('Enter channel ID first', true);
-      fetch('/api/action', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'set_default_channel', channel_id: ch })
-      }).then(() => showToast(`Saved default channel: ${ch}`));
+      const gid = document.getElementById('target-guild-id').value.trim();
+      document.getElementById('active-ch-badge').innerText = ch ? `(Active: ${ch.slice(0, 8)}...)` : '';
+      document.getElementById('active-guild-badge').innerText = gid ? `(Active: ${gid.slice(0, 8)}...)` : '';
     }
 
-    function saveGuildId() {
-      vibrate(10);
+    async function saveDefaultChannel() {
+      vibrate(15);
+      const ch = document.getElementById('target-channel-id').value.trim();
+      if (!ch) return showToast('Enter channel ID first', true);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set_default_channel', channel_id: ch })
+        });
+        const json = await res.json();
+        showToast(json.message || `Saved channel: ${ch}`);
+        logToConsole(`Channel updated: ${ch} (persisted to .env)`);
+        updateActiveBadges();
+      } catch (err) {
+        showToast('Error: ' + err.message, true);
+      }
+    }
+
+    async function saveGuildId() {
+      vibrate(15);
       const gid = document.getElementById('target-guild-id').value.trim();
       if (!gid) return showToast('Enter Server ID first', true);
-      fetch('/api/action', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'set_guild_id', guild_id: gid })
-      }).then(() => showToast(`Saved Server ID: ${gid}`));
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set_guild_id', guild_id: gid })
+        });
+        const json = await res.json();
+        showToast(json.message || `Saved Server ID: ${gid}`);
+        logToConsole(`Server ID updated: ${gid} (persisted to .env)`);
+        updateActiveBadges();
+      } catch (err) {
+        showToast('Error: ' + err.message, true);
+      }
+    }
+
+    async function saveBothConfig() {
+      vibrate(20);
+      const ch = document.getElementById('target-channel-id').value.trim();
+      const gid = document.getElementById('target-guild-id').value.trim();
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set_config', channel_id: ch, guild_id: gid })
+        });
+        const json = await res.json();
+        showToast('Configuration saved to .env!');
+        logToConsole(`Configuration saved: Guild=${gid || 'none'}, Channel=${ch || 'none'}`);
+        updateActiveBadges();
+      } catch (err) {
+        showToast('Error: ' + err.message, true);
+      }
+    }
+
+    async function autoDetectGuild() {
+      vibrate(20);
+      const ch = document.getElementById('target-channel-id').value.trim();
+      if (!ch) return showToast('Enter Channel ID first', true);
+      showToast('Querying Discord API for Server ID...');
+      logToConsole(`Auto-detecting Server ID for Channel ${ch}...`);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'detect_guild', channel_id: ch })
+        });
+        const json = await res.json();
+        if (json.success && json.guild_id) {
+          document.getElementById('target-guild-id').value = json.guild_id;
+          showToast(`Found Server ID: ${json.guild_id}`);
+          logToConsole(`Server ID auto-detected: ${json.guild_id} (saved to .env)`);
+          updateActiveBadges();
+        } else {
+          showToast(json.error || 'Could not detect Server ID', true);
+        }
+      } catch (err) {
+        showToast('Error: ' + err.message, true);
+      }
     }
 
     function refreshAll() {

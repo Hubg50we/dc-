@@ -210,6 +210,49 @@ EOF
     echo -e "    Requires ${C_BOLD}Termux:Boot${C_RESET} app to trigger on device restart."
 }
 
+edit_config() {
+    echo -e "${C_BLURPLE}=== Server & Channel Configuration ===${C_RESET}"
+    CURR_G=""
+    CURR_C=""
+    if [ -f ".env" ]; then
+        CURR_G=$(grep "^GUILD_ID=" .env 2>/dev/null | cut -d'=' -f2)
+        CURR_C=$(grep "^CHANNEL_ID=" .env 2>/dev/null | cut -d'=' -f2)
+    fi
+    echo -e "Current Server (Guild) ID: ${C_GREEN}${CURR_G:-Not set}${C_RESET}"
+    echo -e "Current Channel ID:        ${C_GREEN}${CURR_C:-Not set}${C_RESET}\n"
+
+    echo -ne "Enter New Voice Channel ID (or press Enter to keep): "
+    read -r new_c
+    echo -ne "Enter New Server (Guild) ID (or press Enter to keep): "
+    read -r new_g
+
+    FINAL_C="${new_c:-$CURR_C}"
+    FINAL_G="${new_g:-$CURR_G}"
+
+    if [ -n "$FINAL_C" ] || [ -n "$FINAL_G" ]; then
+        if is_running; then
+            python3 -c "
+import urllib.request, json
+payload = {'action': 'set_config', 'channel_id': '$FINAL_C', 'guild_id': '$FINAL_G'}
+req = urllib.request.Request('http://127.0.0.1:5000/api/action', data=json.dumps(payload).encode(), headers={'Content-Type': 'application/json'})
+try:
+    res = urllib.request.urlopen(req, timeout=5)
+    print('\033[1;32m[✓] Saved to .env and applied to live bot!\033[0m')
+except Exception as e:
+    print('\033[1;31m[!] Error:\033[0m', e)
+"
+        else
+            if [ -n "$FINAL_G" ]; then
+                grep -q "^GUILD_ID=" .env && sed -i "s/^GUILD_ID=.*/GUILD_ID=$FINAL_G/" .env || echo "GUILD_ID=$FINAL_G" >> .env
+            fi
+            if [ -n "$FINAL_C" ]; then
+                grep -q "^CHANNEL_ID=" .env && sed -i "s/^CHANNEL_ID=.*/CHANNEL_ID=$FINAL_C/" .env || echo "CHANNEL_ID=$FINAL_C" >> .env
+            fi
+            echo -e "${C_GREEN}[✓] Configuration saved to .env!${C_RESET}"
+        fi
+    fi
+}
+
 interactive_menu() {
     while true; do
         clear
@@ -235,6 +278,7 @@ interactive_menu() {
         echo -e "   ${C_CYAN}7)${C_RESET} 🔇 Mute All"
         echo -e "   ${C_CYAN}8)${C_RESET} 🔊 Unmute All"
         echo -e "   ${C_CYAN}9)${C_RESET} ✕  Disconnect All from Voice"
+        echo -e "   ${C_CYAN}c)${C_RESET} ⚙️  Edit Server & Channel IDs (.env)"
         echo -e ""
         echo -e " ${C_BOLD}[Termux Utilities]${C_RESET}"
         echo -e "   ${C_CYAN}l)${C_RESET} 📜 View Live Logs (tail -f)"
@@ -243,7 +287,7 @@ interactive_menu() {
         echo -e "   ${C_CYAN}b)${C_RESET} ⚡ Setup Auto-Start on Phone Boot"
         echo -e "   ${C_CYAN}0)${C_RESET} 🚪 Exit to Shell"
         echo -e ""
-        echo -ne "${C_BOLD}Select an option [0-9, l, t, w, b]: ${C_RESET}"
+        echo -ne "${C_BOLD}Select an option [0-9, c, l, t, w, b]: ${C_RESET}"
         read -r choice
 
         case "$choice" in
@@ -263,6 +307,7 @@ interactive_menu() {
             7) send_quick_action "mute" ""; echo -e "\nPress Enter to continue..."; read -r ;;
             8) send_quick_action "unmute" ""; echo -e "\nPress Enter to continue..."; read -r ;;
             9) send_quick_action "disconnect" ""; echo -e "\nPress Enter to continue..."; read -r ;;
+            c|C) edit_config; echo -e "\nPress Enter to continue..."; read -r ;;
             l|L) show_logs ;;
             t|T)
                 if command -v nano &> /dev/null; then
@@ -310,6 +355,34 @@ case "$1" in
         ;;
     leave|disconnect)
         send_quick_action "disconnect" ""
+        ;;
+    config|settings)
+        edit_config
+        ;;
+    channel|set-channel)
+        if [ -n "$2" ]; then
+            send_quick_action "set_default_channel" "$2"
+        else
+            echo "Usage: dc channel <channel_id>"
+        fi
+        ;;
+    guild|server|set-guild)
+        if [ -n "$2" ]; then
+            python3 -c "
+import urllib.request, json
+req = urllib.request.Request('http://127.0.0.1:5000/api/action', data=json.dumps({'action': 'set_guild_id', 'guild_id': '$2'}).encode(), headers={'Content-Type': 'application/json'})
+try:
+    urllib.request.urlopen(req, timeout=5)
+    print('\033[1;32m[✓] Server ID updated to $2 (saved to .env)\033[0m')
+except Exception:
+    import os
+    print('Bot offline. Updating .env directly...')
+" 2>/dev/null || true
+            sed -i "s/^GUILD_ID=.*/GUILD_ID=$2/" .env 2>/dev/null || echo "GUILD_ID=$2" >> .env
+            echo -e "${C_GREEN}[✓] Server ID set to $2${C_RESET}"
+        else
+            echo "Usage: dc guild <guild_id>"
+        fi
         ;;
     widget)
         setup_widgets

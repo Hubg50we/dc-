@@ -137,6 +137,39 @@ def sync_tokens_file():
         print(f"[!] Could not sync tokens.txt: {e}")
 
 
+def save_env_config():
+    """Persist current GUILD_ID and CHANNEL_ID to .env file so changes survive restarts."""
+    try:
+        env_path = ".env"
+        lines = []
+        if os.path.exists(env_path):
+            with open(env_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+
+        guild_found = False
+        channel_found = False
+        new_lines = []
+        for line in lines:
+            if line.startswith("GUILD_ID="):
+                new_lines.append(f"GUILD_ID={GUILD_ID}\n")
+                guild_found = True
+            elif line.startswith("CHANNEL_ID="):
+                new_lines.append(f"CHANNEL_ID={CHANNEL_ID}\n")
+                channel_found = True
+            else:
+                new_lines.append(line)
+
+        if not guild_found:
+            new_lines.append(f"GUILD_ID={GUILD_ID}\n")
+        if not channel_found:
+            new_lines.append(f"CHANNEL_ID={CHANNEL_ID}\n")
+
+        with open(env_path, "w", encoding="utf-8") as f:
+            f.writelines(new_lines)
+    except Exception as e:
+        print(f"[!] Could not persist .env config: {e}")
+
+
 async def auto_resolve_guild(channel_id):
     """If GUILD_ID is not configured, automatically look it up via Discord channel endpoint."""
     global GUILD_ID
@@ -163,7 +196,8 @@ async def auto_resolve_guild(channel_id):
         gid = res.json().get("guild_id")
         if gid:
             GUILD_ID = gid
-            print(f"[+] Automatically resolved Server (Guild) ID: {GUILD_ID}")
+            save_env_config()
+            print(f"[+] Automatically resolved & saved Server (Guild) ID: {GUILD_ID}")
             return GUILD_ID
     return GUILD_ID
 
@@ -560,6 +594,30 @@ async def handle_command(raw):
             await shutdown()
             return
 
+        if cmd in ("guild", "server"):
+            if len(parts) > 1:
+                GUILD_ID = parts[1]
+                save_env_config()
+                print(f"[✓] Server (Guild) ID set to: {GUILD_ID} (saved to .env)")
+            else:
+                print(f"Current Server (Guild) ID: {GUILD_ID}")
+            return
+
+        if cmd == "channel":
+            if len(parts) > 1:
+                CHANNEL_ID = parts[1]
+                save_env_config()
+                print(f"[✓] Default Channel ID set to: {CHANNEL_ID} (saved to .env)")
+            else:
+                print(f"Current Default Channel ID: {CHANNEL_ID}")
+            return
+
+        if cmd in ("config", "settings"):
+            print(f"Server (Guild) ID: {GUILD_ID}")
+            print(f"Default Channel ID: {CHANNEL_ID}")
+            print(f"Device Type: {DEVICE_TYPE}")
+            return
+
         if cmd in ("help", "?"):
             print(HELP)
             return
@@ -895,15 +953,45 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             new_ch = payload.get("channel_id")
             if new_ch:
                 CHANNEL_ID = str(new_ch)
-                return {"success": True, "message": f"Default channel set to {CHANNEL_ID}"}
+                save_env_config()
+                return {"success": True, "message": f"Default Channel set to {CHANNEL_ID} (saved to .env)"}
             return {"success": False, "error": "Missing channel_id"}
 
         if action == "set_guild_id":
             new_g = payload.get("guild_id")
             if new_g:
                 GUILD_ID = str(new_g)
-                return {"success": True, "message": f"Server (Guild) ID set to {GUILD_ID}"}
+                save_env_config()
+                return {"success": True, "message": f"Server (Guild) ID set to {GUILD_ID} (saved to .env)"}
             return {"success": False, "error": "Missing guild_id"}
+
+        if action == "set_config":
+            new_ch = payload.get("channel_id")
+            new_g = payload.get("guild_id")
+            if new_ch:
+                CHANNEL_ID = str(new_ch)
+            if new_g:
+                GUILD_ID = str(new_g)
+            save_env_config()
+            return {
+                "success": True,
+                "message": f"Saved to .env! Server: {GUILD_ID}, Channel: {CHANNEL_ID}",
+                "guild_id": GUILD_ID,
+                "channel_id": CHANNEL_ID,
+            }
+
+        if action == "detect_guild":
+            target_ch = payload.get("channel_id") or CHANNEL_ID
+            if not target_ch:
+                return {"success": False, "error": "Channel ID required"}
+            coro = auto_resolve_guild(target_ch)
+            fut = asyncio.run_coroutine_threadsafe(coro, MAIN_LOOP)
+            try:
+                res_gid = fut.result(timeout=10)
+                save_env_config()
+                return {"success": True, "message": f"Auto-detected Server ID: {res_gid}", "guild_id": res_gid}
+            except Exception as e:
+                return {"success": False, "error": str(e)}
 
         if MAIN_LOOP is None or not MAIN_LOOP.is_running():
             return {"success": False, "error": "Main loop not running"}
