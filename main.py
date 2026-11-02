@@ -4,6 +4,7 @@ import json
 import os
 import random
 import signal
+import socket
 import socketserver
 import sys
 import threading
@@ -41,10 +42,6 @@ if DEVICE_TYPE == "desktop":
     GATEWAY_PROPERTIES = {"$os": "windows", "$browser": "chrome", "$device": "pc"}
 else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
-
-ENABLE_WEB = os.environ.get("ENABLE_WEB", "true").lower() not in ("false", "0", "no")
-if any(arg.lower() in ("--no-web", "--noweb", "noweb", "-nw", "--cli", "-c") for arg in sys.argv[1:]):
-    ENABLE_WEB = False
 
 API = "https://discord.com/api/v10"
 
@@ -813,8 +810,11 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         if not os.path.exists(index_path):
             index_path = "web/index.html"
         try:
-            with open(index_path, "rb") as f:
-                content = f.read()
+            if os.path.exists(index_path):
+                with open(index_path, "rb") as f:
+                    content = f.read()
+            else:
+                content = b"<!DOCTYPE html><html><body style='background:#111;color:#fff;font-family:sans-serif;padding:20px'><h2>dc- Mobile Dashboard</h2><p>web/index.html not found. Please run git pull.</p></body></html>"
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(content)))
@@ -996,19 +996,49 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         raise ValueError(f"Unknown subaction: {sub}")
 
 
+def get_local_ip():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
+
+
 def start_web_server():
+    global WEB_PORT
     class ThreadingHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
         daemon_threads = True
         allow_reuse_address = True
 
+    ports_to_try = [WEB_PORT, 5001, 5002, 8080, 8000]
+    seen = set()
+    ports_to_try = [p for p in ports_to_try if not (p in seen or seen.add(p))]
+
+    server = None
+    for port in ports_to_try:
+        try:
+            server = ThreadingHTTPServer((WEB_HOST, port), DashboardHandler)
+            WEB_PORT = port
+            break
+        except OSError:
+            continue
+
+    if server is None:
+        print("[!] Warning: Could not bind Web UI to any available port. CLI controls are still active.")
+        return
+
     try:
-        server = ThreadingHTTPServer((WEB_HOST, WEB_PORT), DashboardHandler)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
-        print(f"[WEB UI] Dashboard running at: http://localhost:{WEB_PORT}")
-        print(f"[MOBILE] Browser link:         http://127.0.0.1:{WEB_PORT}")
+        local_ip = get_local_ip()
+        print(f"\n[WEB UI] Local Mobile link: http://localhost:{WEB_PORT}")
+        if local_ip not in ("127.0.0.1", "0.0.0.0"):
+            print(f"[WEB UI] Wi-Fi Network link: http://{local_ip}:{WEB_PORT}")
     except Exception as e:
-        print(f"[!] Warning: Could not start Web UI on port {WEB_PORT}: {e}")
+        print(f"[!] Warning: Could not start Web UI thread: {e}")
 
 
 async def main():
@@ -1016,11 +1046,8 @@ async def main():
     START_TIME = time.time()
     MAIN_LOOP = asyncio.get_running_loop()
 
-    # Start built-in Web UI dashboard if enabled
-    if ENABLE_WEB:
-        start_web_server()
-    else:
-        print("[*] Running in pure terminal mode (Web UI disabled).")
+    # Start built-in Web UI dashboard
+    start_web_server()
 
     # Register OS signal handlers for clean SIGINT / SIGTERM
     try:

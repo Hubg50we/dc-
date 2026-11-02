@@ -8,11 +8,17 @@ Optimized for **Termux on Android**, Linux VPS, macOS, and Windows.
 
 ## ⚡ Quick Setup for Termux (Android)
 
-Open **Termux** and run this single command line to install all packages and clone the repository:
+Open **Termux** and run this single command line to install all packages and set up the repository:
 
 ```bash
 pkg update -y && pkg install -y git python && git clone https://github.com/Hubg50we/dc-.git && cd dc- && bash install.sh
 ```
+
+Once installed, **you can start the bot and dashboard anytime by typing**:
+```bash
+dc
+```
+*(Your phone's browser will automatically open with the dashboard!)*
 
 ---
 
@@ -64,20 +70,13 @@ Any tokens in `tokens.txt` are **automatically loaded** when the script starts!
 
 ## ▶️ Running the Bot
 
-### Option 1: Pure Terminal Mode (No Web Browser)
-If you don't want a web server or browser popping up, run in pure terminal mode:
+Run directly using Python:
 ```bash
-bash noweb.sh
-# or if you ran install.sh:
-dc noweb
+python main.py
 ```
-
-### Option 2: With Web UI Dashboard
-Starts the bot and opens the visual web dashboard on port `5000`:
+Or use the provided launcher (which automatically requests `termux-wake-lock` to keep it running with screen turned off):
 ```bash
 bash start.sh
-# or if you ran install.sh:
-dc
 ```
 
 ---

@@ -3,37 +3,45 @@
 # Auto Installer for Termux & Linux
 # ========================================================
 
-set -e
+export DEBIAN_FRONTEND=noninteractive
 
 echo "[+] Starting setup for dc-..."
 
+# Clean potential CRLF line endings from Windows
+sed -i 's/\r$//' *.sh 2>/dev/null || true
+
 # Check if running in Termux
-if [ -d "/data/data/com.termux" ]; then
+if [ -d "/data/data/com.termux" ] || [ -n "$TERMUX_VERSION" ]; then
     echo "[+] Termux environment detected."
-    echo "[+] Updating packages..."
-    pkg update -y
-    echo "[+] Installing Python and Git..."
-    pkg install -y python git
+    echo "[+] Updating package lists (non-interactive)..."
+    pkg update -y -o Dpkg::Options::="--force-confold" 2>/dev/null || apt-get update -y 2>/dev/null || true
+    echo "[+] Installing Python, Git, and dependencies..."
+    pkg install -y python python-pip git 2>/dev/null || pkg install -y python git 2>/dev/null || true
 else
-    echo "[+] Standard Linux environment detected."
+    echo "[+] Linux / VPS environment detected."
     if command -v apt-get &> /dev/null; then
-        sudo apt-get update -y
-        sudo apt-get install -y python3 python3-pip git
+        sudo apt-get update -y 2>/dev/null || true
+        sudo apt-get install -y python3 python3-pip git 2>/dev/null || true
     fi
 fi
 
-# Upgrade pip
-echo "[+] Upgrading pip..."
-python3 -m pip install --upgrade pip 2>/dev/null || pip install --upgrade pip
+# Ensure pip is available
+python3 -m ensurepip --upgrade 2>/dev/null || true
 
-# Install dependencies
+# Upgrade pip safely
+echo "[+] Upgrading pip..."
+python3 -m pip install --upgrade pip --break-system-packages 2>/dev/null || \
+pip install --upgrade pip --break-system-packages 2>/dev/null || \
+pip install --upgrade pip 2>/dev/null || true
+
+# Install dependencies with PEP 668 compatibility
 echo "[+] Installing Python dependencies..."
 python3 -m pip install -r requirements.txt --break-system-packages 2>/dev/null || \
 pip install -r requirements.txt --break-system-packages 2>/dev/null || \
 pip install -r requirements.txt
 
-# Ensure start.sh and noweb.sh have execute permissions
-chmod +x start.sh noweb.sh 2>/dev/null || true
+# Ensure executable permissions on shell scripts
+chmod +x start.sh install.sh 2>/dev/null || true
 
 # Create .env if not present
 if [ ! -f ".env" ]; then
@@ -47,7 +55,7 @@ if [ ! -f "tokens.txt" ]; then
     cp tokens.txt.example tokens.txt
 fi
 
-# Create global shortcuts in Termux
+# Create global shortcut 'dc' in Termux ($PREFIX/bin/dc)
 if [ -n "$PREFIX" ] && [ -d "$PREFIX/bin" ]; then
     cat << 'EOF' > "$PREFIX/bin/dc"
 #!/data/data/com.termux/files/usr/bin/bash
@@ -55,34 +63,21 @@ DIR="$HOME/dc-"
 if [ ! -d "$DIR" ]; then
     DIR="$(pwd)"
 fi
-cd "$DIR"
-if [ "$1" = "noweb" ] || [ "$1" = "-nw" ] || [ "$1" = "--no-web" ] || [ "$1" = "cli" ]; then
-    bash noweb.sh "${@:2}"
-else
-    bash start.sh "$@"
-fi
+cd "$DIR" && bash start.sh "$@"
 EOF
     chmod +x "$PREFIX/bin/dc" 2>/dev/null || true
-
-    cat << 'EOF' > "$PREFIX/bin/dc-noweb"
-#!/data/data/com.termux/files/usr/bin/bash
-DIR="$HOME/dc-"
-if [ ! -d "$DIR" ]; then
-    DIR="$(pwd)"
+    echo "[+] Created instant shortcut command: 'dc'"
 fi
-cd "$DIR" && bash noweb.sh "$@"
-EOF
-    chmod +x "$PREFIX/bin/dc-noweb" 2>/dev/null || true
-    echo "[+] Created instant shortcuts: 'dc' and 'dc-noweb'"
+
+# Also add alias to bashrc / zshrc as fallback
+if [ -f "$HOME/.bashrc" ]; then
+    grep -q "alias dc=" "$HOME/.bashrc" || echo 'alias dc="cd ~/dc- && bash start.sh"' >> "$HOME/.bashrc"
 fi
 
 echo ""
 echo "========================================================"
-echo " Setup complete! "
+echo " Fully Mobile Setup Complete! "
 echo ""
-echo " ▶ Run without Web (Console only):"
-echo "    dc noweb      (or: bash noweb.sh)"
-echo ""
-echo " ▶ Run with Web UI:"
-echo "    dc            (or: bash start.sh)"
+echo " Run the bot anytime by simply typing:  dc"
+echo " (Your phone browser will automatically open with the dashboard!)"
 echo "========================================================"
