@@ -7,7 +7,7 @@ export DEBIAN_FRONTEND=noninteractive
 
 echo "[+] Starting setup for dc-..."
 
-# Clean potential CRLF line endings from Windows
+# Clean potential CRLF line endings
 sed -i 's/\r$//' *.sh 2>/dev/null || true
 
 # Check if running in Termux

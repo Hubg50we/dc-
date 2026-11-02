@@ -1,8 +1,8 @@
 # dc- (Discord Multi-Account Voice Manager)
 
-A lightweight, asynchronous Python tool designed to manage and control multiple Discord accounts (voice join, move, mute, deafen, disconnect) via console commands or detached background file polling.
+A lightweight, asynchronous Python tool designed to manage and control multiple Discord accounts (voice join, move, mute, deafen, disconnect) with an interactive Terminal Control Center and background engine.
 
-Optimized for **Termux on Android**, Linux VPS, macOS, and Windows.
+Optimized for **Termux on Android** and Linux servers.
 
 ---
 
@@ -203,20 +203,3 @@ You can type these commands into the running console:
 | `token save [file]` | Save current tokens to a file | `token save tokens.txt` |
 | `account <id\|name> <action>` | Control a single account (`move`, `mute`, `deafen`, etc.) | `account 1 mute` |
 | `shutdown` (or `quit` / `exit`) | Safely disconnect all accounts and shut down | `quit` |
-
----
-
-## 📤 How to Push to GitHub (`https://github.com/Hubg50we/dc-`)
-
-If you want to push this project to your GitHub repository from your computer:
-
-```bash
-cd "C:\Users\Administrator\.gemini\antigravity\scratch\dc-"
-git init
-git add .
-git commit -m "Initial commit for dc- Termux setup"
-git branch -M main
-git remote add origin https://github.com/Hubg50we/dc-.git
-git push -u origin main
-```
-*(GitHub will prompt you for your GitHub username and Personal Access Token (PAT) as password).*

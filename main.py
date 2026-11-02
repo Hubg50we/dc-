@@ -12,7 +12,7 @@ import time
 import requests
 import websockets
 
-# Ensure UTF-8 output across Windows, Linux, and Android Termux
+# Ensure UTF-8 standard output encoding
 try:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")

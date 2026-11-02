@@ -4,7 +4,7 @@
 # 100% Terminal Controlled - Zero Web Browser Popups
 # ========================================================
 
-# Clean any Windows CRLF endings if present
+# Clean any CRLF endings if present
 sed -i 's/\r$//' "$0" 2>/dev/null || true
 
 # Prevent Termux from sleeping in background if termux-wake-lock is available
