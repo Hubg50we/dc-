@@ -116,7 +116,55 @@ def parse_percent(arg):
 
 
 def is_placeholder_token(token):
-    return (not token) or token.startswith("TOKEN_") or token.startswith("YOUR_")
+    if not token or len(token) < 20:
+        return True
+    lower = token.lower()
+    return lower.startswith("token_") or lower.startswith("your_") or "placeholder" in lower or "example" in lower
+
+
+def sync_tokens_file():
+    """Keep tokens.txt synchronized when accounts are added or removed."""
+    try:
+        seen = set()
+        with open("tokens.txt", "w", encoding="utf-8") as f:
+            for a in ACCOUNTS.values():
+                tok = a.get("token", "").strip()
+                if tok and not is_placeholder_token(tok) and tok not in seen:
+                    f.write(tok + "\n")
+                    seen.add(tok)
+    except Exception as e:
+        print(f"[!] Could not sync tokens.txt: {e}")
+
+
+async def auto_resolve_guild(channel_id):
+    """If GUILD_ID is not configured, automatically look it up via Discord channel endpoint."""
+    global GUILD_ID
+    if GUILD_ID and GUILD_ID != "YOUR_GUILD_ID":
+        return GUILD_ID
+    if not str(channel_id).isdigit():
+        return GUILD_ID
+
+    valid_token = next((a["token"] for a in ACCOUNTS.values() if a.get("online") and a.get("token")), None)
+    if not valid_token:
+        valid_token = next((a["token"] for a in ACCOUNTS.values() if a.get("token") and not is_placeholder_token(a["token"])), None)
+    if not valid_token:
+        return GUILD_ID
+
+    loop = asyncio.get_running_loop()
+    def _fetch():
+        try:
+            return requests.get(f"{API}/channels/{channel_id}", headers={"Authorization": valid_token, "User-Agent": "Mozilla/5.0"}, timeout=6)
+        except Exception:
+            return None
+
+    res = await loop.run_in_executor(None, _fetch)
+    if res and res.status_code == 200:
+        gid = res.json().get("guild_id")
+        if gid:
+            GUILD_ID = gid
+            print(f"[+] Automatically resolved Server (Guild) ID: {GUILD_ID}")
+            return GUILD_ID
+    return GUILD_ID
 
 
 async def _validate_token(token):
@@ -174,6 +222,8 @@ def pick_targets(percent, pool):
 
 async def apply(targets, channel="keep", mute="keep", deaf="keep"):
     done = 0
+    if channel not in ("keep", None):
+        await auto_resolve_guild(channel)
     for conn in targets:
         for attempt in range(2):
             try:
@@ -238,6 +288,7 @@ async def add_account(token):
     task = asyncio.create_task(run_account(aid))
     acc["task"] = task
     print(f"[Account {aid}] Added: {acc['name']} ({acc['user_id']})")
+    sync_tokens_file()
     return aid
 
 
@@ -273,6 +324,7 @@ async def remove_account(identifier):
             pass
     name = acc.get("name") or acc.get("token", "")[:10]
     del ACCOUNTS[aid]
+    sync_tokens_file()
     print(f"[Account {aid}] Removed {name}.")
 
 
@@ -328,6 +380,11 @@ async def run_account(aid):
         except asyncio.CancelledError:
             raise
         except Exception as e:
+            close_code = getattr(e, "code", None)
+            if close_code == 4004:
+                print(f"[Account {aid}] Invalid or expired token (Discord error 4004). Disabling auto-reconnect.")
+                acc["error"] = "Invalid token (4004)"
+                break
             print(f"[Account {aid}] Error for {acc.get('name')}: {e}. Reconnecting in {delay}s...")
             acc["error"] = str(e)
         finally:
@@ -798,7 +855,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(404, "Not Found")
 
     def execute_action(self, payload):
-        global CHANNEL_ID
+        global CHANNEL_ID, GUILD_ID
         action = payload.get("action", "")
 
         if action == "set_default_channel":
@@ -807,6 +864,13 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 CHANNEL_ID = str(new_ch)
                 return {"success": True, "message": f"Default channel set to {CHANNEL_ID}"}
             return {"success": False, "error": "Missing channel_id"}
+
+        if action == "set_guild_id":
+            new_g = payload.get("guild_id")
+            if new_g:
+                GUILD_ID = str(new_g)
+                return {"success": True, "message": f"Server (Guild) ID set to {GUILD_ID}"}
+            return {"success": False, "error": "Missing guild_id"}
 
         if MAIN_LOOP is None or not MAIN_LOOP.is_running():
             return {"success": False, "error": "Main loop not running"}
@@ -831,6 +895,11 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             if not tok:
                 return {"success": False, "error": "Token is empty"}
             coro = add_account(tok)
+        elif action == "tokens_bulk_add":
+            token_list = payload.get("tokens", [])
+            if not token_list:
+                return {"success": False, "error": "No tokens provided"}
+            coro = self._run_bulk_add(token_list)
         elif action == "token_remove":
             aid = payload.get("id")
             coro = remove_account(aid)
@@ -847,6 +916,15 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             return {"success": True, "message": f"Action '{action}' executed.", "result": str(res)}
         except Exception as e:
             return {"success": False, "error": str(e)}
+
+    async def _run_bulk_add(self, tokens):
+        count = 0
+        for raw in tokens:
+            t = str(raw).strip()
+            if t and not is_placeholder_token(t):
+                await add_account(t)
+                count += 1
+        return f"Loaded {count} token(s)"
 
     async def _run_move(self, channel_id, percent):
         targets = pick_targets(percent, online_accounts())

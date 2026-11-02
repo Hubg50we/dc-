@@ -28,7 +28,12 @@ python3 -m pip install --upgrade pip 2>/dev/null || pip install --upgrade pip
 
 # Install dependencies
 echo "[+] Installing Python dependencies..."
+python3 -m pip install -r requirements.txt --break-system-packages 2>/dev/null || \
+pip install -r requirements.txt --break-system-packages 2>/dev/null || \
 pip install -r requirements.txt
+
+# Ensure start.sh has execute permissions
+chmod +x start.sh 2>/dev/null || true
 
 # Create .env if not present
 if [ ! -f ".env" ]; then
@@ -45,10 +50,9 @@ fi
 echo ""
 echo "========================================================"
 echo " Setup complete! "
-echo " Next steps:"
-echo " 1. Edit .env or tokens.txt with your server ID and tokens:"
-echo "    nano .env"
-echo "    nano tokens.txt"
-echo " 2. Run the bot:"
+echo " Run the bot & Web UI with:"
 echo "    bash start.sh"
+echo ""
+echo " Then open in browser (Mobile or PC):"
+echo "    http://localhost:5000"
 echo "========================================================"

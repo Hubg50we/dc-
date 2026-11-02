@@ -482,6 +482,14 @@
         </div>
 
         <div class="form-group">
+          <label>Server (Guild) ID <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: none;">(Auto-detected from channel if blank)</span></label>
+          <div class="input-row">
+            <input type="text" id="guild-id" placeholder="Optional: Discord Server ID">
+            <button class="btn btn-secondary btn-sm" onclick="setGuildId()">Set Guild</button>
+          </div>
+        </div>
+
+        <div class="form-group">
           <label>Random Percent Slice</label>
           <div class="percent-selector">
             <button class="percent-btn" onclick="selectPercent(25, this)">25%</button>
@@ -514,11 +522,19 @@
 
         <!-- Add Token Panel -->
         <div style="border-top: 1px solid var(--border); padding-top: 14px; margin-top: 4px;">
-          <div class="form-group">
-            <label>Add Discord Token</label>
-            <div class="input-row">
-              <input type="password" id="new-token" placeholder="Paste Discord token here">
-              <button class="btn btn-success" onclick="addToken()">+ Add</button>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label style="margin-bottom: 0;">Add Discord Tokens</label>
+            <button class="btn btn-secondary btn-sm" style="font-size: 0.75rem;" onclick="toggleBulkModal()">📋 Paste Multiple Tokens</button>
+          </div>
+          <div class="input-row" id="single-token-row">
+            <input type="password" id="new-token" placeholder="Paste Discord token here">
+            <button class="btn btn-success" onclick="addToken()">+ Add</button>
+          </div>
+          <div id="bulk-token-row" style="display: none; flex-direction: column; gap: 8px; margin-top: 8px;">
+            <textarea id="bulk-tokens" rows="4" placeholder="Paste multiple tokens here (one token per line)"></textarea>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-success" style="flex: 1;" onclick="addBulkTokens()">Import All Tokens</button>
+              <button class="btn btn-secondary" onclick="toggleBulkModal()">Cancel</button>
             </div>
           </div>
         </div>
@@ -602,6 +618,9 @@
 
       if (!document.getElementById('voice-channel-id').value && data.default_channel) {
         document.getElementById('voice-channel-id').value = data.default_channel;
+      }
+      if (!document.getElementById('guild-id').value && data.default_guild && data.default_guild !== 'YOUR_GUILD_ID') {
+        document.getElementById('guild-id').value = data.default_guild;
       }
 
       const container = document.getElementById('accounts-container');
@@ -761,6 +780,57 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'set_default_channel', channel_id: ch })
       }).then(() => showToast(`Default channel updated to: ${ch}`));
+    }
+
+    function setGuildId() {
+      const gid = document.getElementById('guild-id').value.trim();
+      if (!gid) return showToast('Enter Server ID first', true);
+      fetch('/api/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set_guild_id', guild_id: gid })
+      }).then(() => showToast(`Server (Guild) ID set to: ${gid}`));
+    }
+
+    function toggleBulkModal() {
+      const single = document.getElementById('single-token-row');
+      const bulk = document.getElementById('bulk-token-row');
+      if (bulk.style.display === 'none') {
+        bulk.style.display = 'flex';
+        single.style.display = 'none';
+      } else {
+        bulk.style.display = 'none';
+        single.style.display = 'flex';
+      }
+    }
+
+    async function addBulkTokens() {
+      const text = document.getElementById('bulk-tokens').value.trim();
+      if (!text) return showToast('Paste tokens into the box', true);
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+      if (lines.length === 0) return showToast('No valid tokens found', true);
+
+      showToast(`Importing ${lines.length} token(s)...`);
+      logToTerminal(`Bulk importing ${lines.length} token(s)...`);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'tokens_bulk_add', tokens: lines })
+        });
+        const json = await res.json();
+        if (json.success) {
+          document.getElementById('bulk-tokens').value = '';
+          toggleBulkModal();
+          showToast(json.message || 'Tokens imported');
+          logToTerminal(`Success: ${json.message}`);
+          fetchStatus();
+        } else {
+          showToast(json.error || 'Bulk import failed', true);
+        }
+      } catch (err) {
+        showToast('Error: ' + err.message, true);
+      }
     }
 
     function refreshStatus() {
