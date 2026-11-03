@@ -69,7 +69,7 @@ public class DiscordManager {
 
         loadPresetsFromPrefs();
         loadSavedTokens();
-        log("dc- Engine initialized. Device mode: " + deviceMode.toUpperCase());
+        log("dc- Android Engine initialized. Appearance: " + deviceMode.toUpperCase());
     }
 
     public void log(String msg) {
@@ -90,7 +90,6 @@ public class DiscordManager {
                     presets.add(arr.getJSONObject(i));
                 }
             } else {
-                // Add sensible defaults
                 presets.add(new JSONObject().put("name", "Lounge").put("channel_id", defaultChannelId).put("guild_id", guildId));
                 presets.add(new JSONObject().put("name", "Gaming").put("channel_id", "").put("guild_id", guildId));
                 presets.add(new JSONObject().put("name", "Music").put("channel_id", "").put("guild_id", guildId));
@@ -113,7 +112,7 @@ public class DiscordManager {
         String saved = prefs.getString("tokens", "");
         if (!saved.isEmpty()) {
             for (String tok : saved.split("\n")) {
-                String clean = tok.trim();
+                String clean = cleanToken(tok);
                 if (!clean.isEmpty() && !clean.startsWith("#")) {
                     addAccountInternal(clean);
                 }
@@ -131,13 +130,23 @@ public class DiscordManager {
         prefs.edit().putString("tokens", sb.toString()).apply();
     }
 
+    private String cleanToken(String raw) {
+        if (raw == null) return "";
+        String clean = raw.trim().replace("\"", "").replace("'", "");
+        if (clean.startsWith("Bot ")) {
+            clean = clean.substring(4).trim();
+        }
+        return clean;
+    }
+
     private synchronized Account addAccountInternal(String token) {
+        String clean = cleanToken(token);
         for (Account a : accounts.values()) {
-            if (a.token.equals(token)) {
+            if (a.token.equals(clean)) {
                 return a;
             }
         }
-        Account a = new Account(nextAccountId++, token);
+        Account a = new Account(nextAccountId++, clean);
         accounts.put(a.id, a);
         connectAccount(a);
         return a;
@@ -146,6 +155,7 @@ public class DiscordManager {
     public synchronized Account addAccount(String token) {
         Account a = addAccountInternal(token);
         saveTokensToPrefs();
+        log("Added new account #" + a.id);
         return a;
     }
 
@@ -239,50 +249,158 @@ public class DiscordManager {
             String action = payload.optString("action", "");
             int percent = payload.optInt("percent", 100);
 
-            if ("move_default".equals(action)) {
+            // 1. Token Addition (Single & Bulk)
+            if ("token_add".equals(action) || "add_token".equals(action)) {
+                String t = cleanToken(payload.optString("token", ""));
+                if (!t.isEmpty()) {
+                    Account a = addAccount(t);
+                    res.put("success", true);
+                    res.put("status", "ok");
+                    res.put("message", "Account #" + a.id + " added successfully!");
+                    res.put("account_id", a.id);
+                } else {
+                    res.put("success", false);
+                    res.put("status", "error");
+                    res.put("error", "Token cannot be empty");
+                    res.put("message", "Token cannot be empty");
+                }
+            } else if ("tokens_bulk_add".equals(action)) {
+                JSONArray tokensArr = payload.optJSONArray("tokens");
+                int count = 0;
+                if (tokensArr != null) {
+                    for (int i = 0; i < tokensArr.length(); i++) {
+                        String t = cleanToken(tokensArr.getString(i));
+                        if (!t.isEmpty() && !t.startsWith("#")) {
+                            addAccountInternal(t);
+                            count++;
+                        }
+                    }
+                    saveTokensToPrefs();
+                }
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("message", "Imported " + count + " account(s)!");
+            }
+
+            // 2. Token Removal
+            else if ("token_remove".equals(action) || "remove_token".equals(action)) {
+                int targetId = payload.optInt("id", payload.optInt("aid", -1));
+                if (targetId == -1) {
+                    String targetStr = payload.optString("target", payload.optString("id", ""));
+                    if ("all".equalsIgnoreCase(targetStr)) {
+                        for (int id : new ArrayList<>(accounts.keySet())) {
+                            removeAccount(id);
+                        }
+                        res.put("success", true);
+                        res.put("status", "ok");
+                        res.put("message", "Removed all accounts");
+                        return res;
+                    }
+                    try { targetId = Integer.parseInt(targetStr); } catch (Exception ignored) {}
+                }
+                if (targetId != -1) {
+                    removeAccount(targetId);
+                    res.put("success", true);
+                    res.put("status", "ok");
+                    res.put("message", "Removed account #" + targetId);
+                } else {
+                    res.put("success", false);
+                    res.put("status", "error");
+                    res.put("error", "Invalid account ID");
+                }
+            }
+
+            // 3. Batch Actions
+            else if ("batch_action".equals(action)) {
+                JSONArray idsArr = payload.optJSONArray("ids");
+                String sub = payload.optString("sub_action", payload.optString("subaction", ""));
+                String ch = payload.optString("channel_id", this.defaultChannelId);
+                int count = 0;
+                if (idsArr != null) {
+                    for (int i = 0; i < idsArr.length(); i++) {
+                        int aid = idsArr.optInt(i, -1);
+                        Account a = accounts.get(aid);
+                        if (a != null && a.online) {
+                            count++;
+                            if ("move".equals(sub) || "join".equals(sub)) {
+                                a.setVoiceState(this.guildId, ch, false, false);
+                            } else if ("mute".equals(sub)) {
+                                a.setVoiceState(this.guildId, a.voiceChannel, true, a.deaf);
+                            } else if ("unmute".equals(sub)) {
+                                a.setVoiceState(this.guildId, a.voiceChannel, false, a.deaf);
+                            } else if ("deafen".equals(sub)) {
+                                a.setVoiceState(this.guildId, a.voiceChannel, a.mute, true);
+                            } else if ("undeafen".equals(sub)) {
+                                a.setVoiceState(this.guildId, a.voiceChannel, a.mute, false);
+                            } else if ("disconnect".equals(sub)) {
+                                a.leaveVoice(this.guildId);
+                            }
+                        }
+                    }
+                }
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("message", "Batch " + sub + " executed on " + count + " account(s)");
+            }
+
+            // 4. Voice Controls
+            else if ("move_default".equals(action)) {
                 moveAll(this.defaultChannelId, percent);
+                res.put("success", true);
                 res.put("status", "ok");
                 res.put("message", "Moving accounts to default channel");
-            } else if ("move".equals(action)) {
+            } else if ("move".equals(action) || "join".equals(action)) {
                 String ch = payload.optString("channel_id", this.defaultChannelId);
                 moveAll(ch, percent);
+                res.put("success", true);
                 res.put("status", "ok");
                 res.put("message", "Moved accounts to " + ch);
             } else if ("mute".equals(action)) {
                 muteAll(true, percent);
+                res.put("success", true);
                 res.put("status", "ok");
                 res.put("message", "Muted accounts");
             } else if ("unmute".equals(action)) {
                 muteAll(false, percent);
+                res.put("success", true);
                 res.put("status", "ok");
                 res.put("message", "Unmuted accounts");
             } else if ("deafen".equals(action)) {
                 deafenAll(true, percent);
+                res.put("success", true);
                 res.put("status", "ok");
                 res.put("message", "Deafened accounts");
             } else if ("undeafen".equals(action)) {
                 deafenAll(false, percent);
+                res.put("success", true);
                 res.put("status", "ok");
                 res.put("message", "Undeafened accounts");
             } else if ("disconnect".equals(action)) {
                 disconnectAll(percent);
+                res.put("success", true);
                 res.put("status", "ok");
                 res.put("message", "Disconnected accounts");
-            } else if ("set_config".equals(action)) {
+            }
+
+            // 5. Configuration & Server ID Auto-Detect
+            else if ("set_config".equals(action)) {
                 if (payload.has("guild_id")) this.guildId = payload.getString("guild_id").trim();
                 if (payload.has("channel_id")) this.defaultChannelId = payload.getString("channel_id").trim();
                 prefs.edit().putString("guild_id", this.guildId).putString("channel_id", this.defaultChannelId).apply();
                 log("Server ID: " + this.guildId + ", Channel ID: " + this.defaultChannelId);
+                res.put("success", true);
                 res.put("status", "ok");
-                res.put("message", "Configuration saved");
+                res.put("message", "Configuration saved! Server: " + this.guildId + ", Channel: " + this.defaultChannelId);
             } else if ("set_guild_id".equals(action)) {
                 this.guildId = payload.optString("guild_id", this.guildId).trim();
                 prefs.edit().putString("guild_id", this.guildId).apply();
+                res.put("success", true);
                 res.put("status", "ok");
                 res.put("message", "Server ID set to " + this.guildId);
             } else if ("set_default_channel".equals(action)) {
                 this.defaultChannelId = payload.optString("channel_id", this.defaultChannelId).trim();
                 prefs.edit().putString("channel_id", this.defaultChannelId).apply();
+                res.put("success", true);
                 res.put("status", "ok");
                 res.put("message", "Default channel set to " + this.defaultChannelId);
             } else if ("set_device_mode".equals(action) || "set_device_type".equals(action)) {
@@ -292,9 +410,14 @@ public class DiscordManager {
                     if (a.online) a.reconnect(httpClient, this);
                 }
                 log("Switched appearance to " + (deviceMode.equals("mobile") ? "📱 Android Mobile" : "💻 Desktop"));
+                res.put("success", true);
                 res.put("status", "ok");
                 res.put("message", "Device appearance updated to " + this.deviceMode);
-            } else if ("resolve_guild".equals(action)) {
+            } else if ("detect_guild".equals(action) || "resolve_guild".equals(action)) {
+                String ch = payload.optString("channel_id", this.defaultChannelId);
+                if (!ch.isEmpty()) {
+                    this.defaultChannelId = ch;
+                }
                 resolveGuildId(new Callback() {
                     @Override
                     public void onFailure(Call call, IOException e) {
@@ -316,40 +439,15 @@ public class DiscordManager {
                         }
                     }
                 });
+                res.put("success", true);
                 res.put("status", "ok");
-                res.put("message", "Resolving Server ID via Discord API...");
-            } else if ("add_token".equals(action)) {
-                String t = payload.optString("token", "").trim();
-                if (!t.isEmpty()) {
-                    Account a = addAccount(t);
-                    res.put("status", "ok");
-                    res.put("message", "Added token for account #" + a.id);
-                } else {
-                    res.put("status", "error");
-                    res.put("message", "Empty token");
-                }
-            } else if ("remove_token".equals(action)) {
-                String target = payload.optString("target", "");
-                if ("all".equalsIgnoreCase(target)) {
-                    for (int id : new ArrayList<>(accounts.keySet())) {
-                        removeAccount(id);
-                    }
-                    res.put("status", "ok");
-                    res.put("message", "Removed all accounts");
-                } else {
-                    try {
-                        int id = Integer.parseInt(target);
-                        removeAccount(id);
-                        res.put("status", "ok");
-                        res.put("message", "Removed account #" + id);
-                    } catch (Exception e) {
-                        res.put("status", "error");
-                        res.put("message", "Invalid account ID");
-                    }
-                }
-            } else if ("account_action".equals(action)) {
-                int aid = payload.optInt("account_id", -1);
-                String sub = payload.optString("subaction", "");
+                res.put("message", "Auto-detecting Server ID via Discord API...");
+            }
+
+            // 6. Single Account Actions
+            else if ("account_action".equals(action) || action.startsWith("account_")) {
+                int aid = payload.optInt("id", payload.optInt("account_id", -1));
+                String sub = action.startsWith("account_") ? action.substring(8) : payload.optString("subaction", payload.optString("sub_action", ""));
                 Account target = accounts.get(aid);
                 if (target != null) {
                     if ("move_default".equals(sub)) {
@@ -368,17 +466,20 @@ public class DiscordManager {
                     } else if ("disconnect".equals(sub)) {
                         target.leaveVoice(this.guildId);
                     }
+                    res.put("success", true);
                     res.put("status", "ok");
                     res.put("message", "Executed " + sub + " on account #" + aid);
                 } else {
+                    res.put("success", false);
                     res.put("status", "error");
-                    res.put("message", "Account #" + aid + " not found");
+                    res.put("error", "Account #" + aid + " not found");
                 }
             } else if ("restart_all".equals(action)) {
                 for (Account a : accounts.values()) {
                     a.reconnect(httpClient, this);
                 }
                 log("Reconnecting all accounts...");
+                res.put("success", true);
                 res.put("status", "ok");
                 res.put("message", "Reconnecting all accounts...");
             } else if ("save_preset".equals(action)) {
@@ -386,10 +487,10 @@ public class DiscordManager {
                 String ch = payload.optString("channel_id", "").trim();
                 String gid = payload.optString("guild_id", this.guildId).trim();
                 if (!name.isEmpty() && !ch.isEmpty()) {
-                    // Remove if existing with same name
                     presets.removeIf(p -> p.optString("name").equalsIgnoreCase(name));
                     presets.add(new JSONObject().put("name", name).put("channel_id", ch).put("guild_id", gid));
                     savePresetsToPrefs();
+                    res.put("success", true);
                     res.put("status", "ok");
                     res.put("message", "Saved preset: " + name);
                 }
@@ -397,20 +498,25 @@ public class DiscordManager {
                 String name = payload.optString("name", "").trim();
                 presets.removeIf(p -> p.optString("name").equalsIgnoreCase(name));
                 savePresetsToPrefs();
+                res.put("success", true);
                 res.put("status", "ok");
                 res.put("message", "Deleted preset: " + name);
             } else if ("exec_command".equals(action)) {
                 String cmd = payload.optString("command", "").trim();
                 log("Command executed: " + cmd);
+                res.put("success", true);
                 res.put("status", "ok");
-                res.put("message", "Executed command: " + cmd);
+                res.put("message", "Executed: " + cmd);
             } else {
+                res.put("success", true);
                 res.put("status", "ok");
                 res.put("message", "Action processed: " + action);
             }
         } catch (Exception e) {
             try {
+                res.put("success", false);
                 res.put("status", "error");
+                res.put("error", e.getMessage());
                 res.put("message", e.getMessage());
             } catch (Exception ignored) {}
         }
@@ -424,7 +530,7 @@ public class DiscordManager {
             int count = 0;
             if (tokensArr != null) {
                 for (int i = 0; i < tokensArr.length(); i++) {
-                    String t = tokensArr.getString(i).trim();
+                    String t = cleanToken(tokensArr.getString(i));
                     if (!t.isEmpty() && !t.startsWith("#")) {
                         addAccountInternal(t);
                         count++;
@@ -432,11 +538,14 @@ public class DiscordManager {
                 }
                 saveTokensToPrefs();
             }
+            res.put("success", true);
             res.put("status", "ok");
             res.put("message", "Imported " + count + " token(s) successfully");
         } catch (Exception e) {
             try {
+                res.put("success", false);
                 res.put("status", "error");
+                res.put("error", e.getMessage());
                 res.put("message", e.getMessage());
             } catch (Exception ignored) {}
         }
@@ -520,6 +629,7 @@ public class DiscordManager {
                 JSONObject o = new JSONObject();
                 o.put("id", a.id);
                 o.put("name", a.name);
+                o.put("token", a.token); // full token for export
                 String masked = a.token.length() > 14 ? a.token.substring(0, 8) + "..." + a.token.substring(a.token.length() - 4) : "******";
                 o.put("token_masked", masked);
                 o.put("online", a.online);
@@ -606,7 +716,6 @@ public class DiscordManager {
                     online = false;
                     stopHeartbeat();
                     mgr.log("Account #" + id + " disconnected (Code: " + code + ")");
-                    // If not auth failed, attempt reconnect in 5s
                     if (code != 4004) {
                         new Handler(Looper.getMainLooper()).postDelayed(() -> reconnect(client, mgr), 5000);
                     }
