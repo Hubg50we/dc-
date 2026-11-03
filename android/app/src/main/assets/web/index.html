@@ -1600,19 +1600,21 @@
     async function triggerAction(action) {
       vibrate(25);
       const ch = document.getElementById('target-channel-id').value.trim();
+      const gid = document.getElementById('target-guild-id').value.trim();
       logToConsole(`Action '${action}' (${currentPercent}% slice)...`);
       try {
         const res = await fetch('/api/action', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: action, channel_id: ch, percent: currentPercent })
+          body: JSON.stringify({ action: action, channel_id: ch, guild_id: gid, percent: currentPercent })
         });
         const json = await res.json();
         if (json.success) {
           showToast(json.message || `Action ${action} executed`);
           fetchStatus();
+          fetchLogs();
         } else {
-          showToast(json.error || 'Failed', true);
+          showToast(json.error || json.message || 'Failed', true);
         }
       } catch (err) {
         showToast('Error: ' + err.message, true);
@@ -1622,15 +1624,17 @@
     async function sendIndividualAction(aid, action) {
       vibrate(15);
       const ch = document.getElementById('target-channel-id').value.trim();
+      const gid = document.getElementById('target-guild-id').value.trim();
       try {
         const res = await fetch('/api/action', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'account_' + action, id: aid, channel_id: ch })
+          body: JSON.stringify({ action: 'account_' + action, id: aid, channel_id: ch, guild_id: gid })
         });
         const json = await res.json();
         showToast(json.message);
         fetchStatus();
+        fetchLogs();
       } catch (err) {
         showToast('Error: ' + err.message, true);
       }
@@ -1719,9 +1723,10 @@
       try {
         const res = await fetch('/api/tokens');
         const data = await res.json();
-        if (!data.tokens || data.tokens.length === 0) return showToast('No tokens loaded yet', true);
-        await copyTextToClipboard(data.tokens.join('\n'));
-        showToast(`Copied ${data.count} tokens to clipboard!`);
+        const list = (data.raw_tokens || (data.tokens || []).map(t => typeof t === 'string' ? t : (t.token || ''))).filter(Boolean);
+        if (list.length === 0) return showToast('No tokens loaded yet', true);
+        await copyTextToClipboard(list.join('\n'));
+        showToast(`Copied ${list.length} tokens to clipboard!`);
       } catch (err) {
         showToast('Copy failed: ' + err.message, true);
       }
@@ -1732,11 +1737,12 @@
       try {
         const res = await fetch('/api/tokens');
         const data = await res.json();
-        if (!data.tokens || data.tokens.length === 0) return showToast('No tokens to export', true);
-        const text = data.tokens.join('\n');
+        const list = (data.raw_tokens || (data.tokens || []).map(t => typeof t === 'string' ? t : (t.token || ''))).filter(Boolean);
+        if (list.length === 0) return showToast('No tokens to export', true);
+        const text = list.join('\n');
         if (window.AndroidBridge && window.AndroidBridge.shareText) {
           window.AndroidBridge.shareText('tokens.txt backup', text);
-          showToast(`Shared ${data.count} tokens!`);
+          showToast(`Shared ${list.length} tokens!`);
           return;
         }
         const blob = new Blob([text], { type: 'text/plain' });
@@ -1746,7 +1752,7 @@
         a.download = 'tokens.txt';
         a.click();
         URL.revokeObjectURL(url);
-        showToast(`Exported ${data.count} tokens!`);
+        showToast(`Exported ${list.length} tokens!`);
       } catch (err) {
         showToast('Export failed: ' + err.message, true);
       }
@@ -1817,6 +1823,7 @@
         const json = await res.json();
         logToConsole(json.message || "Executed");
         fetchStatus();
+        fetchLogs();
       } catch (e) {
         logToConsole(`Error: ${e.message}`);
       }

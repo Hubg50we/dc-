@@ -135,11 +135,25 @@ public class DiscordManager {
         if (clean.startsWith("Bot ")) {
             clean = clean.substring(4).trim();
         }
+        // Extract token from combo formats (e.g. email:pass:token)
+        if (clean.contains(":") && clean.length() > 28) {
+            String[] parts = clean.split(":");
+            for (int i = parts.length - 1; i >= 0; i--) {
+                String p = parts[i].trim();
+                if (p.length() >= 24 && !p.contains("@") && !p.contains(" ")) {
+                    clean = p;
+                    break;
+                }
+            }
+        }
         return clean;
     }
 
     private synchronized Account addAccountInternal(String token) {
         String clean = cleanToken(token);
+        if (clean.isEmpty() || clean.startsWith("#")) {
+            return null;
+        }
         for (Account a : accounts.values()) {
             if (a.token.equals(clean)) {
                 return a;
@@ -153,14 +167,17 @@ public class DiscordManager {
 
     public synchronized Account addAccount(String token) {
         Account a = addAccountInternal(token);
-        saveTokensToPrefs();
-        log("Added new account #" + a.id);
+        if (a != null) {
+            saveTokensToPrefs();
+            log("Added new account #" + a.id);
+        }
         return a;
     }
 
     public synchronized void removeAccount(int id) {
         Account a = accounts.remove(id);
         if (a != null) {
+            a.removed = true;
             a.disconnect();
             saveTokensToPrefs();
             log("Removed account #" + id);
@@ -172,15 +189,39 @@ public class DiscordManager {
     }
 
     public void moveAll(String channelId, int percent) {
+        if (channelId == null || channelId.trim().isEmpty()) {
+            channelId = this.defaultChannelId;
+        }
+        if (channelId == null || channelId.trim().isEmpty()) {
+            log("Cannot move: Channel ID is empty.");
+            return;
+        }
+        if (this.guildId == null || this.guildId.trim().isEmpty()) {
+            String detected = resolveGuildIdSync(channelId);
+            if (detected != null && !detected.isEmpty()) {
+                this.guildId = detected;
+                prefs.edit().putString("guild_id", this.guildId).apply();
+                log("Auto-detected Server ID: " + this.guildId);
+            } else {
+                log("Cannot move: Server (Guild) ID is not set. Please detect or enter Server ID.");
+                return;
+            }
+        }
         List<Account> online = new ArrayList<>();
         for (Account a : accounts.values()) {
             if (a.online) online.add(a);
         }
+        if (online.isEmpty()) {
+            log("Cannot move: No accounts currently online.");
+            return;
+        }
         int count = Math.max(1, (int) Math.round(online.size() * (percent / 100.0)));
+        int moved = 0;
         for (int i = 0; i < Math.min(count, online.size()); i++) {
             online.get(i).setVoiceState(this.guildId, channelId, false, false);
+            moved++;
         }
-        log("Moved " + Math.min(count, online.size()) + "/" + online.size() + " accounts to " + channelId);
+        log("Moved " + moved + "/" + online.size() + " accounts to " + channelId);
     }
 
     public void muteAll(boolean mute, int percent) {
@@ -222,6 +263,21 @@ public class DiscordManager {
     }
 
     public String resolveGuildIdSync(String channelId) {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            java.util.concurrent.ExecutorService ex = java.util.concurrent.Executors.newSingleThreadExecutor();
+            try {
+                java.util.concurrent.Future<String> f = ex.submit(() -> resolveGuildIdSyncWorker(channelId));
+                return f.get(4, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                return null;
+            } finally {
+                ex.shutdown();
+            }
+        }
+        return resolveGuildIdSyncWorker(channelId);
+    }
+
+    private String resolveGuildIdSyncWorker(String channelId) {
         if (channelId == null || channelId.trim().isEmpty()) {
             return null;
         }
@@ -421,12 +477,30 @@ public class DiscordManager {
 
             // 4. Voice Controls
             else if ("move_default".equals(action)) {
+                String gid = payload.optString("guild_id", "").trim();
+                if (!gid.isEmpty()) {
+                    this.guildId = gid;
+                    prefs.edit().putString("guild_id", this.guildId).apply();
+                }
                 moveAll(this.defaultChannelId, percent);
                 res.put("success", true);
                 res.put("status", "ok");
                 res.put("message", "Moving accounts to default channel");
             } else if ("move".equals(action) || "join".equals(action)) {
-                String ch = payload.optString("channel_id", this.defaultChannelId);
+                String ch = payload.optString("channel_id", "").trim();
+                if (ch.isEmpty()) ch = this.defaultChannelId;
+                String gid = payload.optString("guild_id", "").trim();
+                if (!gid.isEmpty()) {
+                    this.guildId = gid;
+                    prefs.edit().putString("guild_id", this.guildId).apply();
+                }
+                if (ch.isEmpty()) {
+                    res.put("success", false);
+                    res.put("status", "error");
+                    res.put("error", "Channel ID required");
+                    res.put("message", "Please enter Voice Channel ID");
+                    return res;
+                }
                 moveAll(ch, percent);
                 res.put("success", true);
                 res.put("status", "ok");
@@ -554,6 +628,7 @@ public class DiscordManager {
                 }
             } else if ("restart_all".equals(action)) {
                 for (Account a : accounts.values()) {
+                    a.removed = false;
                     a.reconnect(httpClient, this);
                 }
                 log("Reconnecting all accounts...");
@@ -581,6 +656,7 @@ public class DiscordManager {
                 res.put("message", "Deleted preset: " + name);
             } else if ("shutdown".equals(action)) {
                 for (Account a : accounts.values()) {
+                    a.removed = true;
                     a.leaveVoice(this.guildId);
                     a.disconnect();
                 }
@@ -590,10 +666,11 @@ public class DiscordManager {
                 res.put("message", "All accounts safely disconnected.");
             } else if ("exec_command".equals(action)) {
                 String cmd = payload.optString("command", "").trim();
-                log("Command executed: " + cmd);
+                String reply = executeTerminalCommand(cmd);
+                log(reply);
                 res.put("success", true);
                 res.put("status", "ok");
-                res.put("message", "Executed: " + cmd);
+                res.put("message", reply);
             } else {
                 res.put("success", true);
                 res.put("status", "ok");
@@ -608,6 +685,69 @@ public class DiscordManager {
             } catch (Exception ignored) {}
         }
         return res;
+    }
+
+    private String executeTerminalCommand(String rawCmd) {
+        if (rawCmd == null || rawCmd.trim().isEmpty()) return "Type 'help' for available commands.";
+        String[] parts = rawCmd.trim().split("\\s+");
+        String cmd = parts[0].toLowerCase();
+
+        if ("help".equals(cmd) || "?".equals(cmd)) {
+            return "Commands: move <ch> [pct], mute [pct], unmute [pct], deafen [pct], undeafen [pct], disconnect [pct], status, reconnect, clear";
+        } else if ("status".equals(cmd) || "stats".equals(cmd)) {
+            int on = 0, vc = 0;
+            for (Account a : accounts.values()) {
+                if (a.online) on++;
+                if (a.voiceChannel != null) vc++;
+            }
+            return "Status: " + on + "/" + accounts.size() + " Online | " + vc + " In Voice | Server: " + (guildId.isEmpty() ? "None" : guildId);
+        } else if ("move".equals(cmd) || "join".equals(cmd)) {
+            String ch = parts.length > 1 ? parts[1] : defaultChannelId;
+            int pct = 100;
+            if (parts.length > 2) {
+                try { pct = Integer.parseInt(parts[2].replace("%", "")); } catch (Exception ignored) {}
+            }
+            moveAll(ch, pct);
+            return "Moving accounts to " + ch + " (" + pct + "%)";
+        } else if ("mute".equals(cmd)) {
+            int pct = parts.length > 1 ? parsePercent(parts[1]) : 100;
+            muteAll(true, pct);
+            return "Muted accounts (" + pct + "%)";
+        } else if ("unmute".equals(cmd)) {
+            int pct = parts.length > 1 ? parsePercent(parts[1]) : 100;
+            muteAll(false, pct);
+            return "Unmuted accounts (" + pct + "%)";
+        } else if ("deafen".equals(cmd)) {
+            int pct = parts.length > 1 ? parsePercent(parts[1]) : 100;
+            deafenAll(true, pct);
+            return "Deafened accounts (" + pct + "%)";
+        } else if ("undeafen".equals(cmd)) {
+            int pct = parts.length > 1 ? parsePercent(parts[1]) : 100;
+            deafenAll(false, pct);
+            return "Undeafened accounts (" + pct + "%)";
+        } else if ("disconnect".equals(cmd) || "leave".equals(cmd)) {
+            int pct = parts.length > 1 ? parsePercent(parts[1]) : 100;
+            disconnectAll(pct);
+            return "Disconnected accounts (" + pct + "%)";
+        } else if ("reconnect".equals(cmd) || "restart".equals(cmd)) {
+            for (Account a : accounts.values()) {
+                if (!a.removed) a.reconnect(httpClient, this);
+            }
+            return "Reconnecting all accounts...";
+        } else if ("clear".equals(cmd)) {
+            logs.clear();
+            return "Logs cleared.";
+        }
+        return "Unknown command: '" + cmd + "'. Type 'help' for options.";
+    }
+
+    private int parsePercent(String s) {
+        try {
+            int val = Integer.parseInt(s.replace("%", "").trim());
+            return Math.max(1, Math.min(100, val));
+        } catch (Exception e) {
+            return 100;
+        }
     }
 
     public JSONObject handleTokensPost(JSONObject payload) {
@@ -666,7 +806,7 @@ public class DiscordManager {
             json.put("total_accounts", accounts.size());
             json.put("online_accounts", onlineCount);
             json.put("voice_accounts", voiceCount);
-            json.put("version", "1.0.6");
+            json.put("version", "1.0.7");
             json.put("uptime", (System.currentTimeMillis() - startTime) / 1000);
             json.put("default_guild", guildId);
             json.put("default_channel", defaultChannelId);
@@ -713,6 +853,7 @@ public class DiscordManager {
         JSONObject json = new JSONObject();
         try {
             JSONArray arr = new JSONArray();
+            JSONArray rawArr = new JSONArray();
             for (Account a : accounts.values()) {
                 JSONObject o = new JSONObject();
                 o.put("id", a.id);
@@ -722,8 +863,11 @@ public class DiscordManager {
                 o.put("token_masked", masked);
                 o.put("online", a.online);
                 arr.put(o);
+                rawArr.put(a.token);
             }
             json.put("tokens", arr);
+            json.put("raw_tokens", rawArr);
+            json.put("count", arr.length());
         } catch (Exception ignored) {}
         return json;
     }
@@ -742,6 +886,7 @@ public class DiscordManager {
         private Handler heartHandler;
         private Runnable heartRunnable;
         private int lastSequence = -1;
+        public volatile boolean removed = false;
 
         public Account(int id, String token) {
             this.id = id;
@@ -749,6 +894,7 @@ public class DiscordManager {
         }
 
         public void reconnect(OkHttpClient client, DiscordManager mgr) {
+            if (removed) return;
             disconnect();
             connect(client, mgr);
         }
@@ -818,8 +964,10 @@ public class DiscordManager {
                     online = false;
                     stopHeartbeat();
                     mgr.log("Account #" + id + " disconnected (Code: " + code + ")");
-                    if (code != 4004) {
-                        new Handler(Looper.getMainLooper()).postDelayed(() -> reconnect(client, mgr), 5000);
+                    if (!removed && code != 4004) {
+                        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                            if (!removed) reconnect(client, mgr);
+                        }, 5000);
                     }
                 }
 
@@ -827,8 +975,12 @@ public class DiscordManager {
                 public void onFailure(WebSocket webSocket, Throwable t, Response response) {
                     online = false;
                     stopHeartbeat();
-                    mgr.log("Account #" + id + " connection failed: " + t.getMessage());
-                    new Handler(Looper.getMainLooper()).postDelayed(() -> reconnect(client, mgr), 7000);
+                    mgr.log("Account #" + id + " connection failed: " + (t != null ? t.getMessage() : "Unknown"));
+                    if (!removed) {
+                        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                            if (!removed) reconnect(client, mgr);
+                        }, 7000);
+                    }
                 }
             });
         }
