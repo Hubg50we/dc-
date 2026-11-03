@@ -42,6 +42,15 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
 
+      - name: Extract Version from Gradle
+        id: get_version
+        run: |
+          VER_NAME=$(grep -o 'versionName *"[^"]*"' android/app/build.gradle | cut -d'"' -f2)
+          VER_CODE=$(grep -o 'versionCode *[0-9]*' android/app/build.gradle | awk '{print $2}')
+          echo "VERSION_NAME=$VER_NAME" >> $GITHUB_ENV
+          echo "VERSION_CODE=$VER_CODE" >> $GITHUB_ENV
+          echo "Extracted Version: $VER_NAME (code: $VER_CODE)"
+
       - name: Find and Prepare APK
         id: find_apk
         run: |
@@ -50,6 +59,7 @@ jobs:
           if [ -n "$APK_FILE" ]; then
             echo "Found APK: $APK_FILE"
             cp "$APK_FILE" release_bin/dc-android.apk
+            cp "$APK_FILE" "release_bin/dc-android-v${VERSION_NAME}.apk"
           else
             echo "Error: No APK file generated!"
             exit 1
@@ -58,8 +68,8 @@ jobs:
       - name: Upload APK as Workflow Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dc-android-apk
-          path: release_bin/dc-android.apk
+          name: dc-android-v${{ env.VERSION_NAME }}
+          path: release_bin/*.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -67,17 +77,21 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v1.0.0
-          name: "dc- Android APK Release v1.0.0"
+          tag_name: "v${{ env.VERSION_NAME }}"
+          name: "dc- Android APK Release v${{ env.VERSION_NAME }} (Build ${{ env.VERSION_CODE }})"
+          make_latest: true
           body: |
-            ### 📱 dc- Android Standalone APK
+            ### 📱 dc- Android Standalone APK v${{ env.VERSION_NAME }}
             
-            Download `dc-android.apk` below and install it directly on your Android phone!
+            Download `dc-android.apk` (or `dc-android-v${{ env.VERSION_NAME }}.apk`) below and install it directly on your Android phone!
             
+            - **Version**: `v${{ env.VERSION_NAME }}` (Build `${{ env.VERSION_CODE }}`)
             - **Package**: `com.hubg50we.dc`
             - **Platform**: Android 7.0+ (Universal ARM & x86)
             - **Features**: Standalone Discord Voice Controller, Background Wake-Lock, Embedded AMOLED Touch Dashboard.
-          files: release_bin/dc-android.apk
+          files: |
+            release_bin/dc-android.apk
+            release_bin/dc-android-v${{ env.VERSION_NAME }}.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true

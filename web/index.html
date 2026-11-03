@@ -526,6 +526,7 @@
     <div class="brand">
       <span>dc-</span>
       <span class="brand-badge">PRO</span>
+      <span class="brand-badge" style="background:rgba(255,255,255,0.08); color:var(--text-muted); border:1px solid var(--border);" id="app-version-badge">v1.0.3</span>
     </div>
     <div class="header-actions">
       <div id="live-indicator-pill" style="display:flex; align-items:center; gap:6px; font-size:0.75rem; background:var(--bg-card); border:1px solid var(--border); padding:4px 10px; border-radius:16px;">
@@ -1019,6 +1020,10 @@
     }
 
     function renderStatus(data) {
+      if (data.version) {
+        const verEl = document.getElementById('app-version-badge');
+        if (verEl) verEl.innerText = `v${data.version}`;
+      }
       document.getElementById('status-bulb').style.backgroundColor = 'var(--success)';
       document.getElementById('gateway-status-txt').innerText = (data.device_type === 'desktop' ? '💻 Desktop' : '📱 Mobile') + ' Gateway';
       document.getElementById('stat-total').innerText = data.total_accounts || 0;
