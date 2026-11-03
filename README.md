@@ -39,6 +39,25 @@ dc
 
 ---
 
+## 🎨 Transform Termux into the Dedicated dc- App
+
+Run this command inside Termux to completely customize Termux as your dedicated Discord App:
+```bash
+dc app
+```
+*(Or `bash setup_app.sh`)*
+
+### ✨ What It Customizes in Termux:
+- **🎨 Discord AMOLED Dark Theme**: Custom `#111214` dark palette, Discord Blurple accents, and live colored indicators.
+- **📱 Custom Touch Bar on Virtual Keyboard**: Adds 9 dedicated touch buttons right above your Android keyboard:
+  - Row 1: `[🔊 Join] [🔇 Mute] [🔊 Unmute] [✕ Leave]`
+  - Row 2: `[🤖 Bots] [🔑 Tokens] [⚙️ Config] [⚡ Power] [📜 Logs]`
+- **🚀 Auto-Boot on App Open**: Tapping the Termux app icon on your phone immediately opens straight into `dc-` without typing any commands!
+- **🔋 Background Wake-Lock**: Keeps all Discord accounts online 24/7 even when your screen is locked.
+- **🔕 Clean Screen**: Silences Linux welcome banners (`.hushlogin`) for a clean, distraction-free app look.
+
+---
+
 ## 📱 100% Termux Interactive Command Center (No Browser Needed)
 
 Everything is managed **100% inside Termux** without ever opening a browser or switching apps:

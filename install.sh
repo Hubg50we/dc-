@@ -41,7 +41,12 @@ pip install -r requirements.txt --break-system-packages 2>/dev/null || \
 pip install -r requirements.txt
 
 # Ensure executable permissions on shell scripts
-chmod +x start.sh install.sh termux.sh 2>/dev/null || true
+chmod +x start.sh install.sh termux.sh setup_app.sh 2>/dev/null || true
+
+# Run setup_app.sh to customize Termux styling & touch bar
+if [ -f "setup_app.sh" ]; then
+    bash setup_app.sh
+fi
 
 # Create .env if not present
 if [ ! -f ".env" ]; then

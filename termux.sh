@@ -295,6 +295,9 @@ except Exception: pass
         sed -i "s/^DISCORD_DEVICE=.*/DISCORD_DEVICE=desktop/" .env 2>/dev/null || echo "DISCORD_DEVICE=desktop" >> .env
         echo -e "${C_GREEN}[✓] Discord identity set to 💻 Desktop Browser${C_RESET}"
         ;;
+    app|customize|setup-app)
+        bash setup_app.sh
+        ;;
     app-mode|autostart|autolaunch)
         BASHRC="$HOME/.bashrc"
         if grep -q "cd ~/dc- 2>/dev/null || cd \"\$HOME/dc-\" && dc" "$BASHRC" 2>/dev/null; then
