@@ -740,6 +740,31 @@ def view_live_logs():
         pause()
 
 
+def toggle_app_mode():
+    bashrc = os.path.expanduser("~/.bashrc")
+    line_to_add = "cd ~/dc- 2>/dev/null || cd \"$HOME/dc-\" && dc\n"
+    enabled = False
+    lines = []
+    if os.path.exists(bashrc):
+        with open(bashrc, "r", encoding="utf-8") as f:
+            for line in f:
+                if "&& dc" in line or "termux.sh" in line:
+                    enabled = True
+                else:
+                    lines.append(line)
+    
+    if enabled:
+        with open(bashrc, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+        print(f"\n{YELLOW}[✓] App Mode Disabled. Termux will now open normal shell prompt.{RESET}")
+    else:
+        with open(bashrc, "a", encoding="utf-8") as f:
+            f.write(line_to_add)
+        print(f"\n{GREEN}[✓] App Mode Enabled!{RESET}")
+        print(f"{CYAN}Now whenever you open the Termux app on your phone, dc- will launch immediately as an App!{RESET}")
+    pause()
+
+
 # ---------------------------------------------------------------------------
 # Main Interactive TUI Loop
 # ---------------------------------------------------------------------------
@@ -763,6 +788,7 @@ def main_menu():
         print(f"   {CYAN}c){RESET} ⚙️  Edit Channel & Server ID (Auto-Detect)")
         print(f"   {CYAN}p){RESET} 📑 Voice Channel Presets")
         print(f"   {CYAN}d){RESET} 📱 Device Appearance (📱 Mobile vs 💻 Desktop)")
+        print(f"   {CYAN}a){RESET} 📲 App Mode: Auto-launch dc- when opening Termux")
         print(f"")
         print(f" {BOLD}[System & Power]{RESET}")
         if running:
@@ -818,6 +844,8 @@ def main_menu():
             menu_presets()
         elif choice == "d":
             menu_device_mode()
+        elif choice == "a":
+            toggle_app_mode()
         elif choice == "s":
             if running:
                 stop_engine()

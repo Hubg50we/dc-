@@ -295,6 +295,17 @@ except Exception: pass
         sed -i "s/^DISCORD_DEVICE=.*/DISCORD_DEVICE=desktop/" .env 2>/dev/null || echo "DISCORD_DEVICE=desktop" >> .env
         echo -e "${C_GREEN}[✓] Discord identity set to 💻 Desktop Browser${C_RESET}"
         ;;
+    app-mode|autostart|autolaunch)
+        BASHRC="$HOME/.bashrc"
+        if grep -q "cd ~/dc- 2>/dev/null || cd \"\$HOME/dc-\" && dc" "$BASHRC" 2>/dev/null; then
+            sed -i '/cd ~\/dc- 2>\/dev\/null || cd "\$HOME\/dc-" && dc/d' "$BASHRC"
+            echo -e "${C_YELLOW}[✓] App Mode Disabled. Termux will now open standard bash shell.${C_RESET}"
+        else
+            echo 'cd ~/dc- 2>/dev/null || cd "$HOME/dc-" && dc' >> "$BASHRC"
+            echo -e "${C_GREEN}[✓] App Mode Enabled!${C_RESET}"
+            echo -e "    Whenever you open Termux on your phone, dc- will launch immediately as an App!"
+        fi
+        ;;
     web|browser)
         # ONLY opens browser when user explicitly requests it
         open_browser_manual
