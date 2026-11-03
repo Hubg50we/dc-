@@ -1,7 +1,9 @@
 package com.hubg50we.dc;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -49,6 +51,13 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Request runtime notification permission on Android 13+ (API 33+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 101);
+            }
+        }
 
         // Start background service to ensure accounts remain active 24/7
         Intent serviceIntent = new Intent(this, DiscordService.class);
@@ -162,7 +171,7 @@ public class MainActivity extends AppCompatActivity {
                 return discordManager.handleAction(payload).toString();
             } catch (Exception e) {
                 Log.e(TAG, "Bridge postAction error", e);
-                return "{\"status\":\"error\",\"message\":\"" + e.getMessage() + "\"}";
+                return "{\"success\":false,\"status\":\"error\",\"message\":\"" + e.getMessage() + "\"}";
             }
         }
     }

@@ -234,13 +234,33 @@ public class DiscordManager {
             return;
         }
 
+        final String tok = token;
         Request req = new Request.Builder()
                 .url("https://discord.com/api/v9/channels/" + defaultChannelId)
-                .header("Authorization", token)
+                .header("Authorization", tok)
                 .header("User-Agent", "Mozilla/5.0")
                 .build();
 
-        httpClient.newCall(req).enqueue(callback);
+        httpClient.newCall(req).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                callback.onFailure(call, e);
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                if (response.code() == 401 && !tok.startsWith("Bot ")) {
+                    Request retryReq = new Request.Builder()
+                            .url("https://discord.com/api/v9/channels/" + defaultChannelId)
+                            .header("Authorization", "Bot " + tok)
+                            .header("User-Agent", "Mozilla/5.0")
+                            .build();
+                    httpClient.newCall(retryReq).enqueue(callback);
+                } else {
+                    callback.onResponse(call, response);
+                }
+            }
+        });
     }
 
     public JSONObject handleAction(JSONObject payload) {
@@ -315,6 +335,7 @@ public class DiscordManager {
                 JSONArray idsArr = payload.optJSONArray("ids");
                 String sub = payload.optString("sub_action", payload.optString("subaction", ""));
                 String ch = payload.optString("channel_id", this.defaultChannelId);
+                if (ch == null || ch.isEmpty()) ch = this.defaultChannelId;
                 int count = 0;
                 if (idsArr != null) {
                     for (int i = 0; i < idsArr.length(); i++) {
@@ -334,6 +355,8 @@ public class DiscordManager {
                                 a.setVoiceState(this.guildId, a.voiceChannel, a.mute, false);
                             } else if ("disconnect".equals(sub)) {
                                 a.leaveVoice(this.guildId);
+                            } else if ("reconnect".equals(sub)) {
+                                a.reconnect(httpClient, this);
                             }
                         }
                     }
@@ -452,8 +475,9 @@ public class DiscordManager {
                 if (target != null) {
                     if ("move_default".equals(sub)) {
                         target.setVoiceState(this.guildId, this.defaultChannelId, false, false);
-                    } else if ("move".equals(sub)) {
+                    } else if ("move".equals(sub) || "join".equals(sub)) {
                         String ch = payload.optString("channel_id", this.defaultChannelId);
+                        if (ch == null || ch.isEmpty()) ch = this.defaultChannelId;
                         target.setVoiceState(this.guildId, ch, false, false);
                     } else if ("mute".equals(sub)) {
                         target.setVoiceState(this.guildId, target.voiceChannel, true, target.deaf);
@@ -465,6 +489,8 @@ public class DiscordManager {
                         target.setVoiceState(this.guildId, target.voiceChannel, target.mute, false);
                     } else if ("disconnect".equals(sub)) {
                         target.leaveVoice(this.guildId);
+                    } else if ("reconnect".equals(sub)) {
+                        target.reconnect(httpClient, this);
                     }
                     res.put("success", true);
                     res.put("status", "ok");
@@ -501,6 +527,15 @@ public class DiscordManager {
                 res.put("success", true);
                 res.put("status", "ok");
                 res.put("message", "Deleted preset: " + name);
+            } else if ("shutdown".equals(action)) {
+                for (Account a : accounts.values()) {
+                    a.leaveVoice(this.guildId);
+                    a.disconnect();
+                }
+                log("Cleanly shut down all Discord connections.");
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("message", "All accounts safely disconnected.");
             } else if ("exec_command".equals(action)) {
                 String cmd = payload.optString("command", "").trim();
                 log("Command executed: " + cmd);
@@ -785,6 +820,10 @@ public class DiscordManager {
         }
 
         public void setVoiceState(String guildId, String channelId, boolean mute, boolean deaf) {
+            if (channelId == null || channelId.isEmpty() || "null".equals(channelId)) {
+                leaveVoice(guildId);
+                return;
+            }
             if (ws != null && guildId != null && !guildId.isEmpty()) {
                 try {
                     JSONObject op4 = new JSONObject();
