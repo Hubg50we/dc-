@@ -832,18 +832,36 @@
 
         <input type="text" id="acc-search" placeholder="🔍 Search bots by username or ID..." oninput="filterAccounts(this.value)">
 
-        <!-- Quick Multi-Bot Selection Slices -->
-        <div class="preset-chips" style="margin-top:8px; margin-bottom:8px;">
+        <!-- Quick Multi-Bot Selection Slices (Works with ANY number of bots: 2, 3, 8, 20, 50+) -->
+        <div class="preset-chips" style="margin-top:8px; margin-bottom:6px;">
           <div class="chip" onclick="selectBotSlice('all')" title="Select all available bots">✓ All</div>
-          <div class="chip" onclick="selectBotSlice('first_half')" title="Select 1st half of bots (e.g. 4 of 8)">1st Half (50%)</div>
-          <div class="chip" onclick="selectBotSlice('second_half')" title="Select 2nd half of bots (e.g. remaining 4)">2nd Half (50%)</div>
+          <div class="chip" onclick="selectBotSlice(1)" title="Select 1 bot">1 Bot</div>
+          <div class="chip" onclick="selectBotSlice(2)" title="Select 2 bots">2 Bots</div>
+          <div class="chip" onclick="selectBotSlice(3)" title="Select 3 bots">3 Bots</div>
+          <div class="chip" onclick="selectBotSlice(4)" title="Select 4 bots">4 Bots</div>
+          <div class="chip" onclick="selectBotSlice(5)" title="Select 5 bots">5 Bots</div>
+          <div class="chip" onclick="selectBotSlice('first_half')" title="Select 1st 50% of bots">1st Half (50%)</div>
+          <div class="chip" onclick="selectBotSlice('second_half')" title="Select 2nd 50% of bots">2nd Half (50%)</div>
           <div class="chip" onclick="clearSelectedBots()" title="Clear bot selection">✕ Clear</div>
+        </div>
+
+        <!-- Custom Numeric Stepper for ANY count (e.g. 2, 3, 7, 15, 50 bots) -->
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:8px; background:var(--bg-dark); padding:8px 10px; border-radius:var(--radius-sm); border:1px solid var(--border);">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Pick:</span>
+            <button class="btn btn-secondary btn-sm" style="min-height:28px; width:28px; padding:0; font-weight:700;" onclick="adjustPickCount(-1)">-</button>
+            <input type="number" id="pick-count-input" value="2" min="1" max="500" style="width:45px; text-align:center; padding:3px; font-weight:700; height:28px; background:var(--bg-input); border:1px solid var(--border); color:var(--text-main); border-radius:4px;">
+            <button class="btn btn-secondary btn-sm" style="min-height:28px; width:28px; padding:0; font-weight:700;" onclick="adjustPickCount(1)">+</button>
+            <button class="btn btn-primary btn-sm" style="min-height:28px; padding:2px 8px; font-size:0.75rem;" onclick="pickFirstN()">✓ First N</button>
+            <button class="btn btn-secondary btn-sm" style="min-height:28px; padding:2px 8px; font-size:0.75rem;" onclick="pickNextN()">➜ Next N</button>
+          </div>
+          <button class="btn btn-secondary btn-sm" style="min-height:28px; padding:2px 8px; font-size:0.75rem;" onclick="invertBotSelection()" title="Select opposite unselected bots">⇄ Invert</button>
         </div>
 
         <!-- Targeted Bot Router Panel (Appears when bots are selected) -->
         <div class="card" id="batch-router-card" style="display:none; background:rgba(88, 101, 242, 0.08); border:1px solid rgba(88, 101, 242, 0.4); border-radius:var(--radius-sm); padding:12px; margin-bottom:10px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <span style="color:var(--accent); font-weight:700; font-size:0.9rem;">🎯 Route Selected Bots (<span id="batch-selected-count">0</span>)</span>
+            <span style="color:var(--accent); font-weight:700; font-size:0.9rem;">🎯 Route Selected Bots (<span id="batch-selected-count">0</span> / <span id="batch-total-count">0</span>)</span>
             <button class="btn btn-secondary btn-sm" style="min-height:26px; padding:2px 8px; font-size:0.75rem;" onclick="clearSelectedBots()">Clear</button>
           </div>
 
@@ -1500,10 +1518,11 @@
       }
 
       let html = '';
-      list.forEach(acc => {
+      list.forEach((acc, index) => {
         const isSelected = selectedAccountIds.has(acc.id);
         const inVoice = !!acc.voice_channel;
         const initial = (acc.name || 'U').charAt(0).toUpperCase();
+        const botOrder = index + 1;
 
         html += `
           <div class="acc-card ${isSelected ? 'selected' : ''}" onclick="openBotModal(${acc.id})">
@@ -1513,8 +1532,8 @@
                 <div class="online-indicator ${acc.online ? 'live' : ''}"></div>
               </div>
               <div class="acc-meta">
-                <div class="acc-name">${escapeHtml(acc.name || 'Unknown')}</div>
-                <div class="acc-sub">ID: ${acc.id} &bull; ${acc.token_masked || 'Token loaded'}</div>
+                <div class="acc-name"><span style="color:var(--accent); font-weight:700; margin-right:4px;">#${botOrder}</span> ${escapeHtml(acc.name || 'Unknown')}</div>
+                <div class="acc-sub">Bot #${botOrder} &bull; ID: ${acc.id} &bull; ${acc.token_masked || 'Token loaded'}</div>
               </div>
               <input type="checkbox" ${isSelected ? 'checked' : ''} style="width:20px; height:20px; accent-color:var(--accent);" onclick="event.stopPropagation(); toggleAccountSelect(${acc.id})">
             </div>
@@ -1642,18 +1661,76 @@
       renderAccountsList(accountsData);
     }
 
+    let lastPickedIndex = 0;
+
+    function adjustPickCount(delta) {
+      vibrate(10);
+      const input = document.getElementById('pick-count-input');
+      if (!input) return;
+      let val = parseInt(input.value, 10) || 1;
+      val = Math.max(1, Math.min(accountsData.length || 500, val + delta));
+      input.value = val;
+    }
+
+    function pickFirstN() {
+      vibrate(15);
+      const input = document.getElementById('pick-count-input');
+      const count = input ? (parseInt(input.value, 10) || 1) : 1;
+      selectBotSlice(count);
+      lastPickedIndex = count;
+    }
+
+    function pickNextN() {
+      vibrate(15);
+      const input = document.getElementById('pick-count-input');
+      const count = input ? (parseInt(input.value, 10) || 1) : 1;
+      if (!accountsData || accountsData.length === 0) return;
+      selectedAccountIds.clear();
+      const start = lastPickedIndex % accountsData.length;
+      for (let i = 0; i < count; i++) {
+        const idx = (start + i) % accountsData.length;
+        selectedAccountIds.add(accountsData[idx].id);
+      }
+      lastPickedIndex = (start + count) % accountsData.length;
+      updateBatchBar();
+      renderAccountsList(accountsData);
+      showToast(`Selected next ${selectedAccountIds.size} bot(s)`);
+    }
+
+    function invertBotSelection() {
+      vibrate(15);
+      if (!accountsData || accountsData.length === 0) return;
+      const newSet = new Set();
+      accountsData.forEach(a => {
+        if (!selectedAccountIds.has(a.id)) {
+          newSet.add(a.id);
+        }
+      });
+      selectedAccountIds = newSet;
+      updateBatchBar();
+      renderAccountsList(accountsData);
+      showToast(`Inverted: ${selectedAccountIds.size} bot(s) selected`);
+    }
+
     function selectBotSlice(slice) {
       vibrate(15);
       selectedAccountIds.clear();
       const pool = accountsData;
-      if (slice === 'all') {
+      if (typeof slice === 'number') {
+        const count = Math.min(slice, pool.length);
+        pool.slice(0, count).forEach(a => selectedAccountIds.add(a.id));
+        lastPickedIndex = count;
+      } else if (slice === 'all') {
         pool.forEach(a => selectedAccountIds.add(a.id));
+        lastPickedIndex = pool.length;
       } else if (slice === 'first_half') {
         const half = Math.ceil(pool.length / 2);
         pool.slice(0, half).forEach(a => selectedAccountIds.add(a.id));
+        lastPickedIndex = half;
       } else if (slice === 'second_half') {
         const half = Math.ceil(pool.length / 2);
         pool.slice(half).forEach(a => selectedAccountIds.add(a.id));
+        lastPickedIndex = pool.length;
       }
       updateBatchBar();
       renderAccountsList(accountsData);
@@ -1670,9 +1747,11 @@
     function updateBatchBar() {
       const card = document.getElementById('batch-router-card');
       const count = document.getElementById('batch-selected-count');
+      const total = document.getElementById('batch-total-count');
+      if (total) total.innerText = accountsData.length;
       if (selectedAccountIds.size > 0) {
         if (card) card.style.display = 'block';
-        if (count) count.innerText = `${selectedAccountIds.size} bot(s)`;
+        if (count) count.innerText = `${selectedAccountIds.size}`;
         const bCh = document.getElementById('batch-route-ch');
         const bGid = document.getElementById('batch-route-gid');
         const gCh = document.getElementById('target-channel-id');

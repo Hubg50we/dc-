@@ -832,7 +832,7 @@ public class DiscordManager {
             json.put("total_accounts", accounts.size());
             json.put("online_accounts", onlineCount);
             json.put("voice_accounts", voiceCount);
-            json.put("version", "1.0.8");
+            json.put("version", "1.0.9");
             json.put("uptime", (System.currentTimeMillis() - startTime) / 1000);
             json.put("default_guild", guildId);
             json.put("default_channel", defaultChannelId);
