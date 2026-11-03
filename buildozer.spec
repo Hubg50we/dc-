@@ -39,6 +39,9 @@ orientation = portrait
 # (bool) Indicate if the application should be fullscreen to not
 fullscreen = 0
 
+# (bool) Automatically accept Android SDK licenses
+android.accept_sdk_license = True
+
 # (list) Permissions
 android.permissions = INTERNET,ACCESS_NETWORK_STATE,WAKE_LOCK,FOREGROUND_SERVICE
 
