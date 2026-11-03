@@ -6,6 +6,23 @@ Optimized for **Termux on Android** and Linux servers.
 
 ---
 
+## 📲 Standalone Android APK (No Termux Required)
+
+If you prefer an installable Android app instead of using terminal commands, you can download the **`.apk` installer directly**:
+
+### 📥 How to Get the APK:
+1. Navigate to the **[Releases](https://github.com/Hubg50we/dc-/releases)** page of this repository.
+2. Download **`dc-android.apk`**.
+3. Open the file on your phone and tap **Install**!
+
+### ⚙️ Automated Cloud APK Builder:
+This repository includes a dedicated **GitHub Actions** CI/CD pipeline (`.github/workflows/build-apk.yml`) that automatically builds the Android APK in the cloud:
+- **Automatic Builds**: Rebuilds the APK whenever updates are committed to `main`.
+- **Download Latest Artifact**: Go to the **Actions** tab on GitHub, click the latest workflow run, and download `dc-android-apk.zip` anytime!
+- **Run Manually**: You can also trigger a fresh build anytime by clicking **Actions > Package Android APK > Run workflow**.
+
+---
+
 ## ⚡ Quick Setup for Termux (Android)
 
 Open **Termux** and run this single command line to install all packages and set up the repository:

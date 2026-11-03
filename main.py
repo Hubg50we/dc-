@@ -823,20 +823,26 @@ async def shutdown():
 
 async def command_loop():
     loop = asyncio.get_running_loop()
+    if sys.stdin is None or not hasattr(sys.stdin, "readline"):
+        while RUNNING:
+            await asyncio.sleep(5)
+        return
+
     while RUNNING:
         try:
             raw = await loop.run_in_executor(None, sys.stdin.readline)
             if not raw:
-                # EOF reached (e.g. process backgrounded)
-                await asyncio.sleep(1)
+                # EOF reached (e.g. process backgrounded or Android APK)
+                await asyncio.sleep(2)
                 continue
             await handle_command(raw.strip())
         except (EOFError, KeyboardInterrupt):
-            return
+            await asyncio.sleep(2)
+            continue
         except Exception as e:
             if RUNNING:
                 print(f"Console error: {e}")
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(1)
 
 
 async def command_file_loop():
