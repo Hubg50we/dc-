@@ -733,6 +733,18 @@
         <div id="presets-manage-list" style="display:flex; flex-direction:column; gap:6px; margin-top:6px;"></div>
       </div>
 
+      <div class="card" id="card-battery-opt" style="display:none; border-color: rgba(88, 101, 242, 0.4);">
+        <div class="card-title" style="color:var(--accent);">
+          <span>⚡ 24/7 Background Run Protection</span>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted);">
+          Prevent Android from killing Discord voice accounts when your screen turns off or the app is minimized.
+        </p>
+        <button class="btn btn-primary" style="width:100%;" onclick="requestBatteryOptimization()">
+          🔋 Exempt from Battery Optimization
+        </button>
+      </div>
+
       <div class="card" style="border-color: rgba(242, 63, 67, 0.4);">
         <div class="card-title" style="color:var(--danger);">
           <span>🛑 Bot Engine Power Controls</span>
@@ -869,8 +881,61 @@
     let isAmoled = false;
 
     function vibrate(ms = 15) {
+      if (window.AndroidBridge && window.AndroidBridge.vibrate) {
+        try { window.AndroidBridge.vibrate(ms); return; } catch (e) {}
+      }
       if (navigator.vibrate) {
         try { navigator.vibrate(ms); } catch (e) {}
+      }
+    }
+
+    function copyTextToClipboard(text) {
+      if (window.AndroidBridge && window.AndroidBridge.copyToClipboard) {
+        window.AndroidBridge.copyToClipboard(text);
+        return Promise.resolve();
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+      }
+      return fallbackCopy(text);
+    }
+
+    function fallbackCopy(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try {
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        return Promise.resolve();
+      } catch (err) {
+        document.body.removeChild(ta);
+        return Promise.reject(err);
+      }
+    }
+
+    function copyConsoleLogs() {
+      const text = document.getElementById('live-console-box').innerText;
+      copyTextToClipboard(text).then(() => showToast('Logs copied to clipboard'));
+    }
+
+    function checkAndroidFeatures() {
+      if (window.AndroidBridge) {
+        const card = document.getElementById('card-battery-opt');
+        if (card) card.style.display = 'block';
+      }
+    }
+
+    function requestBatteryOptimization() {
+      vibrate(20);
+      if (window.AndroidBridge && window.AndroidBridge.requestBatteryOptimizationExemption) {
+        window.AndroidBridge.requestBatteryOptimizationExemption();
+      } else {
+        showToast('Only available inside the Android APK', true);
       }
     }
 
@@ -1429,7 +1494,7 @@
         const res = await fetch('/api/tokens');
         const data = await res.json();
         if (!data.tokens || data.tokens.length === 0) return showToast('No tokens loaded yet', true);
-        await navigator.clipboard.writeText(data.tokens.join('\n'));
+        await copyTextToClipboard(data.tokens.join('\n'));
         showToast(`Copied ${data.count} tokens to clipboard!`);
       } catch (err) {
         showToast('Copy failed: ' + err.message, true);
@@ -1442,7 +1507,13 @@
         const res = await fetch('/api/tokens');
         const data = await res.json();
         if (!data.tokens || data.tokens.length === 0) return showToast('No tokens to export', true);
-        const blob = new Blob([data.tokens.join('\n')], { type: 'text/plain' });
+        const text = data.tokens.join('\n');
+        if (window.AndroidBridge && window.AndroidBridge.shareText) {
+          window.AndroidBridge.shareText('tokens.txt backup', text);
+          showToast(`Shared ${data.count} tokens!`);
+          return;
+        }
+        const blob = new Blob([text], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -1549,6 +1620,7 @@
     }
 
     fetchStatus();
+    checkAndroidFeatures();
     setInterval(fetchStatus, 2000);
   </script>
 </body>
