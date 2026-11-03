@@ -25,7 +25,7 @@ version = 1.0.0
 
 # (list) Application requirements
 # Comma separated e.g. requirements = sqlite3,kivy
-requirements = python3,requests,websockets,python-dotenv,urllib3,certifi,charset-normalizer,idna
+requirements = python3,websockets,python-dotenv
 
 # (str) Presplash of the application
 #presplash.filename = %(source.dir)s/assets/presplash.png

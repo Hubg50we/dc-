@@ -9,7 +9,8 @@ import socketserver
 import sys
 import threading
 import time
-import requests
+import urllib.request
+import urllib.error
 import websockets
 
 # Ensure UTF-8 standard output encoding
@@ -21,12 +22,21 @@ try:
 except Exception:
     pass
 
-# Try loading .env if python-dotenv is installed
+# Load .env (supports python-dotenv or built-in pure-Python loader)
 try:
     from dotenv import load_dotenv
     load_dotenv()
 except ImportError:
-    pass
+    if os.path.exists(".env"):
+        try:
+            with open(".env", "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        os.environ.setdefault(k.strip(), v.strip().strip("'\""))
+        except Exception:
+            pass
 
 # Discord Guild (Server) and default Voice Channel IDs
 GUILD_ID = os.environ.get("GUILD_ID", "YOUR_GUILD_ID")
@@ -214,13 +224,19 @@ async def auto_resolve_guild(channel_id):
     loop = asyncio.get_running_loop()
     def _fetch():
         try:
-            return requests.get(f"{API}/channels/{channel_id}", headers={"Authorization": valid_token, "User-Agent": "Mozilla/5.0"}, timeout=6)
+            req = urllib.request.Request(
+                f"{API}/channels/{channel_id}",
+                headers={"Authorization": valid_token, "User-Agent": "Mozilla/5.0"}
+            )
+            with urllib.request.urlopen(req, timeout=6) as resp:
+                if resp.status == 200:
+                    return json.loads(resp.read().decode("utf-8"))
         except Exception:
             return None
 
     res = await loop.run_in_executor(None, _fetch)
-    if res and res.status_code == 200:
-        gid = res.json().get("guild_id")
+    if res and isinstance(res, dict):
+        gid = res.get("guild_id")
         if gid:
             GUILD_ID = gid
             save_env_config()
@@ -233,22 +249,22 @@ async def _validate_token(token):
     loop = asyncio.get_running_loop()
 
     def _do():
-        return requests.get(
-            f"{API}/users/@me",
-            headers={"Authorization": token, "User-Agent": "Mozilla/5.0"},
-            timeout=10,
-        )
+        try:
+            req = urllib.request.Request(
+                f"{API}/users/@me",
+                headers={"Authorization": token, "User-Agent": "Mozilla/5.0"}
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                if resp.status == 200:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    return data, None
+                return None, f"HTTP {resp.status}"
+        except urllib.error.HTTPError as e:
+            return None, f"HTTP {e.code}"
+        except Exception as e:
+            return None, str(e)
 
-    try:
-        res = await loop.run_in_executor(None, _do)
-    except Exception as e:
-        return None, str(e)
-    if res.status_code != 200:
-        return None, f"HTTP {res.status_code}"
-    try:
-        return res.json(), None
-    except Exception as e:
-        return None, str(e)
+    return await loop.run_in_executor(None, _do)
 
 
 def find_account(identifier):
