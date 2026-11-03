@@ -1146,6 +1146,9 @@
       } else {
         dock.style.display = 'flex';
       }
+      if (tabId === 'logs') {
+        fetchLogs();
+      }
     }
 
     function showToast(msg, isErr = false) {
@@ -1166,9 +1169,37 @@
       box.scrollTop = box.scrollHeight;
     }
 
-    function clearConsole() {
-      document.getElementById('live-console-box').innerText = "Console cleared.";
+    async function clearConsole() {
       vibrate(10);
+      document.getElementById('live-console-box').innerText = "Console cleared.";
+      try {
+        await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'clear_logs' })
+        });
+      } catch (ignored) {}
+    }
+
+    async function fetchLogs() {
+      try {
+        const res = await fetch('/api/logs');
+        if (!res.ok) return;
+        const data = await res.json();
+        const logs = data.logs || [];
+        const box = document.getElementById('live-console-box');
+        if (box) {
+          const isAtBottom = (box.scrollHeight - box.clientHeight <= box.scrollTop + 50) || box.innerText.includes('Initializing');
+          if (logs.length > 0) {
+            box.innerText = logs.join('\n');
+          } else if (box.innerText.includes('Initializing')) {
+            box.innerText = 'Connected. Waiting for engine logs...';
+          }
+          if (isAtBottom) {
+            box.scrollTop = box.scrollHeight;
+          }
+        }
+      } catch (e) {}
     }
 
     function copyConsoleLogs() {
@@ -1815,8 +1846,15 @@
     }
 
     fetchStatus();
+    fetchLogs();
     checkAndroidFeatures();
-    setInterval(fetchStatus, 2000);
+    setInterval(() => {
+      fetchStatus();
+      const logsTab = document.getElementById('tab-logs');
+      if (logsTab && logsTab.classList.contains('active')) {
+        fetchLogs();
+      }
+    }, 2000);
   </script>
 </body>
 </html>

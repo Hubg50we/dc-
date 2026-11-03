@@ -1,4 +1,5 @@
 import asyncio
+import collections
 import http.server
 import json
 import os
@@ -12,6 +13,22 @@ import time
 import urllib.request
 import urllib.error
 import websockets
+
+# Log buffer for live console streaming
+LOG_BUFFER = collections.deque(maxlen=300)
+_orig_print = print
+
+def log(*args, **kwargs):
+    try:
+        text = " ".join(str(a) for a in args)
+        ts = time.strftime("[%H:%M:%S]")
+        entry = f"{ts} {text}"
+        LOG_BUFFER.append(entry)
+        _orig_print(entry, **kwargs)
+    except Exception:
+        _orig_print(*args, **kwargs)
+
+print = log
 
 # Ensure UTF-8 standard output encoding
 try:
@@ -891,6 +908,8 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             self.serve_manifest()
         elif self.path == "/api/status":
             self.serve_status()
+        elif self.path == "/api/logs":
+            self.serve_logs()
         elif self.path == "/api/tokens":
             tokens = [a.get("token") for a in ACCOUNTS.values() if a.get("token") and not is_placeholder_token(a.get("token"))]
             resp = json.dumps({"tokens": tokens, "count": len(tokens)}).encode("utf-8")
@@ -972,6 +991,15 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(resp)
 
+    def serve_logs(self):
+        resp = json.dumps({"logs": list(LOG_BUFFER)}).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(resp)))
+        self.end_headers()
+        self.wfile.write(resp)
+
     def do_POST(self):
         if self.path == "/api/action":
             content_length = int(self.headers.get("Content-Length", 0))
@@ -999,6 +1027,10 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
     def execute_action(self, payload):
         global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES
         action = payload.get("action", "")
+
+        if action == "clear_logs":
+            LOG_BUFFER.clear()
+            return {"success": True, "message": "Console logs cleared"}
 
         if action == "set_device_type":
             new_dev = payload.get("device_type", "mobile").lower()

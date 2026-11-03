@@ -64,7 +64,6 @@ public class DiscordManager {
 
         this.httpClient = new OkHttpClient.Builder()
                 .readTimeout(0, TimeUnit.MILLISECONDS)
-                .pingInterval(30, TimeUnit.SECONDS)
                 .build();
 
         loadPresetsFromPrefs();
@@ -220,6 +219,60 @@ public class DiscordManager {
             inVoice.get(i).leaveVoice(this.guildId);
         }
         log("Disconnected " + Math.min(count, inVoice.size()) + " accounts");
+    }
+
+    public String resolveGuildIdSync(String channelId) {
+        if (channelId == null || channelId.trim().isEmpty()) {
+            return null;
+        }
+        String token = null;
+        for (Account a : accounts.values()) {
+            if (a.token != null && !a.token.trim().isEmpty()) {
+                token = a.token.trim();
+                break;
+            }
+        }
+        if (token == null) {
+            log("Auto-detect failed: No account tokens available to query Discord API.");
+            return null;
+        }
+
+        try {
+            Request req = new Request.Builder()
+                    .url("https://discord.com/api/v9/channels/" + channelId.trim())
+                    .header("Authorization", token)
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+                    .build();
+
+            try (Response response = httpClient.newCall(req).execute()) {
+                if (response.isSuccessful() && response.body() != null) {
+                    JSONObject chInfo = new JSONObject(response.body().string());
+                    String gid = chInfo.optString("guild_id", "");
+                    if (!gid.isEmpty()) {
+                        return gid;
+                    }
+                } else if (response.code() == 401 && !token.startsWith("Bot ")) {
+                    // Try with Bot prefix
+                    Request retryReq = new Request.Builder()
+                            .url("https://discord.com/api/v9/channels/" + channelId.trim())
+                            .header("Authorization", "Bot " + token)
+                            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+                            .build();
+                    try (Response retryResp = httpClient.newCall(retryReq).execute()) {
+                        if (retryResp.isSuccessful() && retryResp.body() != null) {
+                            JSONObject chInfo = new JSONObject(retryResp.body().string());
+                            String gid = chInfo.optString("guild_id", "");
+                            if (!gid.isEmpty()) {
+                                return gid;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log("Auto-detect error: " + e.getMessage());
+        }
+        return null;
     }
 
     public void resolveGuildId(Callback callback) {
@@ -437,34 +490,33 @@ public class DiscordManager {
                 res.put("status", "ok");
                 res.put("message", "Device appearance updated to " + this.deviceMode);
             } else if ("detect_guild".equals(action) || "resolve_guild".equals(action)) {
-                String ch = payload.optString("channel_id", this.defaultChannelId);
+                String ch = payload.optString("channel_id", this.defaultChannelId).trim();
+                if (ch.isEmpty()) ch = this.defaultChannelId;
                 if (!ch.isEmpty()) {
                     this.defaultChannelId = ch;
+                    prefs.edit().putString("channel_id", this.defaultChannelId).apply();
                 }
-                resolveGuildId(new Callback() {
-                    @Override
-                    public void onFailure(Call call, IOException e) {
-                        log("Auto-resolve failed: " + e.getMessage());
-                    }
-
-                    @Override
-                    public void onResponse(Call call, Response response) throws IOException {
-                        if (response.isSuccessful() && response.body() != null) {
-                            try {
-                                JSONObject chInfo = new JSONObject(response.body().string());
-                                String gid = chInfo.optString("guild_id", "");
-                                if (!gid.isEmpty()) {
-                                    guildId = gid;
-                                    prefs.edit().putString("guild_id", guildId).apply();
-                                    log("Auto-detected Server ID: " + guildId);
-                                }
-                            } catch (Exception ignored) {}
-                        }
-                    }
-                });
+                String detected = resolveGuildIdSync(ch);
+                if (detected != null && !detected.isEmpty()) {
+                    this.guildId = detected;
+                    prefs.edit().putString("guild_id", this.guildId).apply();
+                    log("Auto-detected Server ID: " + this.guildId);
+                    res.put("success", true);
+                    res.put("status", "ok");
+                    res.put("guild_id", this.guildId);
+                    res.put("message", "Auto-detected Server ID: " + this.guildId);
+                } else {
+                    res.put("success", false);
+                    res.put("status", "error");
+                    res.put("error", "Could not detect Server ID. Ensure Channel ID is valid and tokens are added.");
+                    res.put("message", "Could not detect Server ID from Channel ID: " + ch);
+                }
+            } else if ("clear_logs".equals(action)) {
+                logs.clear();
+                log("Live console cleared.");
                 res.put("success", true);
                 res.put("status", "ok");
-                res.put("message", "Auto-detecting Server ID via Discord API...");
+                res.put("message", "Console logs cleared.");
             }
 
             // 6. Single Account Actions
@@ -614,7 +666,7 @@ public class DiscordManager {
             json.put("total_accounts", accounts.size());
             json.put("online_accounts", onlineCount);
             json.put("voice_accounts", voiceCount);
-            json.put("version", "1.0.5");
+            json.put("version", "1.0.6");
             json.put("uptime", (System.currentTimeMillis() - startTime) / 1000);
             json.put("default_guild", guildId);
             json.put("default_channel", defaultChannelId);
@@ -689,6 +741,7 @@ public class DiscordManager {
         private WebSocket ws;
         private Handler heartHandler;
         private Runnable heartRunnable;
+        private int lastSequence = -1;
 
         public Account(int id, String token) {
             this.id = id;
@@ -717,6 +770,9 @@ public class DiscordManager {
                 public void onMessage(WebSocket webSocket, String text) {
                     try {
                         JSONObject msg = new JSONObject(text);
+                        if (msg.has("s") && !msg.isNull("s")) {
+                            lastSequence = msg.optInt("s", lastSequence);
+                        }
                         int op = msg.optInt("op", -1);
 
                         if (op == 10) { // HELLO
@@ -724,6 +780,16 @@ public class DiscordManager {
                             int interval = d.getInt("heartbeat_interval");
                             startHeartbeat(interval);
                             sendIdentify(webSocket, mgr.deviceMode);
+                        } else if (op == 1) { // Discord Gateway requests immediate Heartbeat
+                            sendHeartbeat();
+                        } else if (op == 7) { // RECONNECT
+                            mgr.log("Account #" + id + " Gateway requested reconnect (Op 7). Reconnecting...");
+                            reconnect(client, mgr);
+                        } else if (op == 9) { // INVALID SESSION
+                            mgr.log("Account #" + id + " Invalid Session (Op 9). Reconnecting with delay...");
+                            new Handler(Looper.getMainLooper()).postDelayed(() -> reconnect(client, mgr), 3000);
+                        } else if (op == 11) { // HEARTBEAT ACK
+                            // Acknowledged, heartbeat is alive and healthy
                         } else if (op == 0) { // DISPATCH
                             String t = msg.optString("t", "");
                             if ("READY".equals(t)) {
@@ -794,6 +860,21 @@ public class DiscordManager {
             }
         }
 
+        private void sendHeartbeat() {
+            if (ws != null) {
+                try {
+                    JSONObject hb = new JSONObject();
+                    hb.put("op", 1);
+                    if (lastSequence >= 0) {
+                        hb.put("d", lastSequence);
+                    } else {
+                        hb.put("d", JSONObject.NULL);
+                    }
+                    ws.send(hb.toString());
+                } catch (Exception ignored) {}
+            }
+        }
+
         private void startHeartbeat(int intervalMs) {
             stopHeartbeat();
             heartHandler = new Handler(Looper.getMainLooper());
@@ -801,7 +882,7 @@ public class DiscordManager {
                 @Override
                 public void run() {
                     if (ws != null) {
-                        ws.send("{\"op\":1,\"d\":null}");
+                        sendHeartbeat();
                         if (heartHandler != null) {
                             heartHandler.postDelayed(this, intervalMs);
                         }
@@ -872,6 +953,7 @@ public class DiscordManager {
             }
             online = false;
             voiceChannel = null;
+            lastSequence = -1;
         }
     }
 }
