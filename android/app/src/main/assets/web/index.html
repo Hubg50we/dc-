@@ -832,13 +832,47 @@
 
         <input type="text" id="acc-search" placeholder="🔍 Search bots by username or ID..." oninput="filterAccounts(this.value)">
 
-        <!-- Batch Selection Toolbar -->
-        <div class="batch-bar" id="batch-toolbar">
-          <span id="batch-selected-count">0 bots selected</span>
-          <div style="display:flex; gap:6px;">
-            <button class="btn btn-primary btn-sm" onclick="runBatch('move')">Join</button>
-            <button class="btn btn-warning btn-sm" onclick="runBatch('mute')">Mute</button>
-            <button class="btn btn-danger btn-sm" onclick="runBatch('disconnect')">Kick</button>
+        <!-- Quick Multi-Bot Selection Slices -->
+        <div class="preset-chips" style="margin-top:8px; margin-bottom:8px;">
+          <div class="chip" onclick="selectBotSlice('all')" title="Select all available bots">✓ All</div>
+          <div class="chip" onclick="selectBotSlice('first_half')" title="Select 1st half of bots (e.g. 4 of 8)">1st Half (50%)</div>
+          <div class="chip" onclick="selectBotSlice('second_half')" title="Select 2nd half of bots (e.g. remaining 4)">2nd Half (50%)</div>
+          <div class="chip" onclick="clearSelectedBots()" title="Clear bot selection">✕ Clear</div>
+        </div>
+
+        <!-- Targeted Bot Router Panel (Appears when bots are selected) -->
+        <div class="card" id="batch-router-card" style="display:none; background:rgba(88, 101, 242, 0.08); border:1px solid rgba(88, 101, 242, 0.4); border-radius:var(--radius-sm); padding:12px; margin-bottom:10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span style="color:var(--accent); font-weight:700; font-size:0.9rem;">🎯 Route Selected Bots (<span id="batch-selected-count">0</span>)</span>
+            <button class="btn btn-secondary btn-sm" style="min-height:26px; padding:2px 8px; font-size:0.75rem;" onclick="clearSelectedBots()">Clear</button>
+          </div>
+
+          <div class="field-group" style="margin-bottom:6px;">
+            <label class="field-label">Target Voice Channel ID</label>
+            <div class="input-row">
+              <input type="text" id="batch-route-ch" placeholder="Target Voice Channel ID">
+              <button class="btn btn-secondary btn-sm" style="color:var(--accent);" onclick="detectBatchGuild()">🔍 Detect</button>
+            </div>
+          </div>
+
+          <div class="field-group" style="margin-bottom:8px;">
+            <label class="field-label">Target Server ID (Optional / Auto-detected)</label>
+            <input type="text" id="batch-route-gid" placeholder="Target Server ID">
+          </div>
+
+          <!-- Quick presets for batch routing -->
+          <div class="presets-container" id="batch-presets-strip" style="margin-bottom:10px;"></div>
+
+          <!-- Batch Action Triggers -->
+          <div class="input-row" style="margin-bottom:6px;">
+            <button class="btn btn-primary" style="flex:2;" onclick="runBatchRoute('move')">🚀 Deploy to Channel</button>
+            <button class="btn btn-danger btn-sm" style="flex:1;" onclick="runBatchRoute('disconnect')">✕ Leave</button>
+          </div>
+          <div class="input-row">
+            <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="runBatchRoute('mute')">🔇 Mute</button>
+            <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="runBatchRoute('unmute')">🔊 Unmute</button>
+            <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="runBatchRoute('deafen')">🎧 Deafen</button>
+            <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="runBatchRoute('undeafen')">🎧 Undeaf</button>
           </div>
         </div>
 
@@ -1269,32 +1303,40 @@
 
     function renderPresets(presets) {
       const strip = document.getElementById('presets-strip');
+      const batchStrip = document.getElementById('batch-presets-strip');
       const manageBox = document.getElementById('presets-manage-list');
 
       if (!presets || presets.length === 0) {
-        strip.innerHTML = `<span style="color:var(--text-muted); font-size:0.75rem;">No presets saved yet. Tap '+ Add Preset' above!</span>`;
-        manageBox.innerHTML = `<span style="color:var(--text-muted); font-size:0.8rem;">No saved presets.</span>`;
+        if (strip) strip.innerHTML = `<span style="color:var(--text-muted); font-size:0.75rem;">No presets saved yet. Tap '+ Add Preset' above!</span>`;
+        if (batchStrip) batchStrip.innerHTML = `<span style="color:var(--text-muted); font-size:0.75rem;">No saved presets</span>`;
+        if (manageBox) manageBox.innerHTML = `<span style="color:var(--text-muted); font-size:0.8rem;">No saved presets.</span>`;
         return;
       }
 
       let stripHtml = '';
+      let batchHtml = '';
       let manageHtml = '';
       presets.forEach(p => {
         stripHtml += `
           <div class="preset-chip" onclick="applyPreset('${escapeHtml(p.channel_id)}', '${escapeHtml(p.guild_id || '')}', '${escapeHtml(p.name)}')">
             <span>🔊 ${escapeHtml(p.name)}</span>
           </div>`;
+        batchHtml += `
+          <div class="preset-chip" onclick="document.getElementById('batch-route-ch').value='${escapeHtml(p.channel_id)}'; if('${escapeHtml(p.guild_id || '')}') document.getElementById('batch-route-gid').value='${escapeHtml(p.guild_id || '')}'; vibrate(10); showToast('Preset: ${escapeHtml(p.name)}');">
+            <span>🔊 ${escapeHtml(p.name)}</span>
+          </div>`;
         manageHtml += `
           <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-dark); padding:8px 12px; border-radius:8px;">
             <div>
               <strong style="color:var(--text-heading); font-size:0.85rem;">${escapeHtml(p.name)}</strong>
-              <div style="font-size:0.72rem; color:var(--text-muted);">Channel: ${escapeHtml(p.channel_id)}</div>
+              <div style="font-size:0.72rem; color:var(--text-muted);">Channel: ${escapeHtml(p.channel_id)}${p.guild_id ? ' &bull; Server: ' + escapeHtml(p.guild_id) : ''}</div>
             </div>
             <button class="btn btn-secondary btn-sm" style="color:var(--danger);" onclick="deletePreset('${escapeHtml(p.name)}')">🗑 Delete</button>
           </div>`;
       });
-      strip.innerHTML = stripHtml;
-      manageBox.innerHTML = manageHtml;
+      if (strip) strip.innerHTML = stripHtml;
+      if (batchStrip) batchStrip.innerHTML = batchHtml;
+      if (manageBox) manageBox.innerHTML = manageHtml;
     }
 
     function applyPreset(ch, gid, name) {
@@ -1478,13 +1520,14 @@
             </div>
 
             <div class="acc-pills">
-              ${inVoice ? `<span class="badge badge-voice">🔊 ${acc.voice_channel}</span>` : `<span class="badge" style="background:#202225; color:#888;">Idle</span>`}
+              ${inVoice ? `<span class="badge badge-voice">🔊 ${escapeHtml(acc.voice_channel)}${acc.guild_id ? ' <span style="font-size:0.72rem; opacity:0.8;">(Svr: ' + escapeHtml(acc.guild_id) + ')</span>' : ''}</span>` : `<span class="badge" style="background:#202225; color:#888;">Idle</span>`}
               ${acc.mute ? `<span class="badge badge-mute">Muted</span>` : ''}
               ${acc.deaf ? `<span class="badge badge-deaf">Deafened</span>` : ''}
               ${acc.error ? `<span class="badge" style="background:rgba(242,63,67,0.2); color:var(--danger);">${escapeHtml(acc.error)}</span>` : ''}
             </div>
 
             <div class="acc-card-actions" onclick="event.stopPropagation()">
+              <button class="btn btn-secondary btn-sm" style="color:var(--accent); font-weight:600;" onclick="openBotModal(${acc.id})">🎯 Route</button>
               ${inVoice ? `
                 <button class="btn btn-secondary btn-sm" onclick="sendIndividualAction(${acc.id}, '${acc.mute ? 'unmute' : 'mute'}')">${acc.mute ? '🔊 Unmute' : '🔇 Mute'}</button>
                 <button class="btn btn-secondary btn-sm" onclick="sendIndividualAction(${acc.id}, '${acc.deaf ? 'undeafen' : 'deafen'}')">${acc.deaf ? '🎧 Undeaf' : '🙉 Deaf'}</button>
@@ -1510,22 +1553,60 @@
           <div><strong>User ID:</strong> ${acc.user_id || 'Connecting...'}</div>
           <div><strong>Token:</strong> <code>${acc.token_masked || 'Hidden'}</code></div>
           <div><strong>Status:</strong> ${acc.online ? '🟢 Online' : '🔴 Offline'}</div>
-          <div><strong>Voice:</strong> ${acc.voice_channel ? '🔊 ' + acc.voice_channel : 'Not connected'}</div>
+          <div><strong>Current Voice:</strong> ${acc.voice_channel ? '🔊 ' + escapeHtml(acc.voice_channel) : 'Not connected'}</div>
+          ${acc.guild_id ? `<div><strong>Current Server:</strong> 🏛️ ${escapeHtml(acc.guild_id)}</div>` : ''}
         </div>
+
+        <!-- Per-Bot Specific Server & Channel Routing -->
+        <div style="background:rgba(88, 101, 242, 0.08); border:1px solid rgba(88, 101, 242, 0.35); border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:8px;">
+          <div style="font-weight:700; color:var(--text-heading); font-size:0.9rem;">🎯 Route Bot #${acc.id} to Channel</div>
+          
+          <div>
+            <label class="field-label">Target Voice Channel ID</label>
+            <div class="input-row">
+              <input type="text" id="modal-bot-ch" placeholder="Target Voice Channel ID" value="${acc.voice_channel || ''}">
+              <button class="btn btn-secondary btn-sm" style="color:var(--accent);" onclick="detectModalGuild(${acc.id})">🔍 Detect</button>
+            </div>
+          </div>
+
+          <div>
+            <label class="field-label">Target Server ID (Optional / Auto-detect)</label>
+            <input type="text" id="modal-bot-gid" placeholder="Target Server ID" value="${acc.guild_id || ''}">
+          </div>
+
+          <div class="presets-container" id="modal-presets-strip" style="margin-top:2px;"></div>
+
+          <button class="btn btn-primary" onclick="deploySingleBot(${acc.id})">🚀 Send Bot #${acc.id} to Channel</button>
+        </div>
+
         <div style="display:flex; flex-direction:column; gap:8px;">
-          <button class="btn btn-primary" onclick="sendIndividualAction(${acc.id}, 'move'); closeModal()">🔊 Join Default Channel</button>
           <div style="display:flex; gap:8px;">
             <button class="btn btn-secondary" style="flex:1;" onclick="sendIndividualAction(${acc.id}, 'mute'); closeModal()">🔇 Mute</button>
             <button class="btn btn-secondary" style="flex:1;" onclick="sendIndividualAction(${acc.id}, 'unmute'); closeModal()">🔊 Unmute</button>
+            <button class="btn btn-secondary" style="flex:1;" onclick="sendIndividualAction(${acc.id}, 'deafen'); closeModal()">🎧 Deafen</button>
+            <button class="btn btn-secondary" style="flex:1;" onclick="sendIndividualAction(${acc.id}, 'undeafen'); closeModal()">🎧 Undeaf</button>
           </div>
           <div style="display:flex; gap:8px;">
-            <button class="btn btn-secondary" style="flex:1;" onclick="sendIndividualAction(${acc.id}, 'deafen'); closeModal()">🎧 Deafen</button>
-            <button class="btn btn-secondary" style="flex:1;" onclick="sendIndividualAction(${acc.id}, 'undeafen'); closeModal()">🎧 Undeafen</button>
+            <button class="btn btn-danger btn-sm" style="flex:1;" onclick="sendIndividualAction(${acc.id}, 'disconnect'); closeModal()">✕ Disconnect</button>
+            <button class="btn btn-warning btn-sm" style="flex:1;" onclick="sendIndividualAction(${acc.id}, 'reconnect'); closeModal()">🔄 Reconnect</button>
+            <button class="btn btn-secondary btn-sm" style="flex:1; color:var(--danger);" onclick="deleteAccount(${acc.id}); closeModal()">🗑 Delete</button>
           </div>
-          <button class="btn btn-warning" onclick="sendIndividualAction(${acc.id}, 'reconnect'); closeModal()">🔄 Reconnect Account</button>
-          <button class="btn btn-danger" onclick="deleteAccount(${acc.id}); closeModal()">🗑 Delete Account</button>
         </div>
       `;
+
+      // Render presets into modal
+      const modalStrip = document.getElementById('modal-presets-strip');
+      if (modalStrip && savedPresets && savedPresets.length > 0) {
+        let mHtml = '';
+        savedPresets.forEach(p => {
+          mHtml += `
+            <div class="preset-chip" onclick="document.getElementById('modal-bot-ch').value='${escapeHtml(p.channel_id)}'; if('${escapeHtml(p.guild_id || '')}') document.getElementById('modal-bot-gid').value='${escapeHtml(p.guild_id || '')}'; vibrate(10);">
+              <span>🔊 ${escapeHtml(p.name)}</span>
+            </div>`;
+        });
+        modalStrip.innerHTML = mHtml;
+      }
+
       document.getElementById('account-modal').classList.add('open');
     }
 
@@ -1561,21 +1642,104 @@
       renderAccountsList(accountsData);
     }
 
+    function selectBotSlice(slice) {
+      vibrate(15);
+      selectedAccountIds.clear();
+      const pool = accountsData;
+      if (slice === 'all') {
+        pool.forEach(a => selectedAccountIds.add(a.id));
+      } else if (slice === 'first_half') {
+        const half = Math.ceil(pool.length / 2);
+        pool.slice(0, half).forEach(a => selectedAccountIds.add(a.id));
+      } else if (slice === 'second_half') {
+        const half = Math.ceil(pool.length / 2);
+        pool.slice(half).forEach(a => selectedAccountIds.add(a.id));
+      }
+      updateBatchBar();
+      renderAccountsList(accountsData);
+      showToast(`${selectedAccountIds.size} bot(s) selected`);
+    }
+
+    function clearSelectedBots() {
+      vibrate(10);
+      selectedAccountIds.clear();
+      updateBatchBar();
+      renderAccountsList(accountsData);
+    }
+
     function updateBatchBar() {
-      const bar = document.getElementById('batch-toolbar');
+      const card = document.getElementById('batch-router-card');
       const count = document.getElementById('batch-selected-count');
       if (selectedAccountIds.size > 0) {
-        bar.classList.add('show');
-        count.innerText = `${selectedAccountIds.size} selected`;
+        if (card) card.style.display = 'block';
+        if (count) count.innerText = `${selectedAccountIds.size} bot(s)`;
+        const bCh = document.getElementById('batch-route-ch');
+        const bGid = document.getElementById('batch-route-gid');
+        const gCh = document.getElementById('target-channel-id');
+        const gGid = document.getElementById('target-guild-id');
+        if (bCh && !bCh.value && gCh) bCh.value = gCh.value;
+        if (bGid && !bGid.value && gGid) bGid.value = gGid.value;
       } else {
-        bar.classList.remove('show');
+        if (card) card.style.display = 'none';
       }
     }
 
-    async function runBatch(subAction) {
+    async function detectBatchGuild() {
       vibrate(20);
-      if (selectedAccountIds.size === 0) return showToast('No accounts selected', true);
-      const ch = document.getElementById('target-channel-id').value.trim();
+      const chInput = document.getElementById('batch-route-ch');
+      const gidInput = document.getElementById('batch-route-gid');
+      const ch = chInput ? chInput.value.trim() : '';
+      if (!ch) return showToast('Enter Voice Channel ID first', true);
+      showToast('Detecting Server ID...');
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'detect_guild', channel_id: ch })
+        });
+        const json = await res.json();
+        if (json.success && json.guild_id) {
+          if (gidInput) gidInput.value = json.guild_id;
+          showToast(`Found Server ID: ${json.guild_id}`);
+        } else {
+          showToast(json.error || 'Could not detect Server ID', true);
+        }
+      } catch (err) {
+        showToast('Error: ' + err.message, true);
+      }
+    }
+
+    async function detectModalGuild(aid) {
+      vibrate(20);
+      const chInput = document.getElementById('modal-bot-ch');
+      const gidInput = document.getElementById('modal-bot-gid');
+      const ch = chInput ? chInput.value.trim() : '';
+      if (!ch) return showToast('Enter Voice Channel ID first', true);
+      showToast('Detecting Server ID...');
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'detect_guild', channel_id: ch })
+        });
+        const json = await res.json();
+        if (json.success && json.guild_id) {
+          if (gidInput) gidInput.value = json.guild_id;
+          showToast(`Found Server ID: ${json.guild_id}`);
+        } else {
+          showToast(json.error || 'Could not detect Server ID', true);
+        }
+      } catch (err) {
+        showToast('Error: ' + err.message, true);
+      }
+    }
+
+    async function runBatchRoute(subAction) {
+      vibrate(25);
+      if (selectedAccountIds.size === 0) return showToast('No bots selected', true);
+      const ch = document.getElementById('batch-route-ch') ? document.getElementById('batch-route-ch').value.trim() : '';
+      const gid = document.getElementById('batch-route-gid') ? document.getElementById('batch-route-gid').value.trim() : '';
+      logToConsole(`Batch ${subAction} for ${selectedAccountIds.size} bot(s) -> Ch: ${ch || 'default'}${gid ? ' Svr: ' + gid : ''}...`);
       try {
         const res = await fetch('/api/action', {
           method: 'POST',
@@ -1584,17 +1748,48 @@
             action: 'batch_action',
             sub_action: subAction,
             ids: Array.from(selectedAccountIds),
-            channel_id: ch
+            channel_id: ch,
+            guild_id: gid
           })
         });
         const json = await res.json();
-        showToast(json.message || `Batch ${subAction} complete!`);
-        selectedAccountIds.clear();
-        updateBatchBar();
+        showToast(json.message || `Dispatched ${selectedAccountIds.size} bots!`);
         fetchStatus();
+        fetchLogs();
       } catch (err) {
         showToast('Error: ' + err.message, true);
       }
+    }
+
+    async function deploySingleBot(aid) {
+      vibrate(25);
+      const ch = document.getElementById('modal-bot-ch') ? document.getElementById('modal-bot-ch').value.trim() : '';
+      const gid = document.getElementById('modal-bot-gid') ? document.getElementById('modal-bot-gid').value.trim() : '';
+      logToConsole(`Deploying Bot #${aid} -> Ch: ${ch || 'default'}${gid ? ' Svr: ' + gid : ''}...`);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'account_action',
+            id: aid,
+            subaction: 'move',
+            channel_id: ch,
+            guild_id: gid
+          })
+        });
+        const json = await res.json();
+        showToast(json.message || `Bot #${aid} dispatched!`);
+        closeModal();
+        fetchStatus();
+        fetchLogs();
+      } catch (err) {
+        showToast('Error: ' + err.message, true);
+      }
+    }
+
+    async function runBatch(subAction) {
+      return runBatchRoute(subAction);
     }
 
     async function triggerAction(action) {
@@ -1621,16 +1816,24 @@
       }
     }
 
-    async function sendIndividualAction(aid, action) {
+    async function sendIndividualAction(aid, action, ch = null, gid = null) {
       vibrate(15);
-      const ch = document.getElementById('target-channel-id').value.trim();
-      const gid = document.getElementById('target-guild-id').value.trim();
+      const targetCh = ch !== null ? ch : document.getElementById('target-channel-id').value.trim();
+      const targetGid = gid !== null ? gid : document.getElementById('target-guild-id').value.trim();
       try {
         const res = await fetch('/api/action', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'account_' + action, id: aid, channel_id: ch, guild_id: gid })
+          body: JSON.stringify({ action: 'account_' + action, id: aid, channel_id: targetCh, guild_id: targetGid })
         });
+        const json = await res.json();
+        showToast(json.message || `Action ${action} executed`);
+        fetchStatus();
+        fetchLogs();
+      } catch (err) {
+        showToast('Error: ' + err.message, true);
+      }
+    }
         const json = await res.json();
         showToast(json.message);
         fetchStatus();

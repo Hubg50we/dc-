@@ -315,10 +315,11 @@ def pick_targets(percent, pool):
     return random.sample(pool, min(count, len(pool)))
 
 
-async def apply(targets, channel="keep", mute="keep", deaf="keep"):
+async def apply(targets, channel="keep", mute="keep", deaf="keep", guild=None):
     done = 0
-    if channel not in ("keep", None):
-        await auto_resolve_guild(channel)
+    target_guild = guild or GUILD_ID
+    if channel not in ("keep", None) and not guild:
+        target_guild = await auto_resolve_guild(channel)
     for conn in targets:
         for attempt in range(2):
             try:
@@ -329,11 +330,12 @@ async def apply(targets, channel="keep", mute="keep", deaf="keep"):
                 new_channel = conn.get("voice_channel") if channel == "keep" else channel
                 new_mute = conn.get("mute", False) if mute == "keep" else mute
                 new_deaf = conn.get("deaf", False) if deaf == "keep" else deaf
+                act_guild = guild or conn.get("guild_id") or target_guild or GUILD_ID
                 await ws.send(
                     json.dumps({
                         "op": 4,
                         "d": {
-                            "guild_id": GUILD_ID,
+                            "guild_id": act_guild,
                             "channel_id": new_channel,
                             "self_mute": new_mute,
                             "self_deaf": new_deaf,
@@ -343,6 +345,8 @@ async def apply(targets, channel="keep", mute="keep", deaf="keep"):
                 conn["voice_channel"] = new_channel
                 conn["mute"] = new_mute
                 conn["deaf"] = new_deaf
+                if new_channel is not None and act_guild:
+                    conn["guild_id"] = act_guild
                 done += 1
                 await asyncio.sleep(0.1)
                 break
@@ -976,6 +980,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                     "token_masked": (a.get("token")[:10] + "..." + a.get("token")[-4:]) if a.get("token") else "",
                     "online": a.get("online", False),
                     "voice_channel": a.get("voice_channel"),
+                    "guild_id": a.get("guild_id", ""),
                     "mute": a.get("mute", False),
                     "deaf": a.get("deaf", False),
                     "error": a.get("error"),
@@ -1159,19 +1164,20 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             aids = [int(x) for x in payload.get("ids", []) if str(x).isdigit()]
             sub = payload.get("sub_action", "")
             ch = payload.get("channel_id") or CHANNEL_ID
+            target_gid = payload.get("guild_id")
             targets = [ACCOUNTS[aid] for aid in aids if aid in ACCOUNTS and ACCOUNTS[aid].get("online")]
             if sub in ("move", "join"):
-                coro = apply(targets, channel=ch)
+                coro = apply(targets, channel=ch, guild=target_gid)
             elif sub == "disconnect":
-                coro = apply(targets, channel=None)
+                coro = apply(targets, channel=None, guild=target_gid)
             elif sub == "mute":
-                coro = apply(targets, mute=True)
+                coro = apply(targets, mute=True, guild=target_gid)
             elif sub == "unmute":
-                coro = apply(targets, mute=False)
+                coro = apply(targets, mute=False, guild=target_gid)
             elif sub == "deafen":
-                coro = apply(targets, deaf=True)
+                coro = apply(targets, deaf=True, guild=target_gid)
             elif sub == "undeafen":
-                coro = apply(targets, deaf=False)
+                coro = apply(targets, deaf=False, guild=target_gid)
             else:
                 return {"success": False, "error": f"Unknown batch sub_action: {sub}"}
         elif action == "token_remove":
@@ -1180,7 +1186,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         elif action.startswith("account_"):
             aid = payload.get("id")
             sub = action.replace("account_", "")
-            coro = self._run_account_action(aid, sub, payload.get("channel_id"))
+            coro = self._run_account_action(aid, sub, payload.get("channel_id"), payload.get("guild_id"))
         else:
             return {"success": False, "error": f"Unknown action: {action}"}
 
@@ -1220,28 +1226,28 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         done = await apply(targets, deaf=state)
         return f"{done}/{len(targets)} account(s) deafen={state}"
 
-    async def _run_account_action(self, aid, sub, ch):
+    async def _run_account_action(self, aid, sub, ch, guild=None):
         acc = find_account(aid)
         if not acc:
             raise ValueError("Account not found")
         if sub in ("move", "join"):
             target_ch = ch or CHANNEL_ID
-            await apply([acc], channel=target_ch)
+            await apply([acc], channel=target_ch, guild=guild)
             return f"Moved to {target_ch}"
         elif sub == "disconnect":
-            await apply([acc], channel=None)
+            await apply([acc], channel=None, guild=guild)
             return "Disconnected"
         elif sub == "mute":
-            await apply([acc], mute=True)
+            await apply([acc], mute=True, guild=guild)
             return "Muted"
         elif sub == "unmute":
-            await apply([acc], mute=False)
+            await apply([acc], mute=False, guild=guild)
             return "Unmuted"
         elif sub == "deafen":
-            await apply([acc], deaf=True)
+            await apply([acc], deaf=True, guild=guild)
             return "Deafened"
         elif sub == "undeafen":
-            await apply([acc], deaf=False)
+            await apply([acc], deaf=False, guild=guild)
             return "Undeafened"
         raise ValueError(f"Unknown subaction: {sub}")
 

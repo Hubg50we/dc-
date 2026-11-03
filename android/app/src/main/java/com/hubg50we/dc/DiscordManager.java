@@ -439,12 +439,20 @@ public class DiscordManager {
                 }
             }
 
-            // 3. Batch Actions
+            // 3. Batch Actions (Target specific bots to specific server & channel)
             else if ("batch_action".equals(action)) {
                 JSONArray idsArr = payload.optJSONArray("ids");
                 String sub = payload.optString("sub_action", payload.optString("subaction", ""));
-                String ch = payload.optString("channel_id", this.defaultChannelId);
-                if (ch == null || ch.isEmpty()) ch = this.defaultChannelId;
+                String ch = payload.optString("channel_id", this.defaultChannelId).trim();
+                if (ch.isEmpty()) ch = this.defaultChannelId;
+                String targetGid = payload.optString("guild_id", "").trim();
+                if (targetGid.isEmpty()) targetGid = this.guildId;
+                if (targetGid.isEmpty() && !ch.isEmpty()) {
+                    String detected = resolveGuildIdSync(ch);
+                    if (detected != null && !detected.isEmpty()) {
+                        targetGid = detected;
+                    }
+                }
                 int count = 0;
                 if (idsArr != null) {
                     for (int i = 0; i < idsArr.length(); i++) {
@@ -452,27 +460,32 @@ public class DiscordManager {
                         Account a = accounts.get(aid);
                         if (a != null && a.online) {
                             count++;
+                            String accGid = !targetGid.isEmpty() ? targetGid : (a.currentGuildId.isEmpty() ? this.guildId : a.currentGuildId);
                             if ("move".equals(sub) || "join".equals(sub)) {
-                                a.setVoiceState(this.guildId, ch, false, false);
+                                a.setVoiceState(accGid, ch, false, false);
                             } else if ("mute".equals(sub)) {
-                                a.setVoiceState(this.guildId, a.voiceChannel, true, a.deaf);
+                                a.setVoiceState(accGid, a.voiceChannel, true, a.deaf);
                             } else if ("unmute".equals(sub)) {
-                                a.setVoiceState(this.guildId, a.voiceChannel, false, a.deaf);
+                                a.setVoiceState(accGid, a.voiceChannel, false, a.deaf);
                             } else if ("deafen".equals(sub)) {
-                                a.setVoiceState(this.guildId, a.voiceChannel, a.mute, true);
+                                a.setVoiceState(accGid, a.voiceChannel, a.mute, true);
                             } else if ("undeafen".equals(sub)) {
-                                a.setVoiceState(this.guildId, a.voiceChannel, a.mute, false);
-                            } else if ("disconnect".equals(sub)) {
-                                a.leaveVoice(this.guildId);
+                                a.setVoiceState(accGid, a.voiceChannel, a.mute, false);
+                            } else if ("disconnect".equals(sub) || "leave".equals(sub)) {
+                                a.leaveVoice(accGid);
                             } else if ("reconnect".equals(sub)) {
                                 a.reconnect(httpClient, this);
                             }
                         }
                     }
                 }
+                log("Batch " + sub + " executed on " + count + " bot(s) -> " + ch + (targetGid.isEmpty() ? "" : " (Server: " + targetGid + ")"));
                 res.put("success", true);
                 res.put("status", "ok");
-                res.put("message", "Batch " + sub + " executed on " + count + " account(s)");
+                res.put("count", count);
+                res.put("guild_id", targetGid);
+                res.put("channel_id", ch);
+                res.put("message", "Dispatched " + count + " bot(s) to " + ch + (targetGid.isEmpty() ? "" : " (Server: " + targetGid + ")"));
             }
 
             // 4. Voice Controls
@@ -593,34 +606,46 @@ public class DiscordManager {
                 res.put("message", "Console logs cleared.");
             }
 
-            // 6. Single Account Actions
+            // 6. Single Account Actions (Deploy specific bot to specific server & channel)
             else if ("account_action".equals(action) || action.startsWith("account_")) {
                 int aid = payload.optInt("id", payload.optInt("account_id", -1));
                 String sub = action.startsWith("account_") ? action.substring(8) : payload.optString("subaction", payload.optString("sub_action", ""));
+                String ch = payload.optString("channel_id", this.defaultChannelId).trim();
+                if (ch.isEmpty()) ch = this.defaultChannelId;
+                String targetGid = payload.optString("guild_id", "").trim();
+                if (targetGid.isEmpty()) targetGid = this.guildId;
+                if (targetGid.isEmpty() && !ch.isEmpty()) {
+                    String detected = resolveGuildIdSync(ch);
+                    if (detected != null && !detected.isEmpty()) {
+                        targetGid = detected;
+                    }
+                }
                 Account target = accounts.get(aid);
                 if (target != null) {
+                    String accGid = !targetGid.isEmpty() ? targetGid : (target.currentGuildId.isEmpty() ? this.guildId : target.currentGuildId);
                     if ("move_default".equals(sub)) {
-                        target.setVoiceState(this.guildId, this.defaultChannelId, false, false);
+                        target.setVoiceState(accGid, this.defaultChannelId, false, false);
                     } else if ("move".equals(sub) || "join".equals(sub)) {
-                        String ch = payload.optString("channel_id", this.defaultChannelId);
-                        if (ch == null || ch.isEmpty()) ch = this.defaultChannelId;
-                        target.setVoiceState(this.guildId, ch, false, false);
+                        target.setVoiceState(accGid, ch, false, false);
                     } else if ("mute".equals(sub)) {
-                        target.setVoiceState(this.guildId, target.voiceChannel, true, target.deaf);
+                        target.setVoiceState(accGid, target.voiceChannel, true, target.deaf);
                     } else if ("unmute".equals(sub)) {
-                        target.setVoiceState(this.guildId, target.voiceChannel, false, target.deaf);
+                        target.setVoiceState(accGid, target.voiceChannel, false, target.deaf);
                     } else if ("deafen".equals(sub)) {
-                        target.setVoiceState(this.guildId, target.voiceChannel, target.mute, true);
+                        target.setVoiceState(accGid, target.voiceChannel, target.mute, true);
                     } else if ("undeafen".equals(sub)) {
-                        target.setVoiceState(this.guildId, target.voiceChannel, target.mute, false);
-                    } else if ("disconnect".equals(sub)) {
-                        target.leaveVoice(this.guildId);
+                        target.setVoiceState(accGid, target.voiceChannel, target.mute, false);
+                    } else if ("disconnect".equals(sub) || "leave".equals(sub)) {
+                        target.leaveVoice(accGid);
                     } else if ("reconnect".equals(sub)) {
                         target.reconnect(httpClient, this);
                     }
+                    log("Bot #" + aid + " (" + target.name + "): " + sub + " -> " + ch + (accGid.isEmpty() ? "" : " (Server: " + accGid + ")"));
                     res.put("success", true);
                     res.put("status", "ok");
-                    res.put("message", "Executed " + sub + " on account #" + aid);
+                    res.put("guild_id", accGid);
+                    res.put("channel_id", ch);
+                    res.put("message", "Bot #" + aid + " (" + target.name + ") -> " + ch + (accGid.isEmpty() ? "" : " (Server: " + accGid + ")"));
                 } else {
                     res.put("success", false);
                     res.put("status", "error");
@@ -796,6 +821,7 @@ public class DiscordManager {
                 o.put("user_id", a.userId);
                 o.put("online", a.online);
                 o.put("voice_channel", a.voiceChannel);
+                o.put("guild_id", a.currentGuildId != null ? a.currentGuildId : "");
                 o.put("mute", a.mute);
                 o.put("deaf", a.deaf);
                 String masked = a.token.length() > 14 ? a.token.substring(0, 8) + "..." + a.token.substring(a.token.length() - 4) : "******";
@@ -806,7 +832,7 @@ public class DiscordManager {
             json.put("total_accounts", accounts.size());
             json.put("online_accounts", onlineCount);
             json.put("voice_accounts", voiceCount);
-            json.put("version", "1.0.7");
+            json.put("version", "1.0.8");
             json.put("uptime", (System.currentTimeMillis() - startTime) / 1000);
             json.put("default_guild", guildId);
             json.put("default_channel", defaultChannelId);
@@ -879,6 +905,7 @@ public class DiscordManager {
         public String userId = "";
         public boolean online = false;
         public String voiceChannel = null;
+        public String currentGuildId = "";
         public boolean mute = false;
         public boolean deaf = false;
 
@@ -1058,6 +1085,9 @@ public class DiscordManager {
                 leaveVoice(guildId);
                 return;
             }
+            if (guildId == null || guildId.isEmpty()) {
+                guildId = this.currentGuildId;
+            }
             if (ws != null && guildId != null && !guildId.isEmpty()) {
                 try {
                     JSONObject op4 = new JSONObject();
@@ -1069,6 +1099,7 @@ public class DiscordManager {
                     d.put("self_deaf", deaf);
                     op4.put("d", d);
                     ws.send(op4.toString());
+                    this.currentGuildId = guildId;
                     this.voiceChannel = channelId;
                     this.mute = mute;
                     this.deaf = deaf;
@@ -1079,7 +1110,10 @@ public class DiscordManager {
         }
 
         public void leaveVoice(String guildId) {
-            if (ws != null && guildId != null) {
+            if (guildId == null || guildId.isEmpty()) {
+                guildId = this.currentGuildId;
+            }
+            if (ws != null && guildId != null && !guildId.isEmpty()) {
                 try {
                     JSONObject op4 = new JSONObject();
                     op4.put("op", 4);
@@ -1091,6 +1125,7 @@ public class DiscordManager {
                     op4.put("d", d);
                     ws.send(op4.toString());
                     this.voiceChannel = null;
+                    this.currentGuildId = "";
                 } catch (Exception ignored) {}
             }
         }
@@ -1105,6 +1140,7 @@ public class DiscordManager {
             }
             online = false;
             voiceChannel = null;
+            currentGuildId = "";
             lastSequence = -1;
         }
     }
