@@ -9,6 +9,7 @@ import android.util.Log;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -16,6 +17,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
+import okhttp3.Call;
+import okhttp3.Callback;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -40,6 +43,7 @@ public class DiscordManager {
     private final Map<Integer, Account> accounts = new ConcurrentHashMap<>();
     private int nextAccountId = 1;
     private final List<String> logs = Collections.synchronizedList(new ArrayList<>());
+    private final List<JSONObject> presets = Collections.synchronizedList(new ArrayList<>());
 
     public static synchronized DiscordManager getInstance(Context context) {
         if (instance == null) {
@@ -63,15 +67,46 @@ public class DiscordManager {
                 .pingInterval(30, TimeUnit.SECONDS)
                 .build();
 
+        loadPresetsFromPrefs();
         loadSavedTokens();
+        log("dc- Engine initialized. Device mode: " + deviceMode.toUpperCase());
     }
 
     public void log(String msg) {
         Log.i(TAG, msg);
-        logs.add(msg);
-        if (logs.size() > 200) {
+        String timestamped = String.format("[%tT] %s", System.currentTimeMillis(), msg);
+        logs.add(timestamped);
+        if (logs.size() > 300) {
             logs.remove(0);
         }
+    }
+
+    private void loadPresetsFromPrefs() {
+        try {
+            String pStr = prefs.getString("presets", "");
+            if (!pStr.isEmpty()) {
+                JSONArray arr = new JSONArray(pStr);
+                for (int i = 0; i < arr.length(); i++) {
+                    presets.add(arr.getJSONObject(i));
+                }
+            } else {
+                // Add sensible defaults
+                presets.add(new JSONObject().put("name", "Lounge").put("channel_id", defaultChannelId).put("guild_id", guildId));
+                presets.add(new JSONObject().put("name", "Gaming").put("channel_id", "").put("guild_id", guildId));
+                presets.add(new JSONObject().put("name", "Music").put("channel_id", "").put("guild_id", guildId));
+                presets.add(new JSONObject().put("name", "AFK").put("channel_id", "").put("guild_id", guildId));
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error loading presets", e);
+        }
+    }
+
+    private synchronized void savePresetsToPrefs() {
+        JSONArray arr = new JSONArray();
+        for (JSONObject p : presets) {
+            arr.put(p);
+        }
+        prefs.edit().putString("presets", arr.toString()).apply();
     }
 
     private void loadSavedTokens() {
@@ -79,8 +114,8 @@ public class DiscordManager {
         if (!saved.isEmpty()) {
             for (String tok : saved.split("\n")) {
                 String clean = tok.trim();
-                if (!clean.isEmpty()) {
-                    addAccount(clean);
+                if (!clean.isEmpty() && !clean.startsWith("#")) {
+                    addAccountInternal(clean);
                 }
             }
         }
@@ -96,7 +131,7 @@ public class DiscordManager {
         prefs.edit().putString("tokens", sb.toString()).apply();
     }
 
-    public synchronized Account addAccount(String token) {
+    private synchronized Account addAccountInternal(String token) {
         for (Account a : accounts.values()) {
             if (a.token.equals(token)) {
                 return a;
@@ -104,8 +139,13 @@ public class DiscordManager {
         }
         Account a = new Account(nextAccountId++, token);
         accounts.put(a.id, a);
-        saveTokensToPrefs();
         connectAccount(a);
+        return a;
+    }
+
+    public synchronized Account addAccount(String token) {
+        Account a = addAccountInternal(token);
+        saveTokensToPrefs();
         return a;
     }
 
@@ -131,7 +171,7 @@ public class DiscordManager {
         for (int i = 0; i < Math.min(count, online.size()); i++) {
             online.get(i).setVoiceState(this.guildId, channelId, false, false);
         }
-        log("Moved " + Math.min(count, online.size()) + " account(s) to " + channelId);
+        log("Moved " + Math.min(count, online.size()) + "/" + online.size() + " accounts to " + channelId);
     }
 
     public void muteAll(boolean mute, int percent) {
@@ -144,7 +184,7 @@ public class DiscordManager {
             Account a = inVoice.get(i);
             a.setVoiceState(this.guildId, a.voiceChannel, mute, a.deaf);
         }
-        log((mute ? "Muted " : "Unmuted ") + Math.min(count, inVoice.size()) + " account(s)");
+        log((mute ? "Muted " : "Unmuted ") + Math.min(count, inVoice.size()) + " accounts");
     }
 
     public void deafenAll(boolean deaf, int percent) {
@@ -157,7 +197,7 @@ public class DiscordManager {
             Account a = inVoice.get(i);
             a.setVoiceState(this.guildId, a.voiceChannel, a.mute, deaf);
         }
-        log((deaf ? "Deafened " : "Undeafened ") + Math.min(count, inVoice.size()) + " account(s)");
+        log((deaf ? "Deafened " : "Undeafened ") + Math.min(count, inVoice.size()) + " accounts");
     }
 
     public void disconnectAll(int percent) {
@@ -169,7 +209,28 @@ public class DiscordManager {
         for (int i = 0; i < Math.min(count, inVoice.size()); i++) {
             inVoice.get(i).leaveVoice(this.guildId);
         }
-        log("Disconnected " + Math.min(count, inVoice.size()) + " account(s)");
+        log("Disconnected " + Math.min(count, inVoice.size()) + " accounts");
+    }
+
+    public void resolveGuildId(Callback callback) {
+        String token = null;
+        for (Account a : accounts.values()) {
+            if (a.token != null && !a.token.isEmpty()) {
+                token = a.token;
+                break;
+            }
+        }
+        if (token == null || defaultChannelId.isEmpty()) {
+            return;
+        }
+
+        Request req = new Request.Builder()
+                .url("https://discord.com/api/v9/channels/" + defaultChannelId)
+                .header("Authorization", token)
+                .header("User-Agent", "Mozilla/5.0")
+                .build();
+
+        httpClient.newCall(req).enqueue(callback);
     }
 
     public JSONObject handleAction(JSONObject payload) {
@@ -208,16 +269,55 @@ public class DiscordManager {
                 res.put("status", "ok");
                 res.put("message", "Disconnected accounts");
             } else if ("set_config".equals(action)) {
-                this.guildId = payload.optString("guild_id", this.guildId);
-                this.defaultChannelId = payload.optString("channel_id", this.defaultChannelId);
+                if (payload.has("guild_id")) this.guildId = payload.getString("guild_id").trim();
+                if (payload.has("channel_id")) this.defaultChannelId = payload.getString("channel_id").trim();
                 prefs.edit().putString("guild_id", this.guildId).putString("channel_id", this.defaultChannelId).apply();
+                log("Server ID: " + this.guildId + ", Channel ID: " + this.defaultChannelId);
                 res.put("status", "ok");
                 res.put("message", "Configuration saved");
-            } else if ("set_device_mode".equals(action)) {
-                this.deviceMode = payload.optString("device_mode", "mobile");
+            } else if ("set_guild_id".equals(action)) {
+                this.guildId = payload.optString("guild_id", this.guildId).trim();
+                prefs.edit().putString("guild_id", this.guildId).apply();
+                res.put("status", "ok");
+                res.put("message", "Server ID set to " + this.guildId);
+            } else if ("set_default_channel".equals(action)) {
+                this.defaultChannelId = payload.optString("channel_id", this.defaultChannelId).trim();
+                prefs.edit().putString("channel_id", this.defaultChannelId).apply();
+                res.put("status", "ok");
+                res.put("message", "Default channel set to " + this.defaultChannelId);
+            } else if ("set_device_mode".equals(action) || "set_device_type".equals(action)) {
+                this.deviceMode = payload.optString("device_mode", payload.optString("device_type", "mobile"));
                 prefs.edit().putString("device_mode", this.deviceMode).apply();
+                for (Account a : accounts.values()) {
+                    if (a.online) a.reconnect(httpClient, this);
+                }
+                log("Switched appearance to " + (deviceMode.equals("mobile") ? "📱 Android Mobile" : "💻 Desktop"));
                 res.put("status", "ok");
                 res.put("message", "Device appearance updated to " + this.deviceMode);
+            } else if ("resolve_guild".equals(action)) {
+                resolveGuildId(new Callback() {
+                    @Override
+                    public void onFailure(Call call, IOException e) {
+                        log("Auto-resolve failed: " + e.getMessage());
+                    }
+
+                    @Override
+                    public void onResponse(Call call, Response response) throws IOException {
+                        if (response.isSuccessful() && response.body() != null) {
+                            try {
+                                JSONObject chInfo = new JSONObject(response.body().string());
+                                String gid = chInfo.optString("guild_id", "");
+                                if (!gid.isEmpty()) {
+                                    guildId = gid;
+                                    prefs.edit().putString("guild_id", guildId).apply();
+                                    log("Auto-detected Server ID: " + guildId);
+                                }
+                            } catch (Exception ignored) {}
+                        }
+                    }
+                });
+                res.put("status", "ok");
+                res.put("message", "Resolving Server ID via Discord API...");
             } else if ("add_token".equals(action)) {
                 String t = payload.optString("token", "").trim();
                 if (!t.isEmpty()) {
@@ -247,10 +347,93 @@ public class DiscordManager {
                         res.put("message", "Invalid account ID");
                     }
                 }
+            } else if ("account_action".equals(action)) {
+                int aid = payload.optInt("account_id", -1);
+                String sub = payload.optString("subaction", "");
+                Account target = accounts.get(aid);
+                if (target != null) {
+                    if ("move_default".equals(sub)) {
+                        target.setVoiceState(this.guildId, this.defaultChannelId, false, false);
+                    } else if ("move".equals(sub)) {
+                        String ch = payload.optString("channel_id", this.defaultChannelId);
+                        target.setVoiceState(this.guildId, ch, false, false);
+                    } else if ("mute".equals(sub)) {
+                        target.setVoiceState(this.guildId, target.voiceChannel, true, target.deaf);
+                    } else if ("unmute".equals(sub)) {
+                        target.setVoiceState(this.guildId, target.voiceChannel, false, target.deaf);
+                    } else if ("deafen".equals(sub)) {
+                        target.setVoiceState(this.guildId, target.voiceChannel, target.mute, true);
+                    } else if ("undeafen".equals(sub)) {
+                        target.setVoiceState(this.guildId, target.voiceChannel, target.mute, false);
+                    } else if ("disconnect".equals(sub)) {
+                        target.leaveVoice(this.guildId);
+                    }
+                    res.put("status", "ok");
+                    res.put("message", "Executed " + sub + " on account #" + aid);
+                } else {
+                    res.put("status", "error");
+                    res.put("message", "Account #" + aid + " not found");
+                }
+            } else if ("restart_all".equals(action)) {
+                for (Account a : accounts.values()) {
+                    a.reconnect(httpClient, this);
+                }
+                log("Reconnecting all accounts...");
+                res.put("status", "ok");
+                res.put("message", "Reconnecting all accounts...");
+            } else if ("save_preset".equals(action)) {
+                String name = payload.optString("name", "").trim();
+                String ch = payload.optString("channel_id", "").trim();
+                String gid = payload.optString("guild_id", this.guildId).trim();
+                if (!name.isEmpty() && !ch.isEmpty()) {
+                    // Remove if existing with same name
+                    presets.removeIf(p -> p.optString("name").equalsIgnoreCase(name));
+                    presets.add(new JSONObject().put("name", name).put("channel_id", ch).put("guild_id", gid));
+                    savePresetsToPrefs();
+                    res.put("status", "ok");
+                    res.put("message", "Saved preset: " + name);
+                }
+            } else if ("delete_preset".equals(action)) {
+                String name = payload.optString("name", "").trim();
+                presets.removeIf(p -> p.optString("name").equalsIgnoreCase(name));
+                savePresetsToPrefs();
+                res.put("status", "ok");
+                res.put("message", "Deleted preset: " + name);
+            } else if ("exec_command".equals(action)) {
+                String cmd = payload.optString("command", "").trim();
+                log("Command executed: " + cmd);
+                res.put("status", "ok");
+                res.put("message", "Executed command: " + cmd);
             } else {
                 res.put("status", "ok");
                 res.put("message", "Action processed: " + action);
             }
+        } catch (Exception e) {
+            try {
+                res.put("status", "error");
+                res.put("message", e.getMessage());
+            } catch (Exception ignored) {}
+        }
+        return res;
+    }
+
+    public JSONObject handleTokensPost(JSONObject payload) {
+        JSONObject res = new JSONObject();
+        try {
+            JSONArray tokensArr = payload.optJSONArray("tokens");
+            int count = 0;
+            if (tokensArr != null) {
+                for (int i = 0; i < tokensArr.length(); i++) {
+                    String t = tokensArr.getString(i).trim();
+                    if (!t.isEmpty() && !t.startsWith("#")) {
+                        addAccountInternal(t);
+                        count++;
+                    }
+                }
+                saveTokensToPrefs();
+            }
+            res.put("status", "ok");
+            res.put("message", "Imported " + count + " token(s) successfully");
         } catch (Exception e) {
             try {
                 res.put("status", "error");
@@ -291,10 +474,41 @@ public class DiscordManager {
             json.put("default_guild", guildId);
             json.put("default_channel", defaultChannelId);
             json.put("device_type", deviceMode);
+            json.put("presets", getPresetsArray());
             json.put("accounts", accArray);
         } catch (Exception e) {
             Log.e(TAG, "Status error", e);
         }
+        return json;
+    }
+
+    public JSONArray getPresetsArray() {
+        JSONArray arr = new JSONArray();
+        for (JSONObject p : presets) {
+            arr.put(p);
+        }
+        return arr;
+    }
+
+    public JSONObject getPresetsJson() {
+        JSONObject json = new JSONObject();
+        try {
+            json.put("presets", getPresetsArray());
+        } catch (Exception ignored) {}
+        return json;
+    }
+
+    public JSONObject getLogsJson() {
+        JSONObject json = new JSONObject();
+        try {
+            JSONArray arr = new JSONArray();
+            synchronized (logs) {
+                for (String l : logs) {
+                    arr.put(l);
+                }
+            }
+            json.put("logs", arr);
+        } catch (Exception ignored) {}
         return json;
     }
 
@@ -335,6 +549,11 @@ public class DiscordManager {
             this.token = token;
         }
 
+        public void reconnect(OkHttpClient client, DiscordManager mgr) {
+            disconnect();
+            connect(client, mgr);
+        }
+
         public void connect(OkHttpClient client, DiscordManager mgr) {
             disconnect();
             Request req = new Request.Builder()
@@ -345,7 +564,7 @@ public class DiscordManager {
             ws = client.newWebSocket(req, new WebSocketListener() {
                 @Override
                 public void onOpen(WebSocket webSocket, Response response) {
-                    mgr.log("Account #" + id + " Gateway connected.");
+                    mgr.log("Account #" + id + " Gateway connection opened.");
                 }
 
                 @Override
@@ -366,13 +585,14 @@ public class DiscordManager {
                                 JSONObject user = msg.getJSONObject("d").getJSONObject("user");
                                 name = user.optString("username", "Account #" + id);
                                 userId = user.optString("id", "");
-                                mgr.log("Account #" + id + " logged in as " + name);
+                                mgr.log("Account #" + id + " 🟢 READY as " + name + " (" + userId + ")");
                             } else if ("VOICE_STATE_UPDATE".equals(t)) {
                                 JSONObject d = msg.getJSONObject("d");
                                 if (userId.equals(d.optString("user_id"))) {
                                     voiceChannel = d.optString("channel_id", null);
                                     mute = d.optBoolean("self_mute", false);
                                     deaf = d.optBoolean("self_deaf", false);
+                                    mgr.log("Account #" + id + " Voice updated: " + (voiceChannel != null ? voiceChannel : "Left voice"));
                                 }
                             }
                         }
@@ -385,13 +605,19 @@ public class DiscordManager {
                 public void onClosing(WebSocket webSocket, int code, String reason) {
                     online = false;
                     stopHeartbeat();
+                    mgr.log("Account #" + id + " disconnected (Code: " + code + ")");
+                    // If not auth failed, attempt reconnect in 5s
+                    if (code != 4004) {
+                        new Handler(Looper.getMainLooper()).postDelayed(() -> reconnect(client, mgr), 5000);
+                    }
                 }
 
                 @Override
                 public void onFailure(WebSocket webSocket, Throwable t, Response response) {
                     online = false;
                     stopHeartbeat();
-                    mgr.log("Account #" + id + " disconnected: " + t.getMessage());
+                    mgr.log("Account #" + id + " connection failed: " + t.getMessage());
+                    new Handler(Looper.getMainLooper()).postDelayed(() -> reconnect(client, mgr), 7000);
                 }
             });
         }
@@ -437,7 +663,8 @@ public class DiscordManager {
                     }
                 }
             };
-            heartHandler.postDelayed(heartRunnable, intervalMs);
+            long initialDelay = (long) (intervalMs * Math.random());
+            heartHandler.postDelayed(heartRunnable, initialDelay);
         }
 
         private void stopHeartbeat() {
@@ -460,6 +687,9 @@ public class DiscordManager {
                     d.put("self_deaf", deaf);
                     op4.put("d", d);
                     ws.send(op4.toString());
+                    this.voiceChannel = channelId;
+                    this.mute = mute;
+                    this.deaf = deaf;
                 } catch (Exception e) {
                     Log.e(TAG, "Voice state update error", e);
                 }

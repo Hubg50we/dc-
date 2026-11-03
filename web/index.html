@@ -827,6 +827,41 @@
   </div>
 
   <script>
+    // High-performance Android Native Bridge routing
+    (function initBridge() {
+      if (window.AndroidBridge) {
+        const nativeFetch = window.fetch;
+        window.fetch = function(url, options) {
+          if (typeof url === 'string' && url.startsWith('/api/')) {
+            const method = (options && options.method) ? options.method.toUpperCase() : 'GET';
+            if (method === 'GET') {
+              try {
+                const resJson = window.AndroidBridge.getData(url);
+                return Promise.resolve(new Response(resJson, {
+                  status: 200,
+                  headers: { 'Content-Type': 'application/json' }
+                }));
+              } catch (e) {
+                console.error("AndroidBridge GET error:", e);
+              }
+            } else if (method === 'POST') {
+              try {
+                const bodyStr = (options && options.body) ? (typeof options.body === 'string' ? options.body : JSON.stringify(options.body)) : "{}";
+                const resJson = window.AndroidBridge.postAction(url, bodyStr);
+                return Promise.resolve(new Response(resJson, {
+                  status: 200,
+                  headers: { 'Content-Type': 'application/json' }
+                }));
+              } catch (e) {
+                console.error("AndroidBridge POST error:", e);
+              }
+            }
+          }
+          return nativeFetch.apply(this, arguments);
+        };
+      }
+    })();
+
     let currentPercent = 100;
     let accountsData = [];
     let savedPresets = [];

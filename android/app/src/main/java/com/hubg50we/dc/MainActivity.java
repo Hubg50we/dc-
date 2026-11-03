@@ -2,11 +2,11 @@ package com.hubg50we.dc;
 
 import android.annotation.SuppressLint;
 import android.content.Intent;
-import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -14,7 +14,6 @@ import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.activity.result.ActivityResultLauncher;
@@ -23,10 +22,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 
 public class MainActivity extends AppCompatActivity {
@@ -54,7 +50,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Start background service to ensure accounts remain active
+        // Start background service to ensure accounts remain active 24/7
         Intent serviceIntent = new Intent(this, DiscordService.class);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(serviceIntent);
@@ -74,6 +70,9 @@ public class MainActivity extends AppCompatActivity {
         settings.setAllowContentAccess(true);
         settings.setDatabaseEnabled(true);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
+
+        // Register high-performance bidirectional JavaScript bridge
+        webView.addJavascriptInterface(new AndroidBridge(), "AndroidBridge");
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
@@ -120,28 +119,51 @@ public class MainActivity extends AppCompatActivity {
                 byte[] bytes = tokens.toString().getBytes(StandardCharsets.UTF_8);
                 return new WebResourceResponse("application/json", "UTF-8", new ByteArrayInputStream(bytes));
             } else if ("/api/presets".equals(path)) {
-                JSONObject presets = new JSONObject();
-                presets.put("presets", new org.json.JSONArray());
+                JSONObject presets = discordManager.getPresetsJson();
                 byte[] bytes = presets.toString().getBytes(StandardCharsets.UTF_8);
                 return new WebResourceResponse("application/json", "UTF-8", new ByteArrayInputStream(bytes));
-            } else if ("/api/action".equals(path)) {
-                // Read request body if available
-                JSONObject payload = new JSONObject();
-                try {
-                    // For GET or simple requests: parse query params
-                    Uri uri = request.getUrl();
-                    for (String key : uri.getQueryParameterNames()) {
-                        payload.put(key, uri.getQueryParameter(key));
-                    }
-                } catch (Exception ignored) {}
-
-                JSONObject result = discordManager.handleAction(payload);
-                byte[] bytes = result.toString().getBytes(StandardCharsets.UTF_8);
+            } else if ("/api/logs".equals(path)) {
+                JSONObject logs = discordManager.getLogsJson();
+                byte[] bytes = logs.toString().getBytes(StandardCharsets.UTF_8);
                 return new WebResourceResponse("application/json", "UTF-8", new ByteArrayInputStream(bytes));
             }
         } catch (Exception e) {
             Log.e(TAG, "API intercept error: " + path, e);
         }
         return null;
+    }
+
+    public class AndroidBridge {
+        @JavascriptInterface
+        public String getData(String endpoint) {
+            try {
+                if ("/api/status".equals(endpoint)) {
+                    return discordManager.getStatusJson().toString();
+                } else if ("/api/tokens".equals(endpoint)) {
+                    return discordManager.getTokensJson().toString();
+                } else if ("/api/presets".equals(endpoint)) {
+                    return discordManager.getPresetsJson().toString();
+                } else if ("/api/logs".equals(endpoint)) {
+                    return discordManager.getLogsJson().toString();
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Bridge getData error", e);
+            }
+            return "{}";
+        }
+
+        @JavascriptInterface
+        public String postAction(String endpoint, String bodyJson) {
+            try {
+                JSONObject payload = new JSONObject(bodyJson);
+                if ("/api/tokens".equals(endpoint)) {
+                    return discordManager.handleTokensPost(payload).toString();
+                }
+                return discordManager.handleAction(payload).toString();
+            } catch (Exception e) {
+                Log.e(TAG, "Bridge postAction error", e);
+                return "{\"status\":\"error\",\"message\":\"" + e.getMessage() + "\"}";
+            }
+        }
     }
 }
