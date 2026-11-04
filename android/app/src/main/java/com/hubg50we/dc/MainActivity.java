@@ -33,7 +33,14 @@ import androidx.appcompat.app.AppCompatActivity;
 import org.json.JSONObject;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.TimeUnit;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
@@ -143,11 +150,49 @@ public class MainActivity extends AppCompatActivity {
                 JSONObject logs = discordManager.getLogsJson();
                 byte[] bytes = logs.toString().getBytes(StandardCharsets.UTF_8);
                 return new WebResourceResponse("application/json", "UTF-8", new ByteArrayInputStream(bytes));
+            } else if ("/api/update".equals(path)) {
+                JSONObject update = discordManager.checkUpdateJson();
+                byte[] bytes = update.toString().getBytes(StandardCharsets.UTF_8);
+                return new WebResourceResponse("application/json", "UTF-8", new ByteArrayInputStream(bytes));
             }
         } catch (Exception e) {
             Log.e(TAG, "API intercept error: " + path, e);
         }
         return null;
+    }
+
+    private void installApk(File apkFile) {
+        try {
+            if (!apkFile.exists()) {
+                Toast.makeText(this, "Downloaded APK not found!", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                if (!getPackageManager().canRequestPackageInstalls()) {
+                    Toast.makeText(this, "Please enable permission to install updates", Toast.LENGTH_LONG).show();
+                    Intent intent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES);
+                    intent.setData(Uri.parse("package:" + getPackageName()));
+                    startActivity(intent);
+                    return;
+                }
+            }
+
+            Uri apkUri = androidx.core.content.FileProvider.getUriForFile(
+                    this,
+                    getPackageName() + ".fileprovider",
+                    apkFile
+            );
+
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setDataAndType(apkUri, "application/vnd.android.package-archive");
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+        } catch (Exception e) {
+            Log.e(TAG, "Install APK error", e);
+            Toast.makeText(this, "Failed to launch installer: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
     }
 
     public class AndroidBridge {
@@ -162,11 +207,96 @@ public class MainActivity extends AppCompatActivity {
                     return discordManager.getPresetsJson().toString();
                 } else if ("/api/logs".equals(endpoint)) {
                     return discordManager.getLogsJson().toString();
+                } else if ("/api/update".equals(endpoint)) {
+                    return discordManager.checkUpdateJson().toString();
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Bridge getData error", e);
             }
             return "{}";
+        }
+
+        @JavascriptInterface
+        public String checkUpdate() {
+            try {
+                return discordManager.checkUpdateJson().toString();
+            } catch (Exception e) {
+                return "{\"success\":false,\"error\":\"" + e.getMessage() + "\"}";
+            }
+        }
+
+        @JavascriptInterface
+        public void downloadAndInstallUpdate(String downloadUrl) {
+            new Thread(() -> {
+                try {
+                    runOnUiThread(() -> Toast.makeText(MainActivity.this, "Downloading update...", Toast.LENGTH_SHORT).show());
+                    OkHttpClient client = new OkHttpClient.Builder()
+                            .connectTimeout(20, TimeUnit.SECONDS)
+                            .readTimeout(60, TimeUnit.SECONDS)
+                            .build();
+                    Request request = new Request.Builder()
+                            .url(downloadUrl)
+                            .header("User-Agent", "Mozilla/5.0 (Android dc- app)")
+                            .build();
+
+                    try (Response response = client.newCall(request).execute()) {
+                        if (!response.isSuccessful() || response.body() == null) {
+                            runOnUiThread(() -> Toast.makeText(MainActivity.this, "Download failed: HTTP " + response.code(), Toast.LENGTH_LONG).show());
+                            return;
+                        }
+
+                        long totalBytes = response.body().contentLength();
+                        File cacheDir = getExternalCacheDir() != null ? getExternalCacheDir() : getCacheDir();
+                        File apkFile = new File(cacheDir, "dc-update.apk");
+                        if (apkFile.exists()) apkFile.delete();
+
+                        byte[] buffer = new byte[8192];
+                        long downloadedBytes = 0;
+                        try (InputStream in = response.body().byteStream();
+                             FileOutputStream out = new FileOutputStream(apkFile)) {
+                            int read;
+                            long lastUpdate = 0;
+                            while ((read = in.read(buffer)) != -1) {
+                                out.write(buffer, 0, read);
+                                downloadedBytes += read;
+                                long now = System.currentTimeMillis();
+                                if (now - lastUpdate > 250 || downloadedBytes == totalBytes) {
+                                    lastUpdate = now;
+                                    final int progress = totalBytes > 0 ? (int) ((downloadedBytes * 100) / totalBytes) : -1;
+                                    final long dl = downloadedBytes;
+                                    final long tot = totalBytes;
+                                    runOnUiThread(() -> {
+                                        if (webView != null) {
+                                            webView.evaluateJavascript("if (window.onUpdateProgress) window.onUpdateProgress(" + progress + ", " + dl + ", " + tot + ");", null);
+                                        }
+                                    });
+                                }
+                            }
+                            out.flush();
+                        }
+
+                        runOnUiThread(() -> {
+                            if (webView != null) {
+                                webView.evaluateJavascript("if (window.onUpdateComplete) window.onUpdateComplete();", null);
+                            }
+                            installApk(apkFile);
+                        });
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Download update failed", e);
+                    runOnUiThread(() -> Toast.makeText(MainActivity.this, "Download error: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                }
+            }).start();
+        }
+
+        @JavascriptInterface
+        public void openBrowserUrl(String url) {
+            runOnUiThread(() -> {
+                try {
+                    Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                    startActivity(browserIntent);
+                } catch (Exception ignored) {}
+            });
         }
 
         @JavascriptInterface

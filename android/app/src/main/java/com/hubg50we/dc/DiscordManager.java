@@ -27,6 +27,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
+    public static final String APP_VERSION = "1.1.0";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -696,6 +697,8 @@ public class DiscordManager {
                 res.put("success", true);
                 res.put("status", "ok");
                 res.put("message", reply);
+            } else if ("check_update".equals(action)) {
+                return checkUpdateJson();
             } else {
                 res.put("success", true);
                 res.put("status", "ok");
@@ -832,7 +835,7 @@ public class DiscordManager {
             json.put("total_accounts", accounts.size());
             json.put("online_accounts", onlineCount);
             json.put("voice_accounts", voiceCount);
-            json.put("version", "1.0.9");
+            json.put("version", APP_VERSION);
             json.put("uptime", (System.currentTimeMillis() - startTime) / 1000);
             json.put("default_guild", guildId);
             json.put("default_channel", defaultChannelId);
@@ -896,6 +899,89 @@ public class DiscordManager {
             json.put("count", arr.length());
         } catch (Exception ignored) {}
         return json;
+    }
+
+    public JSONObject checkUpdateJson() {
+        JSONObject res = new JSONObject();
+        try {
+            Request request = new Request.Builder()
+                    .url("https://api.github.com/repos/Hubg50we/dc-/releases/latest")
+                    .header("User-Agent", "Mozilla/5.0 (Android dc- app)")
+                    .build();
+            OkHttpClient client = new OkHttpClient.Builder()
+                    .connectTimeout(10, TimeUnit.SECONDS)
+                    .readTimeout(10, TimeUnit.SECONDS)
+                    .build();
+            try (Response response = client.newCall(request).execute()) {
+                if (response.isSuccessful() && response.body() != null) {
+                    String jsonStr = response.body().string();
+                    JSONObject release = new JSONObject(jsonStr);
+                    String tagName = release.optString("tag_name", "").trim();
+                    String cleanRemote = tagName.startsWith("v") ? tagName.substring(1) : tagName;
+                    String releaseName = release.optString("name", "v" + cleanRemote);
+                    String notes = release.optString("body", "");
+                    String publishedAt = release.optString("published_at", "");
+
+                    String downloadUrl = "";
+                    long fileSize = 0;
+                    JSONArray assets = release.optJSONArray("assets");
+                    if (assets != null) {
+                        for (int i = 0; i < assets.length(); i++) {
+                            JSONObject asset = assets.getJSONObject(i);
+                            String aName = asset.optString("name", "");
+                            if (aName.endsWith(".apk")) {
+                                downloadUrl = asset.optString("browser_download_url", "");
+                                fileSize = asset.optLong("size", 0);
+                                if (aName.equals("dc-android.apk")) {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if (downloadUrl.isEmpty()) {
+                        downloadUrl = "https://github.com/Hubg50we/dc-/releases/download/" + tagName + "/dc-android.apk";
+                    }
+
+                    boolean isNewer = compareVersions(cleanRemote, APP_VERSION) > 0;
+                    res.put("success", true);
+                    res.put("status", "ok");
+                    res.put("update_available", isNewer);
+                    res.put("current_version", APP_VERSION);
+                    res.put("latest_version", cleanRemote);
+                    res.put("tag_name", tagName);
+                    res.put("release_name", releaseName);
+                    res.put("release_notes", notes);
+                    res.put("download_url", downloadUrl);
+                    res.put("file_size", fileSize);
+                    res.put("published_at", publishedAt);
+                    return res;
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "checkUpdate error", e);
+        }
+        try {
+            res.put("success", false);
+            res.put("status", "error");
+            res.put("update_available", false);
+            res.put("current_version", APP_VERSION);
+            res.put("error", "Could not check for updates. Check internet connection.");
+        } catch (Exception ignored) {}
+        return res;
+    }
+
+    private int compareVersions(String v1, String v2) {
+        String[] parts1 = v1.split("\\.");
+        String[] parts2 = v2.split("\\.");
+        int length = Math.max(parts1.length, parts2.length);
+        for (int i = 0; i < length; i++) {
+            int p1 = i < parts1.length ? Integer.parseInt(parts1[i].replaceAll("[^0-9]", "").isEmpty() ? "0" : parts1[i].replaceAll("[^0-9]", "")) : 0;
+            int p2 = i < parts2.length ? Integer.parseInt(parts2[i].replaceAll("[^0-9]", "").isEmpty() ? "0" : parts2[i].replaceAll("[^0-9]", "")) : 0;
+            if (p1 != p2) {
+                return Integer.compare(p1, p2);
+            }
+        }
+        return 0;
     }
 
     public static class Account {

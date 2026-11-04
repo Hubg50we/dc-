@@ -689,6 +689,54 @@
     }
     @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
+    /* In-App Auto-Update Banner & Progress */
+    .update-banner {
+      background: linear-gradient(90deg, rgba(88, 101, 242, 0.2), rgba(35, 165, 89, 0.2));
+      border-bottom: 1px solid var(--accent);
+      padding: 10px 16px;
+      animation: bannerSlideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes bannerSlideDown {
+      from { transform: translateY(-100%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .update-banner-content {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    .update-pulse {
+      width: 10px;
+      height: 10px;
+      background: var(--success);
+      border-radius: 50%;
+      box-shadow: 0 0 0 0 rgba(35, 165, 89, 0.7);
+      animation: pulseAnim 2s infinite;
+      flex-shrink: 0;
+    }
+    @keyframes pulseAnim {
+      0% { box-shadow: 0 0 0 0 rgba(35, 165, 89, 0.7); }
+      70% { box-shadow: 0 0 0 8px rgba(35, 165, 89, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(35, 165, 89, 0); }
+    }
+    .progress-bar-bg {
+      width: 100%;
+      height: 8px;
+      background: var(--bg-dark);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 6px;
+      margin-bottom: 4px;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--success));
+      width: 0%;
+      transition: width 0.2s ease;
+    }
+
     /* Desktop View */
     @media (min-width: 900px) {
       body { padding-bottom: 24px; }
@@ -721,6 +769,25 @@
       <button class="icon-btn" onclick="refreshAll()" title="Refresh Dashboard">↻</button>
     </div>
   </header>
+
+  <!-- Auto-Update Notification Banner -->
+  <div id="update-notification-banner" class="update-banner" style="display:none;">
+    <div class="update-banner-content">
+      <span class="update-pulse"></span>
+      <div style="flex:1;">
+        <div style="font-weight:700; color:var(--text-heading); font-size:0.85rem;">
+          🚀 Update Available: <span id="banner-update-version">v1.1.0</span>
+        </div>
+        <div id="banner-update-sub" style="font-size:0.73rem; color:var(--text-muted);">
+          Tap to download and install the new update
+        </div>
+      </div>
+      <div style="display:flex; gap:6px; align-items:center;">
+        <button class="btn btn-success btn-sm" onclick="startAppUpdate()">⬇️ Update</button>
+        <button class="btn btn-secondary btn-sm" style="min-height:28px; width:28px; padding:0; border-radius:50%;" onclick="dismissUpdateBanner()">✕</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Horizontal Stats Strip -->
   <div class="stats-strip">
@@ -938,6 +1005,36 @@
     <!-- TAB 4: SETTINGS & POWER -->
     <div class="tab-content" id="tab-settings">
 
+      <!-- App Updates & Version Card -->
+      <div class="card" style="border-color: rgba(88, 101, 242, 0.45);">
+        <div class="card-title" style="color:var(--accent);">
+          <span>🔄 App Updates & Version</span>
+          <span class="badge badge-voice" id="settings-app-version">v1.1.0</span>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
+          Automatically check for new releases, bug fixes, and feature updates.
+        </p>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-dark); padding:10px 12px; border-radius:var(--radius-sm); margin-bottom:10px;">
+          <div>
+            <strong style="font-size:0.84rem; color:var(--text-heading);">Auto-Check on Startup</strong>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Notify when a new version is released</div>
+          </div>
+          <input type="checkbox" id="auto-check-update-toggle" checked onchange="toggleAutoCheckUpdate(this.checked)" style="width:20px; height:20px; accent-color:var(--accent);">
+        </div>
+
+        <div class="input-row">
+          <button class="btn btn-primary" style="flex:2;" onclick="checkAppUpdate(false)">
+            🔍 Check for Updates Now
+          </button>
+          <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="openReleasePage()">
+            🌐 Releases
+          </button>
+        </div>
+
+        <div id="update-check-result" style="display:none; margin-top:8px; padding:10px; border-radius:8px; font-size:0.82rem;"></div>
+      </div>
+
       <div class="card">
         <div class="card-title">
           <span>📱 Discord Device Appearance</span>
@@ -1067,6 +1164,34 @@
         <button class="btn btn-secondary btn-sm" style="min-height:34px; width:34px; padding:0; border-radius:50%;" onclick="closeModal()">✕</button>
       </div>
       <div id="modal-bot-body" style="display:flex; flex-direction:column; gap:12px;"></div>
+    </div>
+  </div>
+
+  <!-- Modal Sheet for In-App Update Progress -->
+  <div class="modal-overlay" id="update-modal" onclick="closeUpdateModal(event)">
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <div class="modal-handle"></div>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 id="update-modal-title" style="color:var(--text-heading); font-size:1.05rem; font-weight:700;">Downloading Update</h3>
+        <button class="btn btn-secondary btn-sm" style="min-height:34px; width:34px; padding:0; border-radius:50%;" onclick="closeUpdateModal()">✕</button>
+      </div>
+      <div id="update-modal-body" style="display:flex; flex-direction:column; gap:12px;">
+        <div style="font-size:0.85rem; color:var(--text-main);" id="update-status-msg">
+          Downloading <strong id="update-modal-version">latest release</strong>...
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="update-progress-fill"></div>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-muted);">
+          <span id="update-bytes-txt">0.0 MB / 0.0 MB</span>
+          <span id="update-percent-txt">0%</span>
+        </div>
+        <div id="update-notes-box" style="background:var(--bg-dark); border-radius:8px; padding:10px; font-size:0.78rem; color:var(--text-muted); max-height:120px; overflow-y:auto; line-height:1.4;"></div>
+        <div style="display:flex; gap:8px; margin-top:4px;">
+          <button class="btn btn-primary" id="btn-manual-install" style="flex:2; display:none;" onclick="triggerInstallDownloaded()">🚀 Install APK</button>
+          <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="openReleasePage()">🌐 Browser</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1294,6 +1419,12 @@
       document.getElementById('stat-online').innerText = data.online_accounts || 0;
       document.getElementById('stat-voice').innerText = data.voice_accounts || 0;
       document.getElementById('stat-uptime').innerText = formatUptime(data.uptime);
+
+      if (data.version) {
+        currentAppVersion = data.version;
+        const vBadge = document.getElementById('settings-app-version');
+        if (vBadge) vBadge.innerText = 'v' + data.version;
+      }
 
       // Active device button highlight
       if (data.device_type === 'desktop') {
@@ -2134,9 +2265,198 @@
       return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
+    let currentAppVersion = '1.1.0';
+    let latestUpdateData = null;
+
+    function toggleAutoCheckUpdate(enabled) {
+      localStorage.setItem('dc_auto_check_update', enabled ? 'true' : 'false');
+      showToast(enabled ? 'Auto-check enabled' : 'Auto-check disabled');
+    }
+
+    async function checkAppUpdate(silent = false) {
+      if (!silent) vibrate(15);
+      const resBox = document.getElementById('update-check-result');
+      if (!silent && resBox) {
+        resBox.style.display = 'block';
+        resBox.style.background = 'var(--bg-dark)';
+        resBox.style.border = '1px solid var(--border)';
+        resBox.innerHTML = '<span style="color:var(--text-muted);">Checking for updates from GitHub...</span>';
+      }
+
+      try {
+        let json;
+        if (window.AndroidBridge && window.AndroidBridge.checkUpdate) {
+          const raw = window.AndroidBridge.checkUpdate();
+          json = JSON.parse(raw);
+        } else {
+          const res = await fetch('/api/update');
+          json = await res.json();
+        }
+
+        if (json.current_version) {
+          currentAppVersion = json.current_version;
+          const vBadge = document.getElementById('settings-app-version');
+          if (vBadge) vBadge.innerText = 'v' + currentAppVersion;
+        }
+
+        if (json.success && json.update_available) {
+          latestUpdateData = json;
+          const banner = document.getElementById('update-notification-banner');
+          const bannerVer = document.getElementById('banner-update-version');
+          const dismissedVer = sessionStorage.getItem('dc_dismissed_update');
+
+          if (bannerVer) bannerVer.innerText = 'v' + json.latest_version;
+          if (banner && (!silent || dismissedVer !== json.latest_version)) {
+            banner.style.display = 'block';
+          }
+
+          if (resBox) {
+            resBox.style.display = 'block';
+            resBox.style.background = 'rgba(35, 165, 89, 0.12)';
+            resBox.style.border = '1px solid var(--success)';
+            resBox.innerHTML = `
+              <div style="color:var(--success); font-weight:700; margin-bottom:4px;">🚀 Update Available: v${escapeHtml(json.latest_version)}</div>
+              <div style="color:var(--text-main); font-size:0.75rem; margin-bottom:8px;">${escapeHtml(json.release_name || 'New release ready')}</div>
+              <div style="display:flex; gap:6px;">
+                <button class="btn btn-success btn-sm" onclick="startAppUpdate()">⬇️ Download & Install Now</button>
+                <button class="btn btn-secondary btn-sm" onclick="openReleasePage()">Notes</button>
+              </div>
+            `;
+          }
+          if (!silent) showToast(`Update v${json.latest_version} available!`);
+        } else {
+          if (resBox) {
+            resBox.style.display = 'block';
+            resBox.style.background = 'rgba(88, 101, 242, 0.1)';
+            resBox.style.border = '1px solid var(--accent)';
+            resBox.innerHTML = `
+              <div style="color:var(--accent); font-weight:700;">✅ Up to Date</div>
+              <div style="color:var(--text-muted); font-size:0.75rem;">You are running the latest version (v${escapeHtml(json.current_version || currentAppVersion)}).</div>
+            `;
+          }
+          if (!silent) showToast('You are on the latest version!');
+        }
+      } catch (err) {
+        if (!silent && resBox) {
+          resBox.style.display = 'block';
+          resBox.style.background = 'rgba(242, 63, 67, 0.1)';
+          resBox.style.border = '1px solid var(--danger)';
+          resBox.innerHTML = `<span style="color:var(--danger);">Error checking updates: ${escapeHtml(err.message)}</span>`;
+        }
+        if (!silent) showToast('Could not check update: ' + err.message, true);
+      }
+    }
+
+    function dismissUpdateBanner() {
+      vibrate(10);
+      const banner = document.getElementById('update-notification-banner');
+      if (banner) banner.style.display = 'none';
+      if (latestUpdateData) {
+        sessionStorage.setItem('dc_dismissed_update', latestUpdateData.latest_version);
+      }
+    }
+
+    function startAppUpdate() {
+      vibrate(20);
+      if (!latestUpdateData || !latestUpdateData.download_url) {
+        openReleasePage();
+        return;
+      }
+
+      const modal = document.getElementById('update-modal');
+      const verSpan = document.getElementById('update-modal-version');
+      const notesBox = document.getElementById('update-notes-box');
+      const btnInstall = document.getElementById('btn-manual-install');
+      const fill = document.getElementById('update-progress-fill');
+      const pctTxt = document.getElementById('update-percent-txt');
+      const bytesTxt = document.getElementById('update-bytes-txt');
+      const msg = document.getElementById('update-status-msg');
+
+      if (verSpan) verSpan.innerText = 'v' + latestUpdateData.latest_version;
+      if (fill) fill.style.width = '0%';
+      if (pctTxt) pctTxt.innerText = '0%';
+      if (bytesTxt) bytesTxt.innerText = 'Connecting...';
+      if (btnInstall) btnInstall.style.display = 'none';
+      if (msg) msg.innerText = `Downloading dc- v${latestUpdateData.latest_version}...`;
+
+      if (notesBox && latestUpdateData.release_notes) {
+        notesBox.style.display = 'block';
+        notesBox.innerText = latestUpdateData.release_notes;
+      }
+
+      if (modal) modal.classList.add('open');
+
+      if (window.AndroidBridge && window.AndroidBridge.downloadAndInstallUpdate) {
+        window.AndroidBridge.downloadAndInstallUpdate(latestUpdateData.download_url);
+      } else {
+        window.open(latestUpdateData.download_url, '_blank');
+        setTimeout(() => {
+          if (msg) msg.innerText = 'Download started in browser!';
+        }, 1000);
+      }
+    }
+
+    window.onUpdateProgress = function(percent, dl, tot) {
+      const fill = document.getElementById('update-progress-fill');
+      const pctTxt = document.getElementById('update-percent-txt');
+      const bytesTxt = document.getElementById('update-bytes-txt');
+      if (fill && percent >= 0) fill.style.width = percent + '%';
+      if (pctTxt && percent >= 0) pctTxt.innerText = percent + '%';
+      if (bytesTxt) {
+        const dlMb = (dl / (1024 * 1024)).toFixed(1);
+        const totMb = (tot > 0) ? (tot / (1024 * 1024)).toFixed(1) : '?';
+        bytesTxt.innerText = `${dlMb} MB / ${totMb} MB`;
+      }
+    };
+
+    window.onUpdateComplete = function() {
+      const msg = document.getElementById('update-status-msg');
+      const fill = document.getElementById('update-progress-fill');
+      const btnInstall = document.getElementById('btn-manual-install');
+      if (msg) msg.innerText = '✅ Download complete! Launching package installer...';
+      if (fill) fill.style.width = '100%';
+      if (btnInstall) btnInstall.style.display = 'block';
+      showToast('Download complete! Installing...');
+    };
+
+    function triggerInstallDownloaded() {
+      if (latestUpdateData && window.AndroidBridge && window.AndroidBridge.downloadAndInstallUpdate) {
+        window.AndroidBridge.downloadAndInstallUpdate(latestUpdateData.download_url);
+      } else {
+        openReleasePage();
+      }
+    }
+
+    function closeUpdateModal(e) {
+      const modal = document.getElementById('update-modal');
+      if (modal) modal.classList.remove('open');
+    }
+
+    function openReleasePage() {
+      vibrate(15);
+      const url = (latestUpdateData && latestUpdateData.download_url) ? 'https://github.com/Hubg50we/dc-/releases/latest' : 'https://github.com/Hubg50we/dc-/releases';
+      if (window.AndroidBridge && window.AndroidBridge.openBrowserUrl) {
+        window.AndroidBridge.openBrowserUrl(url);
+      } else {
+        window.open(url, '_blank');
+      }
+    }
+
     fetchStatus();
     fetchLogs();
     checkAndroidFeatures();
+
+    // Auto-check for updates on launch
+    const autoCheckPref = localStorage.getItem('dc_auto_check_update');
+    const autoCheckEnabled = autoCheckPref === null || autoCheckPref === 'true';
+    const autoToggle = document.getElementById('auto-check-update-toggle');
+    if (autoToggle) autoToggle.checked = autoCheckEnabled;
+    if (autoCheckEnabled) {
+      setTimeout(() => {
+        checkAppUpdate(true);
+      }, 1500);
+    }
+
     setInterval(() => {
       fetchStatus();
       const logsTab = document.getElementById('tab-logs');

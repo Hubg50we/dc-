@@ -71,6 +71,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
+APP_VERSION = "1.1.0"
 
 # Account registry: id -> dict
 ACCOUNTS = {}
@@ -900,6 +901,58 @@ async def command_file_loop():
         await asyncio.sleep(1)
 
 
+def check_github_update():
+    try:
+        req = urllib.request.Request(
+            "https://api.github.com/repos/Hubg50we/dc-/releases/latest",
+            headers={"User-Agent": "Mozilla/5.0"}
+        )
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            tag = (data.get("tag_name") or "").strip()
+            clean_tag = tag[1:] if tag.startswith("v") else tag
+            download_url = ""
+            file_size = 0
+            for a in data.get("assets", []):
+                if a.get("name", "").endswith(".apk"):
+                    download_url = a.get("browser_download_url", "")
+                    file_size = a.get("size", 0)
+                    if a.get("name") == "dc-android.apk":
+                        break
+            if not download_url:
+                download_url = f"https://github.com/Hubg50we/dc-/releases/download/{tag}/dc-android.apk"
+
+            is_newer = False
+            try:
+                def to_tuple(v):
+                    return tuple(int(x) for x in re.sub(r"[^0-9.]", "", v).split(".") if x)
+                is_newer = to_tuple(clean_tag) > to_tuple(APP_VERSION)
+            except Exception:
+                is_newer = clean_tag != APP_VERSION
+
+            return {
+                "success": True,
+                "status": "ok",
+                "update_available": is_newer,
+                "current_version": APP_VERSION,
+                "latest_version": clean_tag,
+                "tag_name": tag,
+                "release_name": data.get("name") or tag,
+                "release_notes": data.get("body") or "",
+                "download_url": download_url,
+                "file_size": file_size,
+                "published_at": data.get("published_at") or ""
+            }
+    except Exception as e:
+        return {
+            "success": False,
+            "status": "error",
+            "update_available": False,
+            "current_version": APP_VERSION,
+            "error": str(e)
+        }
+
+
 class DashboardHandler(http.server.BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         # Suppress periodic polling logs to keep terminal output clean
@@ -914,6 +967,8 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             self.serve_status()
         elif self.path == "/api/logs":
             self.serve_logs()
+        elif self.path == "/api/update":
+            self.serve_update()
         elif self.path == "/api/tokens":
             tokens = [a.get("token") for a in ACCOUNTS.values() if a.get("token") and not is_placeholder_token(a.get("token"))]
             resp = json.dumps({"tokens": tokens, "count": len(tokens)}).encode("utf-8")
@@ -967,6 +1022,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             "total_accounts": len(ACCOUNTS),
             "online_accounts": sum(1 for a in ACCOUNTS.values() if a.get("online")),
             "voice_accounts": len(voice_accounts()),
+            "version": APP_VERSION,
             "uptime": int(time.time() - START_TIME) if START_TIME else 0,
             "default_guild": GUILD_ID,
             "default_channel": CHANNEL_ID,
@@ -998,6 +1054,16 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
 
     def serve_logs(self):
         resp = json.dumps({"logs": list(LOG_BUFFER)}).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(resp)))
+        self.end_headers()
+        self.wfile.write(resp)
+
+    def serve_update(self):
+        result = check_github_update()
+        resp = json.dumps(result).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -1118,6 +1184,9 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 "guild_id": GUILD_ID,
                 "channel_id": CHANNEL_ID,
             }
+
+        if action == "check_update":
+            return check_github_update()
 
         if action == "detect_guild":
             target_ch = payload.get("channel_id") or CHANNEL_ID
