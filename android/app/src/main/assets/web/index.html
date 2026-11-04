@@ -87,8 +87,6 @@
       transition: background-color 0.2s ease;
       overflow-x: hidden;
       -webkit-font-smoothing: antialiased;
-      -webkit-overflow-scrolling: touch;
-      overscroll-behavior-y: contain;
     }
 
     /* Top Glass App Bar */
@@ -438,12 +436,7 @@
     }
 
     /* Accounts List */
-    .acc-list {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      contain: layout style;
-    }
+    .acc-list { display: flex; flex-direction: column; gap: 10px; }
     .acc-card {
       background: var(--bg-dark);
       border: 1px solid var(--border);
@@ -453,9 +446,6 @@
       flex-direction: column;
       gap: 12px;
       transition: all 0.15s ease;
-      contain: content;
-      transform: translateZ(0);
-      will-change: transform;
     }
     .acc-card.selected { border-color: var(--accent); background: rgba(88, 101, 242, 0.08); }
     .acc-top { display: flex; align-items: center; gap: 12px; }
@@ -1642,12 +1632,9 @@
       }
     }
 
-    let _renderedAccountSnapshot = "";
-
     function renderAccountsList(list) {
       const container = document.getElementById('accounts-list-box');
       if (!list || list.length === 0) {
-        _renderedAccountSnapshot = "";
         container.innerHTML = `
           <div class="empty-state-card">
             <div class="empty-state-icon">🤖</div>
@@ -1660,14 +1647,6 @@
         `;
         return;
       }
-
-      // Memory & DOM Churn Optimization for Low-End Devices:
-      // Compare state snapshot to prevent destroying and re-injecting 50-100 DOM cards when nothing changed
-      const snapshot = list.map(a => `${a.id}:${a.name}:${a.online}:${a.voice_channel}:${a.guild_id}:${a.mute}:${a.deaf}:${selectedAccountIds.has(a.id)}`).join('|');
-      if (snapshot === _renderedAccountSnapshot) {
-        return; // Zero DOM thrash, maintains 60/120 FPS scrolling effortlessly
-      }
-      _renderedAccountSnapshot = snapshot;
 
       let html = '';
       list.forEach((acc, index) => {
@@ -2470,38 +2449,13 @@
       }, 1500);
     }
 
-    let pollInterval = 2000;
-    let pollTimer = null;
-
-    function startAdaptivePolling() {
-      if (pollTimer) clearInterval(pollTimer);
-      pollTimer = setInterval(() => {
-        // Only run polling if page is visible or foregrounded
-        if (document.visibilityState === 'hidden') {
-          return;
-        }
-        fetchStatus();
-        const logsTab = document.getElementById('tab-logs');
-        if (logsTab && logsTab.classList.contains('active')) {
-          fetchLogs();
-        }
-      }, pollInterval);
-    }
-
-    // Adaptive Battery & Resource Throttling:
-    // If the app is minimized, screen turned off, or in background, slow down from 2s to 15s
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) {
-        pollInterval = 15000;
-        startAdaptivePolling();
-      } else {
-        pollInterval = 2000;
-        fetchStatus();
-        startAdaptivePolling();
+    setInterval(() => {
+      fetchStatus();
+      const logsTab = document.getElementById('tab-logs');
+      if (logsTab && logsTab.classList.contains('active')) {
+        fetchLogs();
       }
-    });
-
-    startAdaptivePolling();
+    }, 2000);
   </script>
 </body>
 </html>

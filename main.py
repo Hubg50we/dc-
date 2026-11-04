@@ -72,7 +72,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.1.2"
+APP_VERSION = "1.1.3"
 
 # Account registry: id -> dict
 ACCOUNTS = {}
