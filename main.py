@@ -4,6 +4,7 @@ import http.server
 import json
 import os
 import random
+import re
 import signal
 import socket
 import socketserver
@@ -71,7 +72,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.1.1"
+APP_VERSION = "1.1.2"
 
 # Account registry: id -> dict
 ACCOUNTS = {}

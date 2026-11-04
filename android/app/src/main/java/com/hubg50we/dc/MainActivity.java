@@ -95,6 +95,11 @@ public class MainActivity extends AppCompatActivity {
         settings.setDatabaseEnabled(true);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
 
+        // Hardware acceleration & low/high-end responsiveness optimizations
+        webView.setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null);
+        settings.setRenderPriority(WebSettings.RenderPriority.HIGH);
+        settings.setEnableSmoothTransition(true);
+
         // Register high-performance bidirectional JavaScript bridge
         webView.addJavascriptInterface(new AndroidBridge(), "AndroidBridge");
 
@@ -382,6 +387,25 @@ public class MainActivity extends AppCompatActivity {
                     } catch (Exception ignored) {}
                 }
             });
+        }
+    }
+
+    @Override
+    public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        if (webView != null) {
+            // Free unused resources on low memory (low-end devices)
+            if (level >= TRIM_MEMORY_MODERATE) {
+                webView.freeMemory();
+            }
+        }
+    }
+
+    @Override
+    public void onLowMemory() {
+        super.onLowMemory();
+        if (webView != null) {
+            webView.freeMemory();
         }
     }
 }
