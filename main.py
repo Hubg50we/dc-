@@ -72,7 +72,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.1.3"
+APP_VERSION = "1.1.4"
 
 # Account registry: id -> dict
 ACCOUNTS = {}
@@ -441,7 +441,7 @@ async def run_account(aid):
         hb = None
         ws = None
         try:
-            async with websockets.connect(uri, max_size=10 * 1024 * 1024) as ws:
+            async with websockets.connect(uri, max_size=20 * 1024 * 1024) as ws:
                 hello = json.loads(await asyncio.wait_for(ws.recv(), timeout=15))
                 heartbeat_interval = hello["d"]["heartbeat_interval"]
                 hb = asyncio.create_task(heartbeat(ws, heartbeat_interval))
@@ -476,7 +476,20 @@ async def run_account(aid):
                 print(f"[Account {aid}] {acc['name']} connected (gateway).")
 
                 while True:
-                    await asyncio.wait_for(ws.recv(), timeout=max(30, heartbeat_interval / 1000 + 15))
+                    raw_msg = await asyncio.wait_for(ws.recv(), timeout=max(30, heartbeat_interval / 1000 + 15))
+                    try:
+                        ev = json.loads(raw_msg)
+                        t = ev.get("t")
+                        if t == "VOICE_STATE_UPDATE":
+                            d = ev.get("d", {})
+                            if d.get("user_id") == acc.get("user_id"):
+                                acc["voice_channel"] = d.get("channel_id")
+                                acc["mute"] = d.get("self_mute", False)
+                                acc["deaf"] = d.get("self_deaf", False)
+                                if d.get("guild_id"):
+                                    acc["guild_id"] = d.get("guild_id")
+                    except Exception:
+                        pass
 
         except asyncio.CancelledError:
             raise
