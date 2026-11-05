@@ -1127,7 +1127,7 @@ public class DiscordManager {
                             JSONObject d = msg.getJSONObject("d");
                             int interval = d.getInt("heartbeat_interval");
                             startHeartbeat(interval);
-                            sendIdentify(webSocket, mgr.deviceMode);
+                            sendIdentify(webSocket, mgr);
                         } else if (op == 1) { // Discord Gateway requests immediate Heartbeat
                             sendHeartbeat();
                         } else if (op == 7) { // RECONNECT
@@ -1201,7 +1201,7 @@ public class DiscordManager {
             });
         }
 
-        private void sendIdentify(WebSocket ws, String deviceMode) {
+        private void sendIdentify(WebSocket ws, DiscordManager mgr) {
             try {
                 JSONObject identify = new JSONObject();
                 identify.put("op", 2);
@@ -1209,6 +1209,7 @@ public class DiscordManager {
                 d.put("token", this.token);
                 d.put("intents", 0);
 
+                String deviceMode = mgr != null ? mgr.deviceMode : "mobile";
                 JSONObject props = new JSONObject();
                 if ("desktop".equalsIgnoreCase(deviceMode)) {
                     props.put("$os", "windows");
@@ -1226,7 +1227,7 @@ public class DiscordManager {
                 presence.put("status", "online");
                 presence.put("afk", false);
                 presence.put("since", 0);
-                if (mgr.customActivityName != null && !mgr.customActivityName.trim().isEmpty()) {
+                if (mgr != null && mgr.customActivityName != null && !mgr.customActivityName.trim().isEmpty()) {
                     JSONArray acts = new JSONArray();
                     JSONObject act = new JSONObject();
                     act.put("name", mgr.customActivityName.trim());
