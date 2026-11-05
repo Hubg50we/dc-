@@ -73,7 +73,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.3.1"
+APP_VERSION = "1.3.2"
 AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
@@ -218,10 +218,12 @@ def ensure_streambot_daemon():
                 print(f"[!] Note: StreamBot engine not launched via node: {e}")
     return False
 
+STREAMBOT_HOST = "http://127.0.0.1:8080"
+
 def send_to_streambot(endpoint, payload=None, method="POST", timeout=3.0):
     """Send request to StreamBot REST API on localhost:8080"""
     ensure_streambot_daemon()
-    url = f"http://127.0.0.1:8080{endpoint}"
+    url = f"{STREAMBOT_HOST}{endpoint}"
     headers = {"User-Agent": "Mozilla/5.0", "Content-Type": "application/json"}
     data = json.dumps(payload).encode("utf-8") if payload else (b"{}" if method == "POST" else None)
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
@@ -1451,6 +1453,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             "streambot_resolution": STREAMBOT_RESOLUTION,
             "streambot_fps": STREAMBOT_FPS,
             "streambot_bitrate": STREAMBOT_BITRATE,
+            "streambot_host": STREAMBOT_HOST,
             "presets": get_channel_presets(),
             "accounts": [
                 {
@@ -2036,6 +2039,12 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 "bitrate": STREAMBOT_BITRATE,
                 "message": f"Quality set to {STREAMBOT_RESOLUTION}@{STREAMBOT_FPS}fps ({STREAMBOT_BITRATE})"
             }
+
+        if action == "set_streambot_host":
+            global STREAMBOT_HOST
+            STREAMBOT_HOST = str(payload.get("host", STREAMBOT_HOST)).strip()
+            log(f"📡 [StreamBot Host] Updated to: {STREAMBOT_HOST}")
+            return {"success": True, "streambot_host": STREAMBOT_HOST, "message": f"StreamBot host set to {STREAMBOT_HOST}"}
 
         if action == "set_rotator":
             global ROTATOR_ENABLED, ROTATOR_INTERVAL, ROTATOR_CHANNELS, ROTATOR_TASK

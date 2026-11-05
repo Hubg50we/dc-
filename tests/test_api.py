@@ -331,7 +331,14 @@ def run_tests():
     except Exception as e:
         check("POST action: streambot_set_quality (4K)", False, str(e))
 
-    # 35. Test Account Remove
+    # 35. Test Stream Engine Host configuration (for PC & Mobile Wi-Fi/Termux)
+    try:
+        st_h, d_h = http_post("/api/action", {"action": "set_streambot_host", "host": "http://127.0.0.1:8080"})
+        check("POST action: set_streambot_host (PC & Mobile Wi-Fi / Termux Relay)", d_h.get("success") is True and "streambot_host" in d_h)
+    except Exception as e:
+        check("POST action: set_streambot_host", False, str(e))
+
+    # 36. Test Account Remove
     try:
         st, data_rem = http_post("/api/action", {"action": "token_remove", "id": 1})
         check("POST action: token_remove", data_rem.get("success") is True)

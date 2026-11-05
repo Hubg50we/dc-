@@ -1048,7 +1048,7 @@
       <div class="card" style="border-color: rgba(88, 101, 242, 0.45);">
         <div class="card-title" style="color:var(--accent);">
           <span>🔄 App Updates & Version</span>
-          <span class="badge badge-voice" id="settings-app-version">v1.3.1</span>
+          <span class="badge badge-voice" id="settings-app-version">v1.3.2</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Cross-platform Discord controller for Android Mobile and Windows PC.
@@ -1072,7 +1072,7 @@
         </div>
 
         <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:6px;">
-          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Direct Downloads (v1.3.1):</div>
+          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Direct Downloads (v1.3.2):</div>
           <div style="display:flex; gap:6px; flex-wrap:wrap;">
             <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-android.apk" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               📱 Android APK
@@ -1080,7 +1080,7 @@
             <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows.exe" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               💻 Windows EXE
             </a>
-            <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows-portable-v1.3.1.zip" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
+            <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows-portable-v1.3.2.zip" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               📦 Portable ZIP
             </a>
           </div>
@@ -1327,6 +1327,18 @@
                 <option value="30" selected>30 FPS</option>
                 <option value="15">15 FPS</option>
               </select>
+            </div>
+          </div>
+
+          <!-- Stream Engine Host (for PC & Mobile Wi-Fi / Termux) -->
+          <div style="background:rgba(0,0,0,0.25); border-radius:var(--radius-sm); padding:7px 10px; margin-bottom:8px; border:1px solid var(--border-color); font-size:0.75rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+              <span style="color:var(--text-muted);">📡 Stream Engine Host (PC / Mobile):</span>
+              <span id="streambot-host-display" style="font-family:monospace; color:#c084fc;">http://127.0.0.1:8080</span>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <input type="text" id="streambot-host-input" placeholder="http://127.0.0.1:8080 or http://192.168.0.x:8080" style="flex:2; font-size:0.75rem; padding:4px 8px;">
+              <button class="btn btn-secondary btn-sm" onclick="saveStreamBotHost()" style="flex:1;">💾 Set Host</button>
             </div>
           </div>
 
@@ -2395,6 +2407,13 @@
         const fpsSelect = document.getElementById('streambot-fps-select');
         if (resSelect && document.activeElement !== resSelect) resSelect.value = data.streambot_resolution;
         if (fpsSelect && document.activeElement !== fpsSelect) fpsSelect.value = String(data.streambot_fps);
+      }
+
+      if (data.streambot_host) {
+        const hDisp = document.getElementById('streambot-host-display');
+        if (hDisp) hDisp.innerText = data.streambot_host;
+        const hInp = document.getElementById('streambot-host-input');
+        if (hInp && !hInp.value) hInp.value = data.streambot_host;
       }
 
       if (data.streambot_queue !== undefined) {
@@ -3660,6 +3679,25 @@
       }
     }
 
+    async function saveStreamBotHost() {
+      vibrate(15);
+      const hostInput = document.getElementById('streambot-host-input');
+      const val = hostInput ? hostInput.value.trim() : '';
+      if (!val) return;
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set_streambot_host', host: val })
+        });
+        const json = await res.json();
+        showToast(json.message || 'StreamBot host updated');
+        fetchStatus();
+      } catch (e) {
+        showToast('Host update error: ' + e.message, true);
+      }
+    }
+
     async function streambotClearQueue() {
       vibrate(20);
       try {
@@ -4766,7 +4804,7 @@
       return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    let currentAppVersion = '1.3.1';
+    let currentAppVersion = '1.3.2';
     let latestUpdateData = null;
 
     function toggleAutoCheckUpdate(enabled) {

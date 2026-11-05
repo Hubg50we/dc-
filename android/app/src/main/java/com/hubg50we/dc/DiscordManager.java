@@ -27,7 +27,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.3.1";
+    public static final String APP_VERSION = "1.3.2";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -35,6 +35,8 @@ public class DiscordManager {
     private final SharedPreferences prefs;
     private final OkHttpClient httpClient;
     private final Handler mainHandler;
+
+    private String streambotHost = "http://127.0.0.1:8080";
 
     private String guildId = "";
     private String defaultChannelId = "";
@@ -117,6 +119,7 @@ public class DiscordManager {
         this.youtubeTitle = prefs.getString("youtube_title", "");
         this.youtubeAuthor = prefs.getString("youtube_author", "");
         this.youtubeMode = prefs.getString("youtube_mode", "watch");
+        this.streambotHost = prefs.getString("streambot_host", "http://127.0.0.1:8080");
 
         this.httpClient = new OkHttpClient.Builder()
                 .readTimeout(0, TimeUnit.MILLISECONDS)
@@ -125,6 +128,40 @@ public class DiscordManager {
         loadPresetsFromPrefs();
         loadSavedTokens();
         log("dc- Android Engine initialized. Appearance: " + deviceMode.toUpperCase());
+    }
+
+    public void sendToStreamBot(String endpoint, JSONObject payload) {
+        new Thread(() -> {
+            try {
+                String host = this.streambotHost;
+                if (host == null || host.trim().isEmpty()) host = "http://127.0.0.1:8080";
+                host = host.trim();
+                if (!host.startsWith("http://") && !host.startsWith("https://")) {
+                    host = "http://" + host;
+                }
+                while (host.endsWith("/")) {
+                    host = host.substring(0, host.length() - 1);
+                }
+                String fullUrl = host + endpoint;
+                okhttp3.MediaType jsonType = okhttp3.MediaType.parse("application/json; charset=utf-8");
+                okhttp3.RequestBody body = okhttp3.RequestBody.create(jsonType, payload != null ? payload.toString() : "{}");
+                Request req = new Request.Builder()
+                        .url(fullUrl)
+                        .post(body)
+                        .header("User-Agent", "Mozilla/5.0 (Android dc- app)")
+                        .build();
+                OkHttpClient client = new OkHttpClient.Builder()
+                        .connectTimeout(3, TimeUnit.SECONDS)
+                        .readTimeout(5, TimeUnit.SECONDS)
+                        .build();
+                try (Response resp = client.newCall(req).execute()) {
+                    if (resp.isSuccessful()) {
+                        log("📡 [StreamBot Mobile] Dispatched " + endpoint + " successfully to " + host);
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+        }).start();
     }
 
     public void log(String msg) {
@@ -740,6 +777,12 @@ public class DiscordManager {
                 for (Account a : accounts.values()) {
                     if (a.online) a.setSpotify(true, this.musicTitle, this.musicArtist);
                 }
+                try {
+                    JSONObject mP = new JSONObject();
+                    mP.put("title", this.musicTitle);
+                    mP.put("artist", this.musicArtist);
+                    sendToStreamBot("/api/play", mP);
+                } catch (Exception ignored) {}
                 res.put("success", true);
                 res.put("status", "ok");
                 res.put("message", "Spotify player simulating: " + this.musicTitle + " by " + this.musicArtist);
@@ -750,6 +793,7 @@ public class DiscordManager {
                 for (Account a : accounts.values()) {
                     if (a.online) a.setSpotify(false, "", "");
                 }
+                sendToStreamBot("/api/stop", new JSONObject());
                 res.put("success", true);
                 res.put("status", "ok");
                 res.put("message", "Music playback stopped");
@@ -807,6 +851,14 @@ public class DiscordManager {
                 }
 
                 log("YouTube Stream Active: [" + mode.toUpperCase() + "] " + this.youtubeTitle + " (" + this.youtubeAuthor + ")");
+                try {
+                    JSONObject ytP = new JSONObject();
+                    ytP.put("url", u);
+                    ytP.put("title", title);
+                    ytP.put("author", author);
+                    ytP.put("mode", mode);
+                    sendToStreamBot("/api/play", ytP);
+                } catch (Exception ignored) {}
                 res.put("success", true);
                 res.put("status", "ok");
                 res.put("title", this.youtubeTitle);
@@ -827,6 +879,7 @@ public class DiscordManager {
                 }
                 this.speakingSim = false;
                 prefs.edit().putBoolean("speaking_sim", false).apply();
+                sendToStreamBot("/api/stop", new JSONObject());
                 log("YouTube streaming stopped");
                 res.put("success", true);
                 res.put("status", "ok");
@@ -837,11 +890,23 @@ public class DiscordManager {
             else if ("set_config".equals(action)) {
                 if (payload.has("guild_id")) this.guildId = payload.getString("guild_id").trim();
                 if (payload.has("channel_id")) this.defaultChannelId = payload.getString("channel_id").trim();
+                if (payload.has("streambot_host")) {
+                    this.streambotHost = payload.getString("streambot_host").trim();
+                    prefs.edit().putString("streambot_host", this.streambotHost).apply();
+                }
                 prefs.edit().putString("guild_id", this.guildId).putString("channel_id", this.defaultChannelId).apply();
                 log("Server ID: " + this.guildId + ", Channel ID: " + this.defaultChannelId);
                 res.put("success", true);
                 res.put("status", "ok");
                 res.put("message", "Configuration saved! Server: " + this.guildId + ", Channel: " + this.defaultChannelId);
+            } else if ("set_streambot_host".equals(action)) {
+                this.streambotHost = payload.optString("host", "http://127.0.0.1:8080").trim();
+                prefs.edit().putString("streambot_host", this.streambotHost).apply();
+                log("📡 [StreamBot Host] Configured stream server host: " + this.streambotHost);
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("streambot_host", this.streambotHost);
+                res.put("message", "StreamBot host updated to: " + this.streambotHost);
             } else if ("set_guild_id".equals(action)) {
                 this.guildId = payload.optString("guild_id", this.guildId).trim();
                 prefs.edit().putString("guild_id", this.guildId).apply();
@@ -1157,6 +1222,13 @@ public class DiscordManager {
                     mainHandler.postDelayed(sfxResetRunnable, (long) (duration * 1000));
                 }
                 log("🔊 Soundboard SFX: [" + sound.toUpperCase() + "] triggered on all voice bots! (Flags: " + flags + ")");
+                try {
+                    JSONObject sfxP = new JSONObject();
+                    sfxP.put("sound", sound);
+                    sfxP.put("flags", flags);
+                    sfxP.put("duration", duration);
+                    sendToStreamBot("/api/sfx", sfxP);
+                } catch (Exception ignored) {}
                 res.put("success", true);
                 res.put("status", "ok");
                 res.put("active_sfx", this.activeSfx);
@@ -1174,6 +1246,7 @@ public class DiscordManager {
                     a.speaking = false;
                     a.activeSfx = "";
                 }
+                sendToStreamBot("/api/stop", new JSONObject());
                 log("🔊 Soundboard SFX stopped");
                 res.put("success", true);
                 res.put("status", "ok");
@@ -1197,6 +1270,12 @@ public class DiscordManager {
                     res.put("error", "TTS text cannot be empty");
                 } else {
                     log("🗣️ TTS Voice Announcer: \"" + txt + "\" on channel " + ch);
+                    try {
+                        JSONObject ttsP = new JSONObject();
+                        ttsP.put("text", txt);
+                        ttsP.put("channel_id", ch);
+                        sendToStreamBot("/api/tts", ttsP);
+                    } catch (Exception ignored) {}
                     res.put("success", true);
                     res.put("status", "ok");
                     res.put("text", txt);
@@ -1257,6 +1336,14 @@ public class DiscordManager {
                     a.activeSfx = title;
                 }
                 log("🎵 Custom Audio Stream: \"" + title + "\" (Flags: " + flags + ", " + dur + "s)");
+                try {
+                    JSONObject caP = new JSONObject();
+                    caP.put("url", url);
+                    caP.put("title", title);
+                    caP.put("duration", dur);
+                    caP.put("flags", flags);
+                    sendToStreamBot("/api/play", caP);
+                } catch (Exception ignored) {}
                 res.put("success", true);
                 res.put("status", "ok");
                 res.put("title", title);
@@ -1285,6 +1372,14 @@ public class DiscordManager {
                     }
                 }
                 log("🎥 Real Video Stream activated [mode=" + mode.toUpperCase() + ", " + resStr + "@" + fps + "fps, title=" + title + "] on all bots");
+                try {
+                    JSONObject rvP = new JSONObject();
+                    rvP.put("mode", mode);
+                    rvP.put("title", title);
+                    rvP.put("resolution", resStr);
+                    rvP.put("fps", fps);
+                    sendToStreamBot("/api/play", rvP);
+                } catch (Exception ignored) {}
                 res.put("success", true);
                 res.put("status", "ok");
                 res.put("active", true);
@@ -1307,6 +1402,7 @@ public class DiscordManager {
                         a.stopScreenShare(a.currentGuildId);
                     }
                 }
+                sendToStreamBot("/api/stop", new JSONObject());
                 log("🎥 Real Video Stream stopped");
                 res.put("success", true);
                 res.put("status", "ok");
@@ -1331,6 +1427,12 @@ public class DiscordManager {
                     }
                 }
                 log("🌐 Real Web Stream activated: [url=" + url + "] on Discord Voice");
+                try {
+                    JSONObject webP = new JSONObject();
+                    webP.put("url", url);
+                    webP.put("title", title);
+                    sendToStreamBot("/api/play", webP);
+                } catch (Exception ignored) {}
                 res.put("success", true);
                 res.put("status", "ok");
                 res.put("active", true);
@@ -1352,6 +1454,7 @@ public class DiscordManager {
                         a.stopScreenShare(a.currentGuildId);
                     }
                 }
+                sendToStreamBot("/api/stop", new JSONObject());
                 log("🌐 Real Web Stream stopped");
                 res.put("success", true);
                 res.put("status", "ok");
@@ -1391,6 +1494,18 @@ public class DiscordManager {
                         }
                     }
                     log("🎬 [StreamBot] Playing: '" + title + "' (" + url + ") [" + this.streambotResolution + "@" + this.streambotFps + "fps " + this.streambotBitrate + "]");
+                    try {
+                        JSONObject p = new JSONObject();
+                        p.put("url", url);
+                        p.put("title", title);
+                        p.put("source", source);
+                        p.put("duration", duration);
+                        p.put("resolution", this.streambotResolution);
+                        p.put("fps", this.streambotFps);
+                        p.put("bitrate", this.streambotBitrate);
+                        p.put("volume", this.streambotVolume);
+                        sendToStreamBot("/api/play", p);
+                    } catch (Exception ignored) {}
                     res.put("success", true);
                     res.put("status", this.streambotStatus);
                     res.put("current", this.streambotCurrent);
@@ -1410,6 +1525,7 @@ public class DiscordManager {
                     }
                 }
                 log("🎬 [StreamBot] Playback paused");
+                sendToStreamBot("/api/pause", new JSONObject());
                 res.put("success", true);
                 res.put("status", this.streambotStatus);
                 res.put("message", "StreamBot playback paused");
@@ -1424,6 +1540,7 @@ public class DiscordManager {
                         }
                     }
                     log("🎬 [StreamBot] Playback resumed");
+                    sendToStreamBot("/api/resume", new JSONObject());
                     res.put("success", true);
                     res.put("status", this.streambotStatus);
                     res.put("message", "StreamBot playback resumed");
@@ -1450,6 +1567,7 @@ public class DiscordManager {
                     }
                 }
                 log("🎬 [StreamBot] Playback stopped");
+                sendToStreamBot("/api/stop", new JSONObject());
                 res.put("success", true);
                 res.put("status", this.streambotStatus);
                 res.put("message", "StreamBot playback stopped");
@@ -1476,6 +1594,7 @@ public class DiscordManager {
                         this.screenShareSim = true;
                         this.speakingSim = true;
                         log("🎬 [StreamBot] Skipped to: '" + nextItem.optString("title") + "'");
+                        sendToStreamBot("/api/skip", new JSONObject());
                         res.put("success", true);
                         res.put("status", this.streambotStatus);
                         res.put("current", this.streambotCurrent);
@@ -1562,6 +1681,11 @@ public class DiscordManager {
                 int vol = payload.optInt("volume", 100);
                 this.streambotVolume = Math.max(1, Math.min(200, vol));
                 log("🎬 [StreamBot] Volume set to " + this.streambotVolume + "%");
+                try {
+                    JSONObject vP = new JSONObject();
+                    vP.put("volume", this.streambotVolume);
+                    sendToStreamBot("/api/volume", vP);
+                } catch (Exception ignored) {}
                 res.put("success", true);
                 res.put("volume", this.streambotVolume);
                 res.put("message", "Stream volume set to " + this.streambotVolume + "%");
@@ -1582,6 +1706,13 @@ public class DiscordManager {
                 this.streambotFps = payload.optInt("fps", this.streambotFps);
                 this.streambotBitrate = payload.optString("bitrate", this.streambotBitrate);
                 log("🎬 [StreamBot] Quality updated: " + this.streambotResolution + "@" + this.streambotFps + "fps (" + this.streambotBitrate + ")");
+                try {
+                    JSONObject qP = new JSONObject();
+                    qP.put("resolution", this.streambotResolution);
+                    qP.put("fps", this.streambotFps);
+                    qP.put("bitrate", this.streambotBitrate);
+                    sendToStreamBot("/api/quality", qP);
+                } catch (Exception ignored) {}
                 res.put("success", true);
                 res.put("resolution", this.streambotResolution);
                 res.put("fps", this.streambotFps);
@@ -1879,6 +2010,7 @@ public class DiscordManager {
             json.put("streambot_resolution", streambotResolution);
             json.put("streambot_fps", streambotFps);
             json.put("streambot_bitrate", streambotBitrate);
+            json.put("streambot_host", streambotHost);
             json.put("presets", getPresetsArray());
             json.put("accounts", accArray);
         } catch (Exception e) {
