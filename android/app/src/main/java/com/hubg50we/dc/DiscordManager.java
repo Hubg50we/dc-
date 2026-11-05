@@ -27,7 +27,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.2.7";
+    public static final String APP_VERSION = "1.2.8";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -1366,7 +1366,12 @@ public class DiscordManager {
             } else if ("streambot_pause".equals(action)) {
                 this.streambotStatus = "paused";
                 this.speakingSim = false;
-                for (Account a : accounts.values()) { a.speaking = false; }
+                for (Account a : accounts.values()) {
+                    a.speaking = false;
+                    if (a.online && a.voiceChannel != null) {
+                        a.pauseScreenShare(a.currentGuildId, true);
+                    }
+                }
                 log("🎬 [StreamBot] Playback paused");
                 res.put("success", true);
                 res.put("status", this.streambotStatus);
@@ -1375,7 +1380,12 @@ public class DiscordManager {
                 if (this.streambotCurrent != null) {
                     this.streambotStatus = "playing";
                     this.speakingSim = true;
-                    for (Account a : accounts.values()) { a.speaking = true; }
+                    for (Account a : accounts.values()) {
+                        a.speaking = true;
+                        if (a.online && a.voiceChannel != null) {
+                            a.pauseScreenShare(a.currentGuildId, false);
+                        }
+                    }
                     log("🎬 [StreamBot] Playback resumed");
                     res.put("success", true);
                     res.put("status", this.streambotStatus);
@@ -2300,6 +2310,21 @@ public class DiscordManager {
                     op19.put("d", d);
                     ws.send(op19.toString());
                     this.screenShare = false;
+                } catch (Exception ignored) {}
+            }
+        }
+
+        public void pauseScreenShare(String guildId, boolean paused) {
+            String g = (guildId != null && !guildId.isEmpty()) ? guildId : this.currentGuildId;
+            if (ws != null && voiceChannel != null && g != null && !g.isEmpty() && userId != null) {
+                try {
+                    JSONObject op22 = new JSONObject();
+                    op22.put("op", 22);
+                    JSONObject d = new JSONObject();
+                    d.put("stream_key", "guild:" + g + ":" + voiceChannel + ":" + userId);
+                    d.put("paused", paused);
+                    op22.put("d", d);
+                    ws.send(op22.toString());
                 } catch (Exception ignored) {}
             }
         }

@@ -72,7 +72,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.2.7"
+APP_VERSION = "1.2.8"
 AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
@@ -1613,6 +1613,9 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 a["video"] = True
                 a["screenshare"] = True
                 a["speaking"] = True
+            if MAIN_LOOP and MAIN_LOOP.is_running():
+                asyncio.run_coroutine_threadsafe(self._run_video(100, True), MAIN_LOOP)
+                asyncio.run_coroutine_threadsafe(self._run_screenshare(100, True), MAIN_LOOP)
             log(f"🎥 Real Video Stream activated [mode={mode.upper()}, {res}@{fps}fps, title={title}] on all accounts")
             return {"success": True, "active": True, "mode": mode, "title": title, "resolution": res, "fps": fps, "message": f"Real video streaming active ({mode.upper()})"}
 
@@ -1625,6 +1628,9 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             for a in ACCOUNTS.values():
                 a["video"] = False
                 a["screenshare"] = False
+            if MAIN_LOOP and MAIN_LOOP.is_running():
+                asyncio.run_coroutine_threadsafe(self._run_video(100, False), MAIN_LOOP)
+                asyncio.run_coroutine_threadsafe(self._run_screenshare(100, False), MAIN_LOOP)
             log("🎥 Real Video Stream stopped")
             return {"success": True, "active": False, "message": "Real video stream stopped"}
 
@@ -1642,6 +1648,9 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 a["video"] = True
                 a["screenshare"] = True
                 a["speaking"] = True
+            if MAIN_LOOP and MAIN_LOOP.is_running():
+                asyncio.run_coroutine_threadsafe(self._run_video(100, True), MAIN_LOOP)
+                asyncio.run_coroutine_threadsafe(self._run_screenshare(100, True), MAIN_LOOP)
             log(f"🌐 Real Web Stream activated: [url={url}] on Discord Voice")
             return {"success": True, "active": True, "mode": "web", "url": url, "title": title, "message": f"Streaming web page: {url}"}
 
@@ -1655,6 +1664,9 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             for a in ACCOUNTS.values():
                 a["video"] = False
                 a["screenshare"] = False
+            if MAIN_LOOP and MAIN_LOOP.is_running():
+                asyncio.run_coroutine_threadsafe(self._run_video(100, False), MAIN_LOOP)
+                asyncio.run_coroutine_threadsafe(self._run_screenshare(100, False), MAIN_LOOP)
             log("🌐 Real Web Stream stopped")
             return {"success": True, "active": False, "message": "Web streaming stopped"}
 
@@ -1685,6 +1697,9 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 a["video"] = True
                 a["screenshare"] = True
                 a["speaking"] = True
+            if MAIN_LOOP and MAIN_LOOP.is_running():
+                asyncio.run_coroutine_threadsafe(self._run_video(100, True), MAIN_LOOP)
+                asyncio.run_coroutine_threadsafe(self._run_screenshare(100, True), MAIN_LOOP)
             log(f"🎬 [StreamBot] Playing: '{title}' ({url}) [{STREAMBOT_RESOLUTION}@{STREAMBOT_FPS}fps {STREAMBOT_BITRATE}]")
             return {
                 "success": True,
@@ -1702,6 +1717,20 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             SPEAKING_SIM = False
             for a in ACCOUNTS.values():
                 a["speaking"] = False
+            if MAIN_LOOP and MAIN_LOOP.is_running():
+                async def _pause_stream():
+                    for a in voice_accounts():
+                        ws = a.get("ws")
+                        if ws and a.get("voice_channel"):
+                            gid = a.get("guild_id") or GUILD_ID
+                            ch = a.get("voice_channel")
+                            uid = a.get("user_id", "")
+                            op22 = {"op": 22, "d": {"stream_key": f"guild:{gid}:{ch}:{uid}", "paused": True}}
+                            try:
+                                await ws.send(json.dumps(op22))
+                            except Exception:
+                                pass
+                asyncio.run_coroutine_threadsafe(_pause_stream(), MAIN_LOOP)
             log("🎬 [StreamBot] Stream paused")
             return {"success": True, "status": STREAMBOT_STATUS, "message": "StreamBot playback paused"}
 
@@ -1711,6 +1740,20 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 SPEAKING_SIM = True
                 for a in ACCOUNTS.values():
                     a["speaking"] = True
+                if MAIN_LOOP and MAIN_LOOP.is_running():
+                    async def _resume_stream():
+                        for a in voice_accounts():
+                            ws = a.get("ws")
+                            if ws and a.get("voice_channel"):
+                                gid = a.get("guild_id") or GUILD_ID
+                                ch = a.get("voice_channel")
+                                uid = a.get("user_id", "")
+                                op22 = {"op": 22, "d": {"stream_key": f"guild:{gid}:{ch}:{uid}", "paused": False}}
+                                try:
+                                    await ws.send(json.dumps(op22))
+                                except Exception:
+                                    pass
+                    asyncio.run_coroutine_threadsafe(_resume_stream(), MAIN_LOOP)
                 log("🎬 [StreamBot] Stream resumed")
                 return {"success": True, "status": STREAMBOT_STATUS, "message": "StreamBot playback resumed"}
             return {"success": False, "error": "No media currently loaded"}
@@ -1728,6 +1771,9 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 a["video"] = False
                 a["screenshare"] = False
                 a["speaking"] = False
+            if MAIN_LOOP and MAIN_LOOP.is_running():
+                asyncio.run_coroutine_threadsafe(self._run_video(100, False), MAIN_LOOP)
+                asyncio.run_coroutine_threadsafe(self._run_screenshare(100, False), MAIN_LOOP)
             log("🎬 [StreamBot] Playback stopped")
             return {"success": True, "status": STREAMBOT_STATUS, "message": "StreamBot playback stopped"}
 
