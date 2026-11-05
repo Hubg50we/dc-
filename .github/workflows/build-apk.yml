@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Multi-Platform (Android APK & Windows PC)
 
 on:
   push:
@@ -7,6 +7,10 @@ on:
       - 'android/**'
       - 'web/**'
       - 'main.py'
+      - 'install.bat'
+      - 'start.bat'
+      - 'build_windows_exe.bat'
+      - 'requirements.txt'
       - '.github/workflows/build-apk.yml'
   workflow_dispatch:
 
@@ -17,6 +21,9 @@ jobs:
   build-apk:
     name: Build Android APK
     runs-on: ubuntu-latest
+    outputs:
+      version_name: ${{ steps.get_version.outputs.version_name }}
+      version_code: ${{ steps.get_version.outputs.version_code }}
 
     steps:
       - name: Checkout Code
@@ -48,6 +55,8 @@ jobs:
         run: |
           VER_NAME=$(grep -o 'versionName *"[^"]*"' android/app/build.gradle | cut -d'"' -f2)
           VER_CODE=$(grep -o 'versionCode *[0-9]*' android/app/build.gradle | awk '{print $2}')
+          echo "version_name=$VER_NAME" >> $GITHUB_OUTPUT
+          echo "version_code=$VER_CODE" >> $GITHUB_OUTPUT
           echo "VERSION_NAME=$VER_NAME" >> $GITHUB_ENV
           echo "VERSION_CODE=$VER_CODE" >> $GITHUB_ENV
           echo "Extracted Version: $VER_NAME (code: $VER_CODE)"
@@ -69,30 +78,129 @@ jobs:
       - name: Upload APK as Workflow Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dc-android-v${{ env.VERSION_NAME }}
+          name: dc-android
           path: release_bin/*.apk
           if-no-files-found: error
           retention-days: 30
 
+  build-windows:
+    name: Build Windows PC Executable
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller
+
+      - name: Extract Version
+        id: get_version
+        shell: bash
+        run: |
+          VER_NAME=$(python -c "import re; print(re.search(r'APP_VERSION = \"(.*?)\"', open('main.py').read()).group(1))")
+          echo "version_name=$VER_NAME" >> $GITHUB_OUTPUT
+          echo "VERSION_NAME=$VER_NAME" >> $GITHUB_ENV
+          echo "Windows build version: $VER_NAME"
+
+      - name: Build Standalone Executable
+        run: |
+          pyinstaller --onefile --noconfirm --name "dc-windows" --add-data "web/index.html;web" main.py
+
+      - name: Package Windows Artifacts
+        shell: bash
+        run: |
+          mkdir -p release_windows
+          cp dist/dc-windows.exe release_windows/dc-windows.exe
+          cp dist/dc-windows.exe "release_windows/dc-windows-v${VERSION_NAME}.exe"
+          
+          mkdir -p dc-windows-portable
+          cp dist/dc-windows.exe dc-windows-portable/
+          cp install.bat dc-windows-portable/
+          cp start.bat dc-windows-portable/
+          cp .env.example dc-windows-portable/
+          cp tokens.txt.example dc-windows-portable/
+          cp README.md dc-windows-portable/
+          
+          powershell -Command "Compress-Archive -Path 'dc-windows-portable/*' -DestinationPath 'release_windows/dc-windows-portable-v${VERSION_NAME}.zip' -Force"
+
+      - name: Upload Windows Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dc-windows
+          path: release_windows/*
+          if-no-files-found: error
+          retention-days: 30
+
+  publish-release:
+    name: Publish Multi-Platform Release
+    needs: [build-apk, build-windows]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download Android Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dc-android
+          path: release_all
+
+      - name: Download Windows Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dc-windows
+          path: release_all
+
+      - name: Copy Launcher Scripts
+        run: |
+          cp install.bat release_all/install.bat
+          cp start.bat release_all/start.bat
+          ls -la release_all
+
+      - name: Extract Version
+        id: get_version
+        run: |
+          VER_NAME=$(grep -o 'versionName *"[^"]*"' android/app/build.gradle | cut -d'"' -f2)
+          VER_CODE=$(grep -o 'versionCode *[0-9]*' android/app/build.gradle | awk '{print $2}')
+          echo "VERSION_NAME=$VER_NAME" >> $GITHUB_ENV
+          echo "VERSION_CODE=$VER_CODE" >> $GITHUB_ENV
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
-        if: github.ref == 'refs/heads/main'
         with:
           tag_name: "v${{ env.VERSION_NAME }}"
-          name: "dc- Android APK Release v${{ env.VERSION_NAME }} (Build ${{ env.VERSION_CODE }})"
+          name: "dc- Multi-Platform Release v${{ env.VERSION_NAME }} (Android + Windows PC - Build ${{ env.VERSION_CODE }})"
           make_latest: true
           body: |
-            ### 📱 dc- Android Standalone APK v${{ env.VERSION_NAME }}
-            
-            Download `dc-android.apk` (or `dc-android-v${{ env.VERSION_NAME }}.apk`) below and install it directly on your Android phone!
-            
-            - **Version**: `v${{ env.VERSION_NAME }}` (Build `${{ env.VERSION_CODE }}`)
+            # 🚀 dc- Multi-Platform Release v${{ env.VERSION_NAME }} (Build ${{ env.VERSION_CODE }})
+
+            ### 📱 Android Mobile
+            Download and install **`dc-android.apk`** (or `dc-android-v${{ env.VERSION_NAME }}.apk`) directly on Android:
             - **Package**: `com.hubg50we.dc`
             - **Platform**: Android 7.0+ (Universal ARM & x86)
-            - **Features**: Standalone Discord Voice Controller, Background Wake-Lock, Embedded AMOLED Touch Dashboard.
+            - **Features**: Standalone Discord Voice Controller, Background Wake-Lock, Shizuku Privileged System Optimization, Embedded AMOLED Touch Dashboard.
+
+            ---
+
+            ### 💻 Windows PC
+            Choose either option to run dc- on Windows:
+            1. **Standalone Executable**: Download and run **`dc-windows.exe`** (no Python installation required!).
+            2. **Portable ZIP Bundle**: Download **`dc-windows-portable-v${{ env.VERSION_NAME }}.zip`**, extract anywhere, and double-click `start.bat`.
+            3. **Automated Installer**: Download `install.bat` to automatically set up dependencies and Desktop shortcuts.
+
+            - **Platform**: Windows 10 / Windows 11 (64-bit)
+            - **Auto-Browser Launch**: Automatically opens `http://localhost:5000` on startup.
+            - **Unrestricted Voice & Video**: 4K60 / 1440p / 1080p high bitrate audio & video streaming pipeline.
           files: |
-            release_bin/dc-android.apk
-            release_bin/dc-android-v${{ env.VERSION_NAME }}.apk
+            release_all/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true

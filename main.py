@@ -72,7 +72,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.2.9"
+APP_VERSION = "1.3.0"
 AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
@@ -1172,16 +1172,26 @@ def check_github_update():
             data = json.loads(resp.read().decode("utf-8"))
             tag = (data.get("tag_name") or "").strip()
             clean_tag = tag[1:] if tag.startswith("v") else tag
-            download_url = ""
-            file_size = 0
+            download_url_apk = ""
+            download_url_windows = ""
+            file_size_apk = 0
+            file_size_windows = 0
             for a in data.get("assets", []):
-                if a.get("name", "").endswith(".apk"):
-                    download_url = a.get("browser_download_url", "")
-                    file_size = a.get("size", 0)
-                    if a.get("name") == "dc-android.apk":
-                        break
-            if not download_url:
-                download_url = f"https://github.com/Hubg50we/dc-/releases/download/{tag}/dc-android.apk"
+                aname = a.get("name", "")
+                if aname.endswith(".apk"):
+                    download_url_apk = a.get("browser_download_url", "")
+                    file_size_apk = a.get("size", 0)
+                elif aname.endswith(".exe") or "windows" in aname.lower():
+                    download_url_windows = a.get("browser_download_url", "")
+                    file_size_windows = a.get("size", 0)
+            if not download_url_apk:
+                download_url_apk = f"https://github.com/Hubg50we/dc-/releases/download/{tag}/dc-android.apk"
+            if not download_url_windows:
+                download_url_windows = f"https://github.com/Hubg50we/dc-/releases/download/{tag}/dc-windows.exe"
+
+            is_windows = sys.platform == "win32"
+            download_url = download_url_windows if is_windows else download_url_apk
+            file_size = file_size_windows if is_windows else file_size_apk
 
             is_newer = False
             try:
@@ -1201,6 +1211,8 @@ def check_github_update():
                 "release_name": data.get("name") or tag,
                 "release_notes": data.get("body") or "",
                 "download_url": download_url,
+                "download_url_apk": download_url_apk,
+                "download_url_windows": download_url_windows,
                 "file_size": file_size,
                 "published_at": data.get("published_at") or ""
             }
@@ -1261,7 +1273,10 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(resp)
 
     def serve_file(self):
-        index_path = os.path.join(os.path.dirname(__file__), "web", "index.html")
+        base_dir = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+        index_path = os.path.join(base_dir, "web", "index.html")
+        if not os.path.exists(index_path):
+            index_path = os.path.join(os.getcwd(), "web", "index.html")
         if not os.path.exists(index_path):
             index_path = "web/index.html"
         try:
@@ -1269,7 +1284,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 with open(index_path, "rb") as f:
                     content = f.read()
             else:
-                content = b"<!DOCTYPE html><html><body style='background:#111;color:#fff;font-family:sans-serif;padding:20px'><h2>dc- Mobile Dashboard</h2><p>web/index.html not found. Please run git pull.</p></body></html>"
+                content = b"<!DOCTYPE html><html><body style='background:#111;color:#fff;font-family:sans-serif;padding:20px'><h2>dc- Controller</h2><p>web/index.html not found. Please ensure web/index.html exists.</p></body></html>"
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(content)))
@@ -2449,9 +2464,25 @@ def start_web_server():
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         local_ip = get_local_ip()
-        print(f"\n[WEB UI] Local Mobile link: http://localhost:{WEB_PORT}")
+        print(f"\n[WEB UI] Local PC link: http://localhost:{WEB_PORT}")
         if local_ip not in ("127.0.0.1", "0.0.0.0"):
             print(f"[WEB UI] Wi-Fi Network link: http://{local_ip}:{WEB_PORT}")
+
+        if sys.platform == "win32":
+            try:
+                import ctypes
+                ctypes.windll.kernel32.SetConsoleTitleW(f"dc- Discord Voice Controller v{APP_VERSION} [Windows PC]")
+            except Exception:
+                pass
+            if not os.environ.get("HEADLESS") and not os.environ.get("NO_BROWSER"):
+                import webbrowser
+                def _open_pc_browser():
+                    time.sleep(1.0)
+                    try:
+                        webbrowser.open(f"http://localhost:{WEB_PORT}")
+                    except Exception:
+                        pass
+                threading.Thread(target=_open_pc_browser, daemon=True).start()
     except Exception as e:
         print(f"[!] Warning: Could not start Web UI thread: {e}")
 

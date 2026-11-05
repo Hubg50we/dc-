@@ -19,3 +19,8 @@ env/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Build artifacts
+build/
+dist/
+*.spec
