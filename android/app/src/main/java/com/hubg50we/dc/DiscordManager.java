@@ -57,6 +57,7 @@ public class DiscordManager {
     private Runnable sfxResetRunnable;
     private boolean realVideoActive = false;
     private String realVideoMode = "";
+    private String realVideoTitle = "";
     private String webShareUrl = "";
     private boolean videoSim = false;
     private boolean screenShareSim = false;
@@ -1195,6 +1196,7 @@ public class DiscordManager {
                 int fps = payload.optInt("fps", 30);
                 this.realVideoActive = true;
                 this.realVideoMode = mode;
+                this.realVideoTitle = title;
                 this.videoSim = true;
                 this.screenShareSim = true;
                 this.speakingSim = true;
@@ -1219,6 +1221,7 @@ public class DiscordManager {
             } else if ("stop_real_video".equals(action)) {
                 this.realVideoActive = false;
                 this.realVideoMode = "";
+                this.realVideoTitle = "";
                 this.videoSim = false;
                 this.screenShareSim = false;
                 for (Account a : accounts.values()) {
@@ -1769,6 +1772,7 @@ public class DiscordManager {
             json.put("human_chatter", humanChatter);
             json.put("real_video_active", realVideoActive);
             json.put("real_video_mode", realVideoMode);
+            json.put("real_video_title", realVideoTitle);
             json.put("web_share_url", webShareUrl);
             json.put("video_sim", videoSim);
             json.put("screenshare_sim", screenShareSim);
