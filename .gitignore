@@ -21,6 +21,9 @@ env/
 Thumbs.db
 
 # Build artifacts
-build/
-dist/
+/build/
+/dist/
 *.spec
+streambot/node_modules/
+streambot/tmp/
+streambot/.env

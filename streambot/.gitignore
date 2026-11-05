@@ -1,0 +1,9 @@
+LICENSE
+node_modules/
+.env
+bun.lockb
+videos/*
+!videos/.gitkeep
+tmp/
+*.sock
+cookies.txt

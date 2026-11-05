@@ -45,6 +45,21 @@ if exist "requirements.txt" (
     echo [+] Dependencies installed successfully.
 )
 
+:: 2.5 Setup StreamBot voice & video streaming engine
+if exist "streambot\package.json" (
+    where node >nul 2>&1
+    if %errorlevel% equ 0 (
+        if not exist "streambot\node_modules" (
+            echo [*] Installing StreamBot engine dependencies...
+            pushd "%~dp0streambot"
+            call npm install
+            call npm run build
+            popd
+            echo [+] StreamBot engine prepared.
+        )
+    )
+)
+
 :: 3. Setup .env file
 if not exist ".env" (
     if exist ".env.example" (

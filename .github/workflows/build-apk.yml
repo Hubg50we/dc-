@@ -6,6 +6,7 @@ on:
     paths:
       - 'android/**'
       - 'web/**'
+      - 'streambot/**'
       - 'main.py'
       - 'install.bat'
       - 'start.bat'
@@ -123,6 +124,13 @@ jobs:
           Copy-Item .env.example dc-windows-portable/
           Copy-Item tokens.txt.example dc-windows-portable/
           Copy-Item README.md dc-windows-portable/
+          
+          New-Item -ItemType Directory -Force -Path dc-windows-portable/streambot
+          Copy-Item -Recurse streambot/dist dc-windows-portable/streambot/dist
+          Copy-Item streambot/package.json dc-windows-portable/streambot/
+          Copy-Item streambot/package-lock.json dc-windows-portable/streambot/
+          if (Test-Path streambot/scripts) { Copy-Item -Recurse streambot/scripts dc-windows-portable/streambot/scripts }
+          New-Item -ItemType Directory -Force -Path dc-windows-portable/streambot/videos
           
           Compress-Archive -Path dc-windows-portable/* -DestinationPath "release_windows/dc-windows-portable-v$env:VERSION_NAME.zip" -Force
 

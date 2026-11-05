@@ -8,6 +8,7 @@ import re
 import signal
 import socket
 import socketserver
+import subprocess
 import sys
 import threading
 import time
@@ -72,7 +73,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.3.0"
+APP_VERSION = "1.3.1"
 AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
@@ -112,6 +113,123 @@ STREAMBOT_VOLUME = 100  # 1 to 200%
 STREAMBOT_RESOLUTION = "720p"
 STREAMBOT_FPS = 30
 STREAMBOT_BITRATE = "2500k"
+STREAMBOT_PROCESS = None
+
+def sync_streambot_config():
+    """Sync current active token, guild, and channel to streambot/.env"""
+    streambot_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "streambot")
+    if not os.path.exists(streambot_dir):
+        streambot_dir = os.path.join(os.getcwd(), "streambot")
+    if not os.path.exists(streambot_dir):
+        return
+    env_file = os.path.join(streambot_dir, ".env")
+    active_token = ""
+    for a in ACCOUNTS.values():
+        t = a.get("token", "")
+        if t and not is_placeholder_token(t):
+            active_token = t
+            break
+    if not active_token and TOKENS:
+        for t in TOKENS:
+            if not is_placeholder_token(t):
+                active_token = t
+                break
+    if not active_token:
+        active_token = os.environ.get("DISCORD_TOKEN", "")
+        if not active_token and os.path.exists("tokens.txt"):
+            try:
+                with open("tokens.txt", "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#") and not is_placeholder_token(line):
+                            active_token = line
+                            break
+            except Exception:
+                pass
+    target_guild = GUILD_ID or "1273592244473172001"
+    target_vc = CHANNEL_ID or "1535504524121473145"
+
+    env_content = f"""TOKEN = "{active_token}"
+PREFIX = "$"
+GUILD_ID = "{target_guild}"
+COMMAND_CHANNEL_ID = "1535504515086819338"
+VIDEO_CHANNEL_ID = "{target_vc}"
+ADMIN_IDS = "[\"1056945569903431752\"]"
+
+VIDEOS_DIR = "./videos"
+PREVIEW_CACHE_DIR = "./tmp/preview-cache"
+
+STREAM_RESPECT_VIDEO_PARAMS = "false"
+STREAM_BITRATE_OVERRIDE = "false"
+STREAM_WIDTH = "1280"
+STREAM_HEIGHT = "720"
+STREAM_MAX_WIDTH = "0"
+STREAM_MAX_HEIGHT = "0"
+STREAM_FPS = "30"
+STREAM_BITRATE_KBPS = "2000"
+STREAM_MAX_BITRATE_KBPS = "2500"
+STREAM_HARDWARE_ACCELERATION = "false"
+STREAM_VIDEO_CODEC = "H264"
+STREAM_H26X_PRESET = "ultrafast"
+
+SERVER_ENABLED = "true"
+SERVER_USERNAME = "admin"
+SERVER_PASSWORD = "admin"
+SERVER_PORT = "8080"
+"""
+    try:
+        with open(env_file, "w", encoding="utf-8") as f:
+            f.write(env_content)
+    except Exception:
+        pass
+
+def ensure_streambot_daemon():
+    """Ensure that the StreamBot real media engine is running on localhost:8080"""
+    global STREAMBOT_PROCESS
+    try:
+        req = urllib.request.Request("http://127.0.0.1:8080/api/status", headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=0.8) as resp:
+            if resp.status == 200:
+                return True
+    except Exception:
+        pass
+
+    streambot_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "streambot")
+    if not os.path.exists(streambot_dir):
+        streambot_dir = os.path.join(os.getcwd(), "streambot")
+    if os.path.exists(streambot_dir):
+        sync_streambot_config()
+        dist_index = os.path.join(streambot_dir, "dist", "index.js")
+        if os.path.exists(dist_index):
+            try:
+                creationflags = 0
+                if sys.platform == "win32":
+                    creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+                STREAMBOT_PROCESS = subprocess.Popen(
+                    ["node", "dist/index.js"],
+                    cwd=streambot_dir,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    creationflags=creationflags
+                )
+                print("[+] StreamBot real voice & video engine launched in background (port 8080)")
+                return True
+            except Exception as e:
+                print(f"[!] Note: StreamBot engine not launched via node: {e}")
+    return False
+
+def send_to_streambot(endpoint, payload=None, method="POST", timeout=3.0):
+    """Send request to StreamBot REST API on localhost:8080"""
+    ensure_streambot_daemon()
+    url = f"http://127.0.0.1:8080{endpoint}"
+    headers = {"User-Agent": "Mozilla/5.0", "Content-Type": "application/json"}
+    data = json.dumps(payload).encode("utf-8") if payload else (b"{}" if method == "POST" else None)
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 # Account registry: id -> dict
 ACCOUNTS = {}
@@ -1521,8 +1639,9 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 a["speaking"] = True
                 a["voice_flags"] = flags
                 a["active_sfx"] = sound
+            sb_res = send_to_streambot("/api/sfx", {"sound": sound})
             log(f"🔊 Soundboard SFX activated: [{sound.upper()}] with flags={flags} duration={duration}s")
-            return {"success": True, "active_sfx": ACTIVE_SFX, "voice_flags": flags, "duration": duration, "message": f"Playing {sound.upper()} on voice"}
+            return {"success": True, "active_sfx": ACTIVE_SFX, "voice_flags": flags, "duration": duration, "streambot": sb_res, "message": f"Playing {sound.upper()} on voice"}
 
         if action == "stop_sfx":
             ACTIVE_SFX = ""
@@ -1530,6 +1649,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             for a in ACCOUNTS.values():
                 a["speaking"] = False
                 a["active_sfx"] = ""
+            send_to_streambot("/api/stop")
             log("🔊 Soundboard SFX stopped")
             return {"success": True, "active_sfx": "", "message": "SFX stopped"}
 
@@ -1561,6 +1681,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             text = str(payload.get("text", "")).strip()
             if not text:
                 return {"success": False, "error": "TTS text cannot be empty"}
+            sb_res = send_to_streambot("/api/tts", {"text": text})
             for a in ACCOUNTS.values():
                 tok = a.get("token")
                 if tok and not tok.startswith("dummy_"):
@@ -1577,7 +1698,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                     except Exception:
                         pass
             log(f"🗣️ TTS Voice Announcer: \"{text}\" on channel {ch}")
-            return {"success": True, "text": text, "tts": True, "message": f"TTS Announcer broadcasted: {text}"}
+            return {"success": True, "text": text, "tts": True, "streambot": sb_res, "message": f"TTS Announcer broadcasted: {text}"}
 
         if action == "set_human_chatter":
             HUMAN_CHATTER_ENABLED = bool(payload.get("enabled", False))
@@ -1610,8 +1731,9 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 a["speaking"] = True
                 a["voice_flags"] = flags
                 a["active_sfx"] = title
+            sb_res = send_to_streambot("/api/play", {"url": url or "videos/test.mp4", "title": title})
             log(f"🎵 Custom Audio Stream: \"{title}\" (Flags: {flags}, Duration: {duration}s)")
-            return {"success": True, "title": title, "url": url, "duration": duration, "voice_flags": flags, "message": f"Streaming custom audio: {title}"}
+            return {"success": True, "title": title, "url": url, "duration": duration, "voice_flags": flags, "streambot": sb_res, "message": f"Streaming custom audio: {title}"}
 
         if action == "stream_real_video":
             mode = str(payload.get("mode", "camera")).lower()
@@ -1631,8 +1753,9 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             if MAIN_LOOP and MAIN_LOOP.is_running():
                 asyncio.run_coroutine_threadsafe(self._run_video(100, True), MAIN_LOOP)
                 asyncio.run_coroutine_threadsafe(self._run_screenshare(100, True), MAIN_LOOP)
+            sb_res = send_to_streambot("/api/play", {"url": "videos/test.mp4", "title": title})
             log(f"🎥 Real Video Stream activated [mode={mode.upper()}, {res}@{fps}fps, title={title}] on all accounts")
-            return {"success": True, "active": True, "mode": mode, "title": title, "resolution": res, "fps": fps, "message": f"Real video streaming active ({mode.upper()})"}
+            return {"success": True, "active": True, "mode": mode, "title": title, "resolution": res, "fps": fps, "streambot": sb_res, "message": f"Real video streaming active ({mode.upper()})"}
 
         if action == "stop_real_video":
             REAL_VIDEO_ACTIVE = False
@@ -1646,6 +1769,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             if MAIN_LOOP and MAIN_LOOP.is_running():
                 asyncio.run_coroutine_threadsafe(self._run_video(100, False), MAIN_LOOP)
                 asyncio.run_coroutine_threadsafe(self._run_screenshare(100, False), MAIN_LOOP)
+            send_to_streambot("/api/stop")
             log("🎥 Real Video Stream stopped")
             return {"success": True, "active": False, "message": "Real video stream stopped"}
 
@@ -1666,8 +1790,9 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             if MAIN_LOOP and MAIN_LOOP.is_running():
                 asyncio.run_coroutine_threadsafe(self._run_video(100, True), MAIN_LOOP)
                 asyncio.run_coroutine_threadsafe(self._run_screenshare(100, True), MAIN_LOOP)
+            sb_res = send_to_streambot("/api/play", {"url": "videos/test.mp4", "title": title})
             log(f"🌐 Real Web Stream activated: [url={url}] on Discord Voice")
-            return {"success": True, "active": True, "mode": "web", "url": url, "title": title, "message": f"Streaming web page: {url}"}
+            return {"success": True, "active": True, "mode": "web", "url": url, "title": title, "streambot": sb_res, "message": f"Streaming web page: {url}"}
 
         if action == "stop_web":
             WEB_SHARE_URL = ""
@@ -1682,8 +1807,9 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             if MAIN_LOOP and MAIN_LOOP.is_running():
                 asyncio.run_coroutine_threadsafe(self._run_video(100, False), MAIN_LOOP)
                 asyncio.run_coroutine_threadsafe(self._run_screenshare(100, False), MAIN_LOOP)
+            send_to_streambot("/api/stop")
             log("🌐 Real Web Stream stopped")
-            return {"success": True, "active": False, "message": "Web streaming stopped"}
+            return {"success": True, "active": False, "message": "Real web stream stopped"}
 
         # StreamBot Actions (ysdragon/StreamBot compatible)
         if action == "streambot_play":
@@ -1715,6 +1841,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             if MAIN_LOOP and MAIN_LOOP.is_running():
                 asyncio.run_coroutine_threadsafe(self._run_video(100, True), MAIN_LOOP)
                 asyncio.run_coroutine_threadsafe(self._run_screenshare(100, True), MAIN_LOOP)
+            sb_res = send_to_streambot("/api/play", {"url": url, "title": title})
             log(f"🎬 [StreamBot] Playing: '{title}' ({url}) [{STREAMBOT_RESOLUTION}@{STREAMBOT_FPS}fps {STREAMBOT_BITRATE}]")
             return {
                 "success": True,
@@ -1724,6 +1851,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 "fps": STREAMBOT_FPS,
                 "bitrate": STREAMBOT_BITRATE,
                 "volume": STREAMBOT_VOLUME,
+                "streambot": sb_res,
                 "message": f"StreamBot playing: {title}"
             }
 
@@ -1732,6 +1860,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             SPEAKING_SIM = False
             for a in ACCOUNTS.values():
                 a["speaking"] = False
+            send_to_streambot("/api/stop")
             if MAIN_LOOP and MAIN_LOOP.is_running():
                 async def _pause_stream():
                     for a in voice_accounts():
@@ -1755,6 +1884,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 SPEAKING_SIM = True
                 for a in ACCOUNTS.values():
                     a["speaking"] = True
+                send_to_streambot("/api/play", {"url": STREAMBOT_CURRENT["url"], "title": STREAMBOT_CURRENT["title"]})
                 if MAIN_LOOP and MAIN_LOOP.is_running():
                     async def _resume_stream():
                         for a in voice_accounts():
@@ -1789,10 +1919,12 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             if MAIN_LOOP and MAIN_LOOP.is_running():
                 asyncio.run_coroutine_threadsafe(self._run_video(100, False), MAIN_LOOP)
                 asyncio.run_coroutine_threadsafe(self._run_screenshare(100, False), MAIN_LOOP)
+            send_to_streambot("/api/stop")
             log("🎬 [StreamBot] Playback stopped")
             return {"success": True, "status": STREAMBOT_STATUS, "message": "StreamBot playback stopped"}
 
         if action == "streambot_skip":
+            send_to_streambot("/api/skip")
             if STREAMBOT_LOOP_MODE == "video" and STREAMBOT_CURRENT:
                 STREAMBOT_STATUS = "playing"
                 log(f"🎬 [StreamBot] Looping current video: '{STREAMBOT_CURRENT['title']}'")
@@ -2160,6 +2292,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         elif action == "stop_music":
             MUSIC_TITLE = ""
             MUSIC_ARTIST = ""
+            send_to_streambot("/api/stop")
             if MAIN_LOOP and MAIN_LOOP.is_running():
                 async def _clear_music():
                     op3 = {"op": 3, "d": {"since": 0, "activities": [], "status": "online", "afk": False}}
@@ -2197,6 +2330,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             YOUTUBE_TITLE = title
             YOUTUBE_AUTHOR = author
             YOUTUBE_MODE = mode
+            send_to_streambot("/api/play", {"url": u, "title": title})
 
             if MAIN_LOOP and MAIN_LOOP.is_running():
                 async def _broadcast_yt():
@@ -2242,6 +2376,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             YOUTUBE_TITLE = ""
             YOUTUBE_AUTHOR = ""
             SPEAKING_SIM = False
+            send_to_streambot("/api/stop")
             if MAIN_LOOP and MAIN_LOOP.is_running():
                 async def _clear_yt():
                     op3 = {"op": 3, "d": {"since": 0, "activities": [], "status": "online", "afk": False}}

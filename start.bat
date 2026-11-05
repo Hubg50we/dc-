@@ -4,6 +4,15 @@ title dc- Discord Voice Controller (Windows PC)
 
 cd /d "%~dp0"
 
+:: 0. Launch StreamBot real voice & video engine in background if available
+if exist "streambot\dist\index.js" (
+    where node >nul 2>&1
+    if %errorlevel% equ 0 (
+        echo [*] Starting StreamBot Voice & Video Streaming Engine on port 8080...
+        start /b "" cmd /c "cd /d ""%~dp0streambot"" && node dist/index.js"
+    )
+)
+
 :: 1. If precompiled standalone executable exists, launch it directly!
 if exist "dist\dc-windows.exe" (
     echo [*] Starting dc- Standalone Windows Executable...
