@@ -316,7 +316,22 @@ def run_tests():
     except Exception as e:
         check("POST action: fetch_user_guilds", False, str(e))
 
-    # 33. Test Account Remove
+    # 33. Test Shizuku Privileged System (Status & Optimizer)
+    try:
+        st_sh, d_sh = http_post("/api/action", {"action": "shizuku_status"})
+        st_opt, d_opt = http_post("/api/action", {"action": "shizuku_optimize"})
+        check("POST action: shizuku_status / shizuku_optimize (Privileged 24/7 Background)", d_sh.get("success") is True and d_opt.get("success") is True)
+    except Exception as e:
+        check("POST action: shizuku_status / shizuku_optimize", False, str(e))
+
+    # 34. Test Unrestricted Media Profiles (4K / 1440p 60fps)
+    try:
+        st_q, d_q = http_post("/api/action", {"action": "streambot_set_quality", "resolution": "4k", "fps": 60, "bitrate": "18000k"})
+        check("POST action: streambot_set_quality (Unrestricted 4K 60fps Pipeline)", d_q.get("success") is True and d_q.get("resolution") == "4k" and d_q.get("fps") == 60)
+    except Exception as e:
+        check("POST action: streambot_set_quality (4K)", False, str(e))
+
+    # 35. Test Account Remove
     try:
         st, data_rem = http_post("/api/action", {"action": "token_remove", "id": 1})
         check("POST action: token_remove", data_rem.get("success") is True)

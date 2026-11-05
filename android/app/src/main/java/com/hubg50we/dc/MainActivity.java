@@ -43,12 +43,27 @@ import java.util.concurrent.TimeUnit;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import rikka.shizuku.Shizuku;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
     private WebView webView;
     private DiscordManager discordManager;
     private ValueCallback<Uri[]> filePathCallback;
+
+    private final Shizuku.OnRequestPermissionResultListener shizukuPermissionListener = (requestCode, grantResult) -> {
+        if (requestCode == 1001) {
+            boolean granted = grantResult == PackageManager.PERMISSION_GRANTED;
+            runOnUiThread(() -> {
+                if (granted) {
+                    Toast.makeText(MainActivity.this, "⚡ Shizuku Privileged Access Granted! Immune 24/7 background mode activated.", Toast.LENGTH_LONG).show();
+                    applyShizukuOptimizations();
+                } else {
+                    Toast.makeText(MainActivity.this, "Shizuku permission denied.", Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+    };
 
     private final ActivityResultLauncher<String> filePickerLauncher = registerForActivityResult(
             new ActivityResultContracts.GetContent(),
@@ -83,6 +98,10 @@ public class MainActivity extends AppCompatActivity {
         } else {
             startService(serviceIntent);
         }
+
+        try {
+            Shizuku.addRequestPermissionResultListener(shizukuPermissionListener);
+        } catch (Throwable ignored) {}
 
         discordManager = DiscordManager.getInstance(this);
 
@@ -414,6 +433,75 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
         }
+        @JavascriptInterface
+        public String getShizukuStatus() {
+            try {
+                JSONObject obj = new JSONObject();
+                boolean ping = false;
+                try {
+                    ping = Shizuku.pingBinder();
+                } catch (Throwable ignored) {}
+                obj.put("available", ping);
+                if (ping) {
+                    try {
+                        obj.put("version", Shizuku.getVersion());
+                        boolean perm = Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED;
+                        obj.put("authorized", perm);
+                    } catch (Throwable ignored) {
+                        obj.put("authorized", false);
+                    }
+                } else {
+                    obj.put("authorized", false);
+                }
+                return obj.toString();
+            } catch (Exception e) {
+                return "{\"available\":false,\"authorized\":false}";
+            }
+        }
+
+        @JavascriptInterface
+        public void requestShizukuPermission() {
+            runOnUiThread(() -> {
+                try {
+                    if (Shizuku.pingBinder()) {
+                        if (Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
+                            Shizuku.requestPermission(1001);
+                        } else {
+                            applyShizukuOptimizations();
+                            Toast.makeText(MainActivity.this, "⚡ Shizuku already authorized! Privileged 24/7 background mode active.", Toast.LENGTH_SHORT).show();
+                        }
+                    } else {
+                        Toast.makeText(MainActivity.this, "Shizuku service not detected. Open Shizuku app first.", Toast.LENGTH_LONG).show();
+                    }
+                } catch (Throwable t) {
+                    Toast.makeText(MainActivity.this, "Shizuku request error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+    }
+
+    public void applyShizukuOptimizations() {
+        new Thread(() -> {
+            try {
+                String pkg = getPackageName();
+                String[] cmds = new String[]{
+                    "cmd appops set " + pkg + " RUN_IN_BACKGROUND allow",
+                    "cmd appops set " + pkg + " RUN_ANY_IN_BACKGROUND allow",
+                    "dumpsys deviceidle whitelist +" + pkg,
+                    "cmd appops set " + pkg + " PROJECT_MEDIA allow",
+                    "cmd appops set " + pkg + " RECORD_AUDIO allow"
+                };
+                for (String cmd : cmds) {
+                    try {
+                        Process p = Shizuku.newProcess(new String[]{"sh", "-c", cmd}, null, null);
+                        p.waitFor();
+                    } catch (Throwable ignored) {}
+                }
+                Log.i(TAG, "⚡ Shizuku privileged optimizations applied successfully!");
+            } catch (Throwable t) {
+                Log.e(TAG, "Failed applying Shizuku optimizations", t);
+            }
+        }).start();
     }
 
     @Override
@@ -434,6 +522,9 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        try {
+            Shizuku.removeRequestPermissionResultListener(shizukuPermissionListener);
+        } catch (Throwable ignored) {}
         if (webView != null) {
             webView.destroy();
             webView = null;

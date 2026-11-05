@@ -1048,7 +1048,7 @@
       <div class="card" style="border-color: rgba(88, 101, 242, 0.45);">
         <div class="card-title" style="color:var(--accent);">
           <span>🔄 App Updates & Version</span>
-          <span class="badge badge-voice" id="settings-app-version">v1.2.8</span>
+          <span class="badge badge-voice" id="settings-app-version">v1.2.9</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Automatically check for new releases, bug fixes, and feature updates.
@@ -1099,6 +1099,26 @@
           </div>
           <span class="badge badge-online">Always Active</span>
         </div>
+      </div>
+
+      <!-- ⚡ Shizuku Privileged System Studio -->
+      <div class="card" style="border-color: rgba(235, 69, 158, 0.45); background: linear-gradient(180deg, rgba(235, 69, 158, 0.05) 0%, var(--bg-card) 100%);">
+        <div class="card-title" style="color:var(--secondary);">
+          <span>⚡ Shizuku Privileged System Studio</span>
+          <span class="badge" id="shizuku-status-badge" style="background:rgba(255,255,255,0.1); color:var(--text-muted);">Checking...</span>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
+          Elevate DC- with Shizuku ADB privileges: grants <strong>immune 24/7 background streaming</strong> (bypasses aggressive OEM battery killers like MIUI/Samsung), whitelists Doze mode, and activates privileged internal audio/screen capture.
+        </p>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;">
+          <button class="btn btn-secondary btn-sm" id="btn-shizuku-check" onclick="checkShizukuStatus(true)" style="flex:1;">
+            🔍 Check Shizuku
+          </button>
+          <button class="btn btn-primary btn-sm" id="btn-shizuku-auth" onclick="requestShizukuAuth()" style="flex:1; background:linear-gradient(135deg, #eb459e, #5865f2);">
+            ⚡ Authorize Shizuku
+          </button>
+        </div>
+        <div id="shizuku-details-box" style="font-size:0.75rem; color:var(--text-muted); display:none; padding:8px 10px; background:rgba(0,0,0,0.3); border-radius:var(--radius-sm); border:1px solid rgba(235,69,158,0.25);"></div>
       </div>
 
       <div class="card">
@@ -1280,13 +1300,15 @@
             <div style="display:flex; gap:6px; align-items:center; font-size:0.73rem;">
               <span style="color:var(--text-muted);">Quality:</span>
               <select id="streambot-res-select" onchange="streambotChangeQuality()" style="flex:1; padding:3px 6px; font-size:0.73rem; background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-sm); color:var(--text);">
+                <option value="4k">4K (Ultra HD 2160p - Unrestricted)</option>
+                <option value="1440p">1440p (2K Quad HD)</option>
                 <option value="1080p">1080p Full HD</option>
                 <option value="720p" selected>720p HD</option>
                 <option value="480p">480p SD</option>
                 <option value="360p">360p Low-End Mobile</option>
               </select>
               <select id="streambot-fps-select" onchange="streambotChangeQuality()" style="padding:3px 6px; font-size:0.73rem; background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-sm); color:var(--text);">
-                <option value="60">60 FPS</option>
+                <option value="60">60 FPS (Ultra Smooth)</option>
                 <option value="30" selected>30 FPS</option>
                 <option value="15">15 FPS</option>
               </select>
@@ -3602,7 +3624,10 @@
       const resolution = resSelect ? resSelect.value : '720p';
       const fps = fpsSelect ? parseInt(fpsSelect.value) || 30 : 30;
       let bitrate = '2500k';
-      if (resolution === '1080p') bitrate = '4500k';
+      if (resolution === '4k') bitrate = '18000k';
+      else if (resolution === '1440p') bitrate = '10000k';
+      else if (resolution === '1080p') bitrate = '6000k';
+      else if (resolution === '720p') bitrate = '2500k';
       else if (resolution === '480p') bitrate = '1500k';
       else if (resolution === '360p') bitrate = '900k';
 
@@ -3613,7 +3638,7 @@
           body: JSON.stringify({ action: 'streambot_set_quality', resolution: resolution, fps: fps, bitrate: bitrate })
         });
         const json = await res.json();
-        showToast(json.message || `Quality set to ${resolution}@${fps}fps`);
+        showToast(json.message || `Quality set to ${resolution}@${fps}fps (${bitrate})`);
         fetchStatus();
       } catch (e) {
         showToast('StreamBot quality error: ' + e.message, true);
@@ -4726,7 +4751,7 @@
       return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    let currentAppVersion = '1.2.8';
+    let currentAppVersion = '1.2.9';
     let latestUpdateData = null;
 
     function toggleAutoCheckUpdate(enabled) {
@@ -4954,10 +4979,84 @@
       }
     }
 
+    // --- ⚡ Shizuku Privileged System Engine ---
+    async function checkShizukuStatus(showToastMsg = false) {
+      if (showToastMsg) vibrate(15);
+      const badge = document.getElementById('shizuku-status-badge');
+      const box = document.getElementById('shizuku-details-box');
+      try {
+        let data = null;
+        if (window.AndroidBridge && window.AndroidBridge.getShizukuStatus) {
+          try {
+            data = JSON.parse(window.AndroidBridge.getShizukuStatus());
+          } catch (ignored) {}
+        }
+        if (!data) {
+          const res = await fetch('/api/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'shizuku_status' })
+          });
+          data = await res.json();
+        }
+        if (badge) {
+          if (data.authorized) {
+            badge.innerText = '⚡ Privileged Active';
+            badge.style.background = 'rgba(16, 185, 129, 0.25)';
+            badge.style.color = '#34d399';
+          } else if (data.available) {
+            badge.innerText = '⚠️ Authorization Needed';
+            badge.style.background = 'rgba(245, 158, 11, 0.25)';
+            badge.style.color = '#fcd34d';
+          } else {
+            badge.innerText = 'Not Detected';
+            badge.style.background = 'rgba(255, 255, 255, 0.1)';
+            badge.style.color = 'var(--text-muted)';
+          }
+        }
+        if (box) {
+          box.style.display = 'block';
+          box.innerHTML = `
+            <div><strong>Status:</strong> ${escapeHtml(data.message || (data.authorized ? 'Authorized & Active' : 'Not Connected'))}</div>
+            <div style="margin-top:2px; font-size:0.7rem;">Doze Whitelist: <code>${data.authorized ? 'Active (Immune)' : 'Standard'}</code> | Background Execution: <code>${data.authorized ? 'Uncapped' : 'Standard'}</code></div>
+          `;
+        }
+        if (showToastMsg) {
+          showToast(data.message || (data.authorized ? 'Shizuku Privileged Mode Active!' : 'Shizuku not detected'));
+        }
+      } catch (e) {
+        if (showToastMsg) showToast('Shizuku check error: ' + e.message, true);
+      }
+    }
+
+    async function requestShizukuAuth() {
+      vibrate(20);
+      try {
+        if (window.AndroidBridge && window.AndroidBridge.requestShizukuPermission) {
+          window.AndroidBridge.requestShizukuPermission();
+          showToast('Opening Shizuku authorization prompt...');
+          setTimeout(() => checkShizukuStatus(false), 2500);
+        } else {
+          const res = await fetch('/api/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'shizuku_optimize' })
+          });
+          const json = await res.json();
+          showToast(json.message || 'Shizuku optimization triggered');
+          checkShizukuStatus(false);
+        }
+      } catch (e) {
+        showToast('Shizuku auth error: ' + e.message, true);
+      }
+    }
+
     fetchStatus();
     fetchLogs();
     checkAndroidFeatures();
     initWifiShare();
+    detectLowEndHardware();
+    checkShizukuStatus(false);
     detectLowEndHardware();
 
     // Auto-check for updates on launch

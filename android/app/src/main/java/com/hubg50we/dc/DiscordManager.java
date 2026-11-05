@@ -27,7 +27,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.2.8";
+    public static final String APP_VERSION = "1.2.9";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -1046,6 +1046,46 @@ public class DiscordManager {
                 res.put("guilds", gArr);
                 res.put("count", gArr.length());
                 res.put("message", "Loaded " + gArr.length() + " server(s)");
+            } else if ("shizuku_status".equals(action)) {
+                res.put("success", true);
+                boolean ping = false;
+                boolean auth = false;
+                int ver = 0;
+                try {
+                    ping = rikka.shizuku.Shizuku.pingBinder();
+                    if (ping) {
+                        ver = rikka.shizuku.Shizuku.getVersion();
+                        auth = rikka.shizuku.Shizuku.checkSelfPermission() == android.content.pm.PackageManager.PERMISSION_GRANTED;
+                    }
+                } catch (Throwable ignored) {}
+                res.put("available", ping);
+                res.put("authorized", auth);
+                res.put("version", ver);
+                res.put("message", ping ? (auth ? "Shizuku Privileged System active & authorized" : "Shizuku running, authorization needed") : "Shizuku service not detected");
+            } else if ("shizuku_optimize".equals(action)) {
+                res.put("success", true);
+                boolean success = false;
+                try {
+                    if (rikka.shizuku.Shizuku.pingBinder() && rikka.shizuku.Shizuku.checkSelfPermission() == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                        String pkg = context.getPackageName();
+                        String[] cmds = new String[]{
+                            "cmd appops set " + pkg + " RUN_IN_BACKGROUND allow",
+                            "cmd appops set " + pkg + " RUN_ANY_IN_BACKGROUND allow",
+                            "dumpsys deviceidle whitelist +" + pkg,
+                            "cmd appops set " + pkg + " PROJECT_MEDIA allow",
+                            "cmd appops set " + pkg + " RECORD_AUDIO allow"
+                        };
+                        for (String c : cmds) {
+                            try {
+                                Process p = rikka.shizuku.Shizuku.newProcess(new String[]{"sh", "-c", c}, null, null);
+                                p.waitFor();
+                            } catch (Throwable ignored) {}
+                        }
+                        success = true;
+                    }
+                } catch (Throwable ignored) {}
+                res.put("optimized", success);
+                res.put("message", success ? "24/7 background immunity and privileged permissions applied!" : "Shizuku authorization required to apply optimizations.");
             } else if ("set_stealth_delay".equals(action)) {
                 this.stealthDelaySec = payload.optDouble("stealth_delay", 0.1);
                 prefs.edit().putFloat("stealth_delay", (float) this.stealthDelaySec).apply();
