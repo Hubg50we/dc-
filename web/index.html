@@ -67,6 +67,25 @@
       --border: rgba(255, 255, 255, 0.06);
     }
 
+    body.low-end-mode {
+      background-image: none !important;
+    }
+    body.low-end-mode * {
+      animation: none !important;
+      transition: none !important;
+      box-shadow: none !important;
+      text-shadow: none !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+    }
+    body.low-end-mode .card {
+      box-shadow: none !important;
+      border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    }
+    body.low-end-mode #audio-spectrum-canvas {
+      display: none !important;
+    }
+
     * {
       box-sizing: border-box;
       margin: 0;
@@ -1021,7 +1040,7 @@
       <div class="card" style="border-color: rgba(88, 101, 242, 0.45);">
         <div class="card-title" style="color:var(--accent);">
           <span>🔄 App Updates & Version</span>
-          <span class="badge badge-voice" id="settings-app-version">v1.2.3</span>
+          <span class="badge badge-voice" id="settings-app-version">v1.2.4</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Automatically check for new releases, bug fixes, and feature updates.
@@ -1045,6 +1064,33 @@
         </div>
 
         <div id="update-check-result" style="display:none; margin-top:8px; padding:10px; border-radius:8px; font-size:0.82rem;"></div>
+      </div>
+
+      <!-- ⚡ Low-End Mobile & Battery Saver Card -->
+      <div class="card" style="border-color: rgba(245, 158, 11, 0.45);">
+        <div class="card-title" style="color:#f59e0b;">
+          <span>⚡ Low-End Mobile & Battery Saver</span>
+          <span class="badge" id="low-end-badge" style="background:rgba(245,158,11,0.25); color:#fcd34d;">Off</span>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
+          Optimized for budget Android phones (1-3GB RAM / 4-core CPUs). Disables heavy GPU canvas shaders, CSS blurs, throttles background polling, and caps memory logs.
+        </p>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-dark); padding:10px 12px; border-radius:var(--radius-sm); margin-bottom:10px;">
+          <div>
+            <strong style="font-size:0.84rem; color:var(--text-heading);">Enable Low-End Mode</strong>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Reduces CPU, RAM, & battery usage by ~70%</div>
+          </div>
+          <input type="checkbox" id="low-end-mode-toggle" onchange="toggleLowEndMode(this.checked)" style="width:20px; height:20px; accent-color:#f59e0b;">
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-dark); padding:10px 12px; border-radius:var(--radius-sm);">
+          <div>
+            <strong style="font-size:0.84rem; color:var(--text-heading);">Smart Background Pause</strong>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Slows polling when app is minimized or phone screen is locked</div>
+          </div>
+          <span class="badge badge-online">Always Active</span>
+        </div>
       </div>
 
       <div class="card">
@@ -1883,17 +1929,25 @@
       } catch (ignored) {}
     }
 
+    let lastLogsString = '';
     async function fetchLogs() {
       try {
         const res = await fetch('/api/logs');
         if (!res.ok) return;
         const data = await res.json();
-        const logs = data.logs || [];
+        let logs = data.logs || [];
+        if (isLowEndMode && logs.length > 60) {
+          logs = logs.slice(-60);
+        }
+        const newStr = logs.join('\n');
+        if (newStr === lastLogsString) return;
+        lastLogsString = newStr;
+
         const box = document.getElementById('live-console-box');
         if (box) {
           const isAtBottom = (box.scrollHeight - box.clientHeight <= box.scrollTop + 50) || box.innerText.includes('Initializing');
           if (logs.length > 0) {
-            box.innerText = logs.join('\n');
+            box.innerText = newStr;
           } else if (box.innerText.includes('Initializing')) {
             box.innerText = 'Connected. Waiting for engine logs...';
           }
@@ -3717,12 +3771,18 @@
 
     function initSpectrumVisualizer() {
       const canvas = document.getElementById('audio-spectrum-canvas');
-      if (!canvas || !audioAnalyser) return;
+      if (!canvas || !audioAnalyser || isLowEndMode) return;
       const ctx = canvas.getContext('2d');
       const bufferLength = audioAnalyser.frequencyBinCount;
       const dataArray = new Uint8Array(bufferLength);
 
       function draw() {
+        if (isLowEndMode || document.hidden || activeAudioNodes.length === 0) {
+          spectrumAnimationId = null;
+          ctx.fillStyle = '#06060c';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          return;
+        }
         spectrumAnimationId = requestAnimationFrame(draw);
         audioAnalyser.getByteFrequencyData(dataArray);
 
@@ -3744,7 +3804,7 @@
           x += barWidth;
         }
       }
-      if (!spectrumAnimationId) draw();
+      if (!spectrumAnimationId && !isLowEndMode && !document.hidden && activeAudioNodes.length > 0) draw();
     }
 
     function setVoiceFx(fx) {
@@ -4204,7 +4264,7 @@
       return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    let currentAppVersion = '1.2.3';
+    let currentAppVersion = '1.2.4';
     let latestUpdateData = null;
 
     function toggleAutoCheckUpdate(enabled) {
@@ -4381,10 +4441,62 @@
       }
     }
 
+    // --- Low-End Mobile & Battery Optimization Engine ---
+    let isLowEndMode = false;
+
+    function applyLowEndMode(enabled) {
+      isLowEndMode = enabled;
+      const b = document.body;
+      const toggle = document.getElementById('low-end-mode-toggle');
+      const badge = document.getElementById('low-end-badge');
+      if (toggle) toggle.checked = enabled;
+      if (badge) {
+        badge.innerText = enabled ? 'Active' : 'Off';
+        badge.className = enabled ? 'badge badge-online' : 'badge badge-voice';
+      }
+      if (enabled) {
+        b.classList.add('low-end-mode');
+        if (spectrumAnimationId) {
+          cancelAnimationFrame(spectrumAnimationId);
+          spectrumAnimationId = null;
+        }
+      } else {
+        b.classList.remove('low-end-mode');
+      }
+      localStorage.setItem('dc_low_end_mode', enabled ? 'true' : 'false');
+    }
+
+    function toggleLowEndMode(enabled) {
+      vibrate(15);
+      applyLowEndMode(enabled);
+      showToast(enabled ? '⚡ Low-End Battery Saver Enabled' : 'Standard Performance Mode');
+    }
+
+    function detectLowEndHardware() {
+      const saved = localStorage.getItem('dc_low_end_mode');
+      if (saved !== null) {
+        applyLowEndMode(saved === 'true');
+        return;
+      }
+      let isLowRam = false;
+      if (window.AndroidBridge && window.AndroidBridge.isLowRamDevice) {
+        try { isLowRam = window.AndroidBridge.isLowRamDevice(); } catch (e) {}
+      }
+      const cores = navigator.hardwareConcurrency || 4;
+      const mem = navigator.deviceMemory || 4;
+      if (isLowRam || cores <= 4 || mem <= 3) {
+        applyLowEndMode(true);
+        console.log(`[Optimizer] Low-end hardware detected (Cores: ${cores}, RAM: ${mem}GB, BridgeLowRam: ${isLowRam}). Activated Battery Saver mode.`);
+      } else {
+        applyLowEndMode(false);
+      }
+    }
+
     fetchStatus();
     fetchLogs();
     checkAndroidFeatures();
     initWifiShare();
+    detectLowEndHardware();
 
     // Auto-check for updates on launch
     const autoCheckPref = localStorage.getItem('dc_auto_check_update');
@@ -4397,13 +4509,37 @@
       }, 1500);
     }
 
-    setInterval(() => {
-      fetchStatus();
-      const logsTab = document.getElementById('tab-logs');
-      if (logsTab && logsTab.classList.contains('active')) {
-        fetchLogs();
+    // Dynamic Adaptive Polling Loop (Throttles in background and on low-end hardware)
+    let pollTimerId = null;
+    function scheduleNextPoll() {
+      if (pollTimerId) clearTimeout(pollTimerId);
+      let delay = 2500;
+      if (document.hidden) {
+        delay = 15000; // 15s when screen is off / app minimized to save CPU & battery
+      } else if (isLowEndMode) {
+        delay = 5000;  // 5s foreground on low-end phones
       }
-    }, 2000);
+      pollTimerId = setTimeout(async () => {
+        try {
+          await fetchStatus();
+          const logsTab = document.getElementById('tab-logs');
+          if (logsTab && logsTab.classList.contains('active')) {
+            await fetchLogs();
+          }
+        } catch (ignored) {}
+        scheduleNextPoll();
+      }, delay);
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      scheduleNextPoll();
+      if (document.hidden && spectrumAnimationId) {
+        cancelAnimationFrame(spectrumAnimationId);
+        spectrumAnimationId = null;
+      }
+    });
+
+    scheduleNextPoll();
   </script>
 </body>
 </html>

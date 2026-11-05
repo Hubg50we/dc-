@@ -85,6 +85,7 @@ public class MainActivity extends AppCompatActivity {
         discordManager = DiscordManager.getInstance(this);
 
         webView = new WebView(this);
+        webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         setContentView(webView);
 
         WebSettings settings = webView.getSettings();
@@ -95,6 +96,12 @@ public class MainActivity extends AppCompatActivity {
         settings.setDatabaseEnabled(true);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
         settings.setMediaPlaybackRequiresUserGesture(false);
+        try {
+            settings.setRenderPriority(WebSettings.RenderPriority.HIGH);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                settings.setSafeBrowsingEnabled(false);
+            }
+        } catch (Exception ignored) {}
 
         // Auto-request camera & microphone permissions if needed for WebRTC streaming
         if (checkSelfPermission(android.Manifest.permission.CAMERA) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -372,6 +379,17 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @JavascriptInterface
+        public boolean isLowRamDevice() {
+            try {
+                ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+                if (am != null) {
+                    return am.isLowRamDevice();
+                }
+            } catch (Exception ignored) {}
+            return false;
+        }
+
+        @JavascriptInterface
         public void requestBatteryOptimizationExemption() {
             runOnUiThread(() -> {
                 try {
@@ -394,5 +412,30 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
         }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (webView != null) {
+            webView.onPause();
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (webView != null) {
+            webView.onResume();
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (webView != null) {
+            webView.destroy();
+            webView = null;
+        }
+        super.onDestroy();
     }
 }
