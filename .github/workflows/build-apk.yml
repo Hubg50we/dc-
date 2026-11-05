@@ -102,33 +102,29 @@ jobs:
 
       - name: Extract Version
         id: get_version
-        shell: bash
         run: |
-          VER_NAME=$(python -c "import re; print(re.search(r'APP_VERSION = \"(.*?)\"', open('main.py').read()).group(1))")
-          echo "version_name=$VER_NAME" >> $GITHUB_OUTPUT
-          echo "VERSION_NAME=$VER_NAME" >> $GITHUB_ENV
-          echo "Windows build version: $VER_NAME"
+          python -c "import main, os; open(os.environ['GITHUB_ENV'], 'a').write(f'VERSION_NAME={main.APP_VERSION}\n'); open(os.environ['GITHUB_OUTPUT'], 'a').write(f'version_name={main.APP_VERSION}\n'); print('Windows build version:', main.APP_VERSION)"
 
       - name: Build Standalone Executable
         run: |
           pyinstaller --onefile --noconfirm --name "dc-windows" --add-data "web/index.html;web" main.py
 
       - name: Package Windows Artifacts
-        shell: bash
+        shell: pwsh
         run: |
-          mkdir -p release_windows
-          cp dist/dc-windows.exe release_windows/dc-windows.exe
-          cp dist/dc-windows.exe "release_windows/dc-windows-v${VERSION_NAME}.exe"
+          New-Item -ItemType Directory -Force -Path release_windows
+          Copy-Item dist/dc-windows.exe release_windows/dc-windows.exe
+          Copy-Item dist/dc-windows.exe "release_windows/dc-windows-v$env:VERSION_NAME.exe"
           
-          mkdir -p dc-windows-portable
-          cp dist/dc-windows.exe dc-windows-portable/
-          cp install.bat dc-windows-portable/
-          cp start.bat dc-windows-portable/
-          cp .env.example dc-windows-portable/
-          cp tokens.txt.example dc-windows-portable/
-          cp README.md dc-windows-portable/
+          New-Item -ItemType Directory -Force -Path dc-windows-portable
+          Copy-Item dist/dc-windows.exe dc-windows-portable/
+          Copy-Item install.bat dc-windows-portable/
+          Copy-Item start.bat dc-windows-portable/
+          Copy-Item .env.example dc-windows-portable/
+          Copy-Item tokens.txt.example dc-windows-portable/
+          Copy-Item README.md dc-windows-portable/
           
-          powershell -Command "Compress-Archive -Path 'dc-windows-portable/*' -DestinationPath 'release_windows/dc-windows-portable-v${VERSION_NAME}.zip' -Force"
+          Compress-Archive -Path dc-windows-portable/* -DestinationPath "release_windows/dc-windows-portable-v$env:VERSION_NAME.zip" -Force
 
       - name: Upload Windows Artifacts
         uses: actions/upload-artifact@v4
