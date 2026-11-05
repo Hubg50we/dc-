@@ -1021,7 +1021,7 @@
       <div class="card" style="border-color: rgba(88, 101, 242, 0.45);">
         <div class="card-title" style="color:var(--accent);">
           <span>🔄 App Updates & Version</span>
-          <span class="badge badge-voice" id="settings-app-version">v1.1.8</span>
+          <span class="badge badge-voice" id="settings-app-version">v1.1.9</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Automatically check for new releases, bug fixes, and feature updates.
@@ -1270,6 +1270,24 @@
             <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="stopYouTubeStream()">⏹️ Stop Stream</button>
           </div>
         </div>
+
+        <!-- 5. Screen Sharing (Voice Channel Go-Live) -->
+        <div style="background:var(--bg-dark); padding:10px 12px; border-radius:var(--radius-sm); margin-top:10px; border:1px solid rgba(88, 101, 242, 0.35);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:1.1rem; color:var(--accent);">🖥️</span>
+              <div>
+                <strong style="font-size:0.84rem; color:var(--text-heading);">Voice Channel Screen Sharing</strong>
+                <div style="font-size:0.72rem; color:var(--text-muted);">Triggers Discord Opcode 18 Stream Create for LIVE Screen Share badge</div>
+              </div>
+            </div>
+            <span class="badge badge-voice" id="screenshare-badge">Off</span>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-primary btn-sm" style="flex:1;" onclick="toggleScreenShare(true)">🖥️ Start Screen Share</button>
+            <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="toggleScreenShare(false)">⏹️ Stop Screen Share</button>
+          </div>
+        </div>
       </div>
 
       <!-- Channel Hopper & Auto-Rotator Card -->
@@ -1380,6 +1398,7 @@
     <button class="btn btn-warning btn-sm" style="flex:1;" onclick="triggerAction('mute')">🔇 Mute</button>
     <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="triggerAction('unmute')">🔊 Unmute</button>
     <button class="btn btn-secondary btn-sm" style="flex:1;" id="dock-cam-btn" onclick="toggleCameraDock()">📹 Cam</button>
+    <button class="btn btn-secondary btn-sm" style="flex:1;" id="dock-share-btn" onclick="toggleScreenShareDock()">🖥️ Share</button>
     <button class="btn btn-danger btn-sm" style="flex:1;" onclick="triggerAction('disconnect')">✕ Leave</button>
   </div>
 
@@ -1810,6 +1829,18 @@
         }
       }
 
+      if (data.screenshare_sim !== undefined) {
+        const ssBadge = document.getElementById('screenshare-badge');
+        if (ssBadge) {
+          ssBadge.innerText = data.screenshare_sim ? 'LIVE' : 'Off';
+          ssBadge.className = data.screenshare_sim ? 'badge badge-online' : 'badge badge-voice';
+        }
+        const dockShare = document.getElementById('dock-share-btn');
+        if (dockShare) {
+          dockShare.innerText = data.screenshare_sim ? '⏹️ Stop' : '🖥️ Share';
+        }
+      }
+
       if (!document.getElementById('target-channel-id').value && data.default_channel) {
         document.getElementById('target-channel-id').value = data.default_channel;
       }
@@ -2050,6 +2081,7 @@
               ${acc.speaking ? `<span class="badge badge-online">🎙️ Speaking</span>` : ''}
               ${acc.video ? `<span class="badge" style="background:rgba(88,101,242,0.25); color:#7289da; font-weight:600;">📹 Cam ON</span>` : ''}
               ${acc.streaming ? `<span class="badge" style="background:rgba(145,71,255,0.25); color:#9146ff; font-weight:600;">🟣 Live</span>` : ''}
+              ${acc.screenshare ? `<span class="badge" style="background:rgba(235,69,158,0.25); color:#ff66cc; font-weight:600;">🔴 LIVE Screen</span>` : ''}
               ${acc.youtube_active ? `<span class="badge" style="background:rgba(255,0,0,0.25); color:#ff4d4d; font-weight:600;">▶️ YouTube</span>` : ''}
               ${(tokenHealthMap[acc.id] && tokenHealthMap[acc.id].status === 'valid') ? `<span class="badge badge-online">🛡️ Valid</span>` : ''}
               ${(tokenHealthMap[acc.id] && tokenHealthMap[acc.id].status === 'locked') ? `<span class="badge badge-mute">🔒 Locked</span>` : ''}
@@ -2062,6 +2094,7 @@
             <div class="acc-card-actions" onclick="event.stopPropagation()">
               <button class="btn btn-secondary btn-sm" style="color:var(--accent); font-weight:600;" onclick="openBotModal(${acc.id})">🎯 Route</button>
               ${inVoice ? `
+                <button class="btn btn-secondary btn-sm" onclick="sendIndividualAction(${acc.id}, '${acc.screenshare ? 'unscreenshare' : 'screenshare'}')">${acc.screenshare ? '⏹️ Share' : '🖥️ Share'}</button>
                 <button class="btn btn-secondary btn-sm" onclick="sendIndividualAction(${acc.id}, '${acc.video ? 'unvideo' : 'video'}')">${acc.video ? '🚫 Cam' : '📹 Cam'}</button>
                 <button class="btn btn-secondary btn-sm" onclick="sendIndividualAction(${acc.id}, '${acc.mute ? 'unmute' : 'mute'}')">${acc.mute ? '🔊 Unmute' : '🔇 Mute'}</button>
                 <button class="btn btn-secondary btn-sm" onclick="sendIndividualAction(${acc.id}, '${acc.deaf ? 'undeafen' : 'deafen'}')">${acc.deaf ? '🎧 Undeaf' : '🙉 Deaf'}</button>
@@ -2114,6 +2147,10 @@
         </div>
 
         <div style="display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="sendIndividualAction(${acc.id}, 'screenshare'); closeModal()">🖥️ Screen Share ON</button>
+            <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="sendIndividualAction(${acc.id}, 'unscreenshare'); closeModal()">⏹️ Screen Share OFF</button>
+          </div>
           <div style="display:flex; gap:8px;">
             <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="sendIndividualAction(${acc.id}, 'video'); closeModal()">📹 Camera ON</button>
             <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="sendIndividualAction(${acc.id}, 'unvideo'); closeModal()">🚫 Camera OFF</button>
@@ -2803,6 +2840,35 @@
       if (btn) btn.innerText = dockCamState ? '🚫 Cam' : '📹 Cam';
     }
 
+    async function toggleScreenShare(enabled) {
+      vibrate(25);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: enabled ? 'screenshare' : 'unscreenshare', percent: currentPercent })
+        });
+        const json = await res.json();
+        showToast(json.message || `Screen Share ${enabled ? 'started' : 'stopped'}`);
+        const badge = document.getElementById('screenshare-badge');
+        if (badge) {
+          badge.innerText = enabled ? 'LIVE' : 'Off';
+          badge.className = enabled ? 'badge badge-online' : 'badge badge-voice';
+        }
+        fetchStatus();
+      } catch (e) {
+        showToast("Error updating screen share: " + e.message, true);
+      }
+    }
+
+    let dockShareState = false;
+    async function toggleScreenShareDock() {
+      dockShareState = !dockShareState;
+      await toggleScreenShare(dockShareState);
+      const btn = document.getElementById('dock-share-btn');
+      if (btn) btn.innerText = dockShareState ? '⏹️ Stop' : '🖥️ Share';
+    }
+
     async function startStream() {
       vibrate(25);
       const title = document.getElementById('stream-title-input').value.trim() || 'Live Stream';
@@ -3056,7 +3122,7 @@
       return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    let currentAppVersion = '1.1.8';
+    let currentAppVersion = '1.1.9';
     let latestUpdateData = null;
 
     function toggleAutoCheckUpdate(enabled) {

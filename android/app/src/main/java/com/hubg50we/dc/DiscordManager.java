@@ -27,7 +27,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.1.8";
+    public static final String APP_VERSION = "1.1.9";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -50,6 +50,7 @@ public class DiscordManager {
     private Runnable rotatorRunnable;
     private boolean speakingSim = false;
     private boolean videoSim = false;
+    private boolean screenShareSim = false;
     private String musicTitle = "";
     private String musicArtist = "";
     private String youtubeUrl = "";
@@ -87,6 +88,7 @@ public class DiscordManager {
         this.rotatorIntervalSec = prefs.getInt("rotator_interval", 300);
         this.speakingSim = prefs.getBoolean("speaking_sim", false);
         this.videoSim = prefs.getBoolean("video_sim", false);
+        this.screenShareSim = prefs.getBoolean("screenshare_sim", false);
         this.musicTitle = prefs.getString("music_title", "");
         this.musicArtist = prefs.getString("music_artist", "");
         this.youtubeUrl = prefs.getString("youtube_url", "");
@@ -347,6 +349,25 @@ public class DiscordManager {
         log((video ? "Camera/Video Enabled for " : "Camera/Video Disabled for ") + Math.min(count, inVoice.size()) + " accounts");
     }
 
+    public void screenShareAll(boolean enable, int percent) {
+        this.screenShareSim = enable;
+        prefs.edit().putBoolean("screenshare_sim", this.screenShareSim).apply();
+        List<Account> inVoice = new ArrayList<>();
+        for (Account a : accounts.values()) {
+            if (a.online && a.voiceChannel != null) inVoice.add(a);
+        }
+        int count = Math.max(1, (int) Math.round(inVoice.size() * (percent / 100.0)));
+        for (int i = 0; i < Math.min(count, inVoice.size()); i++) {
+            Account a = inVoice.get(i);
+            if (enable) {
+                a.startScreenShare(this.guildId);
+            } else {
+                a.stopScreenShare(this.guildId);
+            }
+        }
+        log((enable ? "Screen Sharing Started for " : "Screen Sharing Stopped for ") + Math.min(count, inVoice.size()) + " accounts");
+    }
+
     public JSONObject resolveYouTubeMetadata(String ytUrl) {
         if (ytUrl == null || ytUrl.trim().isEmpty()) return null;
         try {
@@ -586,6 +607,10 @@ public class DiscordManager {
                                 a.setVoiceState(accGid, a.voiceChannel, a.mute, a.deaf, true);
                             } else if ("unvideo".equals(sub)) {
                                 a.setVoiceState(accGid, a.voiceChannel, a.mute, a.deaf, false);
+                            } else if ("screenshare".equals(sub)) {
+                                a.startScreenShare(accGid);
+                            } else if ("unscreenshare".equals(sub)) {
+                                a.stopScreenShare(accGid);
                             } else if ("reconnect".equals(sub)) {
                                 a.reconnect(httpClient, this);
                             }
@@ -666,6 +691,16 @@ public class DiscordManager {
                 res.put("success", true);
                 res.put("status", "ok");
                 res.put("message", "Camera/Video disabled for accounts");
+            } else if ("screenshare".equals(action) || "screen_share_on".equals(action)) {
+                screenShareAll(true, percent);
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("message", "Screen sharing started for accounts");
+            } else if ("unscreenshare".equals(action) || "screen_share_off".equals(action)) {
+                screenShareAll(false, percent);
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("message", "Screen sharing stopped for accounts");
             } else if ("set_stream".equals(action) || "stream".equals(action)) {
                 String streamTitle = payload.optString("title", "Live Stream").trim();
                 String streamUrl = payload.optString("url", "https://twitch.tv/discord").trim();
@@ -1030,6 +1065,10 @@ public class DiscordManager {
                         target.setVoiceState(accGid, target.voiceChannel, target.mute, target.deaf, true);
                     } else if ("unvideo".equals(sub)) {
                         target.setVoiceState(accGid, target.voiceChannel, target.mute, target.deaf, false);
+                    } else if ("screenshare".equals(sub)) {
+                        target.startScreenShare(accGid);
+                    } else if ("unscreenshare".equals(sub)) {
+                        target.stopScreenShare(accGid);
                     } else if ("reconnect".equals(sub)) {
                         target.reconnect(httpClient, this);
                     }
@@ -1223,6 +1262,7 @@ public class DiscordManager {
                 o.put("speaking", a.speaking);
                 o.put("video", a.video);
                 o.put("streaming", a.streaming);
+                o.put("screenshare", a.screenShare);
                 o.put("youtube_active", a.youtubeActive);
                 String masked = a.token.length() > 14 ? a.token.substring(0, 8) + "..." + a.token.substring(a.token.length() - 4) : "******";
                 o.put("token_masked", masked);
@@ -1245,6 +1285,7 @@ public class DiscordManager {
             json.put("rotator_interval", rotatorIntervalSec);
             json.put("speaking_sim", speakingSim);
             json.put("video_sim", videoSim);
+            json.put("screenshare_sim", screenShareSim);
             json.put("music_title", musicTitle);
             json.put("music_artist", musicArtist);
             json.put("youtube_url", youtubeUrl);
@@ -1413,6 +1454,7 @@ public class DiscordManager {
         public boolean speaking = false;
         public boolean video = false;
         public boolean streaming = false;
+        public boolean screenShare = false;
         public boolean youtubeActive = false;
 
         private WebSocket ws;
@@ -1675,6 +1717,39 @@ public class DiscordManager {
             }
         }
 
+        public void startScreenShare(String guildId) {
+            String g = (guildId != null && !guildId.isEmpty()) ? guildId : this.currentGuildId;
+            if (ws != null && voiceChannel != null && g != null && !g.isEmpty()) {
+                try {
+                    JSONObject op18 = new JSONObject();
+                    op18.put("op", 18);
+                    JSONObject d = new JSONObject();
+                    d.put("type", "guild");
+                    d.put("guild_id", g);
+                    d.put("channel_id", voiceChannel);
+                    d.put("preferred_region", JSONObject.NULL);
+                    op18.put("d", d);
+                    ws.send(op18.toString());
+                    this.screenShare = true;
+                } catch (Exception ignored) {}
+            }
+        }
+
+        public void stopScreenShare(String guildId) {
+            String g = (guildId != null && !guildId.isEmpty()) ? guildId : this.currentGuildId;
+            if (ws != null && voiceChannel != null && g != null && !g.isEmpty()) {
+                try {
+                    JSONObject op19 = new JSONObject();
+                    op19.put("op", 19);
+                    JSONObject d = new JSONObject();
+                    d.put("stream_key", "guild:" + g + ":" + voiceChannel + ":" + userId);
+                    op19.put("d", d);
+                    ws.send(op19.toString());
+                    this.screenShare = false;
+                } catch (Exception ignored) {}
+            }
+        }
+
         public void setSpotify(boolean enable, String title, String artist) {
             if (ws != null) {
                 try {
@@ -1810,6 +1885,7 @@ public class DiscordManager {
                     this.voiceChannel = null;
                     this.currentGuildId = "";
                     this.video = false;
+                    this.screenShare = false;
                 } catch (Exception ignored) {}
             }
         }

@@ -72,7 +72,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.1.8"
+APP_VERSION = "1.1.9"
 AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
@@ -84,6 +84,7 @@ ROTATOR_INDEX = 0
 ROTATOR_TASK = None
 SPEAKING_SIM = False
 VIDEO_SIM = False
+SCREEN_SHARE_SIM = False
 MUSIC_TITLE = ""
 MUSIC_ARTIST = ""
 STREAM_TITLE = ""
@@ -1151,6 +1152,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             "rotator_interval": ROTATOR_INTERVAL,
             "speaking_sim": SPEAKING_SIM,
             "video_sim": VIDEO_SIM,
+            "screenshare_sim": SCREEN_SHARE_SIM,
             "music_title": MUSIC_TITLE,
             "music_artist": MUSIC_ARTIST,
             "youtube_url": YOUTUBE_URL,
@@ -1173,6 +1175,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                     "speaking": a.get("speaking", False),
                     "video": a.get("video", False),
                     "streaming": a.get("streaming", False),
+                    "screenshare": a.get("screenshare", False),
                     "youtube_active": a.get("youtube_active", False),
                     "error": a.get("error"),
                 }
@@ -1231,7 +1234,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(404, "Not Found")
 
     def execute_action(self, payload):
-        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VIDEO_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE
+        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE
         action = payload.get("action", "")
 
         if action == "clear_logs":
@@ -1482,6 +1485,10 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             coro = self._run_video(percent, True)
         elif action in ("unvideo", "camera_off"):
             coro = self._run_video(percent, False)
+        elif action in ("screenshare", "screen_share_on"):
+            coro = self._run_screenshare(percent, True)
+        elif action in ("unscreenshare", "screen_share_off"):
+            coro = self._run_screenshare(percent, False)
         elif action in ("set_stream", "stream"):
             STREAM_TITLE = str(payload.get("title", "Live Stream")).strip()
             STREAM_URL = str(payload.get("url", "https://twitch.tv/discord")).strip()
@@ -1658,6 +1665,10 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 coro = apply(targets, video=True, guild=target_gid)
             elif sub == "unvideo":
                 coro = apply(targets, video=False, guild=target_gid)
+            elif sub == "screenshare":
+                coro = self._run_screenshare(100, True)
+            elif sub == "unscreenshare":
+                coro = self._run_screenshare(100, False)
             else:
                 return {"success": False, "error": f"Unknown batch sub_action: {sub}"}
         elif action == "token_remove":
@@ -1713,6 +1724,32 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         done = await apply(targets, video=state)
         return f"{done}/{len(targets)} account(s) video={state}"
 
+    async def _run_screenshare(self, percent, state):
+        global SCREEN_SHARE_SIM
+        SCREEN_SHARE_SIM = state
+        targets = pick_targets(percent, voice_accounts())
+        for a in targets:
+            ws = a.get("ws")
+            if ws and a.get("voice_channel"):
+                gid = a.get("guild_id") or GUILD_ID
+                ch = a.get("voice_channel")
+                uid = a.get("user_id", "")
+                if state:
+                    op18 = {"op": 18, "d": {"type": "guild", "guild_id": gid, "channel_id": ch, "preferred_region": None}}
+                    try:
+                        await ws.send(json.dumps(op18))
+                        a["screenshare"] = True
+                    except Exception:
+                        pass
+                else:
+                    op19 = {"op": 19, "d": {"stream_key": f"guild:{gid}:{ch}:{uid}"}}
+                    try:
+                        await ws.send(json.dumps(op19))
+                        a["screenshare"] = False
+                    except Exception:
+                        pass
+        return f"{len(targets)} account(s) screenshare={state}"
+
     async def _run_account_action(self, aid, sub, ch, guild=None):
         acc = find_account(aid)
         if not acc:
@@ -1742,6 +1779,27 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         elif sub == "unvideo":
             await apply([acc], video=False, guild=guild)
             return "Camera/Video Disabled"
+        elif sub == "screenshare":
+            ws = acc.get("ws")
+            if ws and acc.get("voice_channel"):
+                gid = guild or acc.get("guild_id") or GUILD_ID
+                ch = acc.get("voice_channel")
+                op18 = {"op": 18, "d": {"type": "guild", "guild_id": gid, "channel_id": ch, "preferred_region": None}}
+                await ws.send(json.dumps(op18))
+                acc["screenshare"] = True
+                return "Screen Share Started"
+            return "Account not in voice"
+        elif sub == "unscreenshare":
+            ws = acc.get("ws")
+            if ws and acc.get("voice_channel"):
+                gid = guild or acc.get("guild_id") or GUILD_ID
+                ch = acc.get("voice_channel")
+                uid = acc.get("user_id", "")
+                op19 = {"op": 19, "d": {"stream_key": f"guild:{gid}:{ch}:{uid}"}}
+                await ws.send(json.dumps(op19))
+                acc["screenshare"] = False
+                return "Screen Share Stopped"
+            return "Account not in voice"
         raise ValueError(f"Unknown subaction: {sub}")
 
 

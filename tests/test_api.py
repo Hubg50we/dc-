@@ -213,7 +213,15 @@ def run_tests():
     except Exception as e:
         check("POST action: play_youtube / stop_youtube", False, str(e))
 
-    # 23. Test Account Remove
+    # 23. Test Voice Channel Screen Sharing (Opcode 18 Stream Create)
+    try:
+        st_ss1, data_ss1 = http_post("/api/action", {"action": "screenshare", "percent": 100})
+        st_ss2, data_ss2 = http_post("/api/action", {"action": "unscreenshare", "percent": 100})
+        check("POST action: screenshare / unscreenshare (Voice Screen Share)", data_ss1.get("success") and data_ss2.get("success") and main.SCREEN_SHARE_SIM is False)
+    except Exception as e:
+        check("POST action: screenshare / unscreenshare", False, str(e))
+
+    # 24. Test Account Remove
     try:
         st, data_rem = http_post("/api/action", {"action": "token_remove", "id": 1})
         check("POST action: token_remove", data_rem.get("success") is True)
