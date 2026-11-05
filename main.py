@@ -72,7 +72,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.1.7"
+APP_VERSION = "1.1.8"
 AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
@@ -88,6 +88,10 @@ MUSIC_TITLE = ""
 MUSIC_ARTIST = ""
 STREAM_TITLE = ""
 STREAM_URL = ""
+YOUTUBE_URL = ""
+YOUTUBE_TITLE = ""
+YOUTUBE_AUTHOR = ""
+YOUTUBE_MODE = "watch"
 
 # Account registry: id -> dict
 ACCOUNTS = {}
@@ -354,6 +358,27 @@ def pick_targets(percent, pool):
         return list(pool)
     count = max(1, int(len(pool) * percent / 100 + 0.5))
     return random.sample(pool, min(count, len(pool)))
+
+
+def resolve_youtube_metadata(yt_url):
+    if not yt_url or not str(yt_url).strip():
+        return None
+    try:
+        import urllib.parse
+        encoded = urllib.parse.quote(str(yt_url).strip())
+        oembed_url = f"https://www.youtube.com/oembed?url={encoded}&format=json"
+        req = urllib.request.Request(oembed_url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            if resp.status == 200:
+                data = json.loads(resp.read().decode("utf-8"))
+                return {
+                    "title": data.get("title", "YouTube Video"),
+                    "author": data.get("author_name", "YouTube Creator"),
+                    "url": str(yt_url).strip()
+                }
+    except Exception as e:
+        print(f"[YouTube oEmbed] Error resolving {yt_url}: {e}")
+    return None
 
 
 async def apply(targets, channel="keep", mute="keep", deaf="keep", video="keep", guild=None):
@@ -1128,6 +1153,10 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             "video_sim": VIDEO_SIM,
             "music_title": MUSIC_TITLE,
             "music_artist": MUSIC_ARTIST,
+            "youtube_url": YOUTUBE_URL,
+            "youtube_title": YOUTUBE_TITLE,
+            "youtube_author": YOUTUBE_AUTHOR,
+            "youtube_mode": YOUTUBE_MODE,
             "presets": get_channel_presets(),
             "accounts": [
                 {
@@ -1144,6 +1173,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                     "speaking": a.get("speaking", False),
                     "video": a.get("video", False),
                     "streaming": a.get("streaming", False),
+                    "youtube_active": a.get("youtube_active", False),
                     "error": a.get("error"),
                 }
                 for a in sorted(ACCOUNTS.values(), key=lambda x: x["id"])
@@ -1201,7 +1231,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(404, "Not Found")
 
     def execute_action(self, payload):
-        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES
+        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VIDEO_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE
         action = payload.get("action", "")
 
         if action == "clear_logs":
@@ -1295,7 +1325,6 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             return {"success": True, "stealth_delay": STEALTH_DELAY, "message": f"Stealth delay set to {STEALTH_DELAY:.2f}s"}
 
         if action == "set_speaking":
-            global SPEAKING_SIM
             SPEAKING_SIM = bool(payload.get("speaking", False))
             for a in ACCOUNTS.values():
                 a["speaking"] = SPEAKING_SIM
@@ -1454,7 +1483,6 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         elif action in ("unvideo", "camera_off"):
             coro = self._run_video(percent, False)
         elif action in ("set_stream", "stream"):
-            global STREAM_TITLE, STREAM_URL
             STREAM_TITLE = str(payload.get("title", "Live Stream")).strip()
             STREAM_URL = str(payload.get("url", "https://twitch.tv/discord")).strip()
             enable = bool(payload.get("enabled", True))
@@ -1475,7 +1503,6 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 asyncio.run_coroutine_threadsafe(_broadcast_stream(), MAIN_LOOP)
             return {"success": True, "message": f"Streamer status {'activated: ' + STREAM_TITLE if enable else 'stopped'}", "streaming": enable}
         elif action in ("play_music", "set_music"):
-            global MUSIC_TITLE, MUSIC_ARTIST
             MUSIC_TITLE = str(payload.get("title", "Song Title")).strip()
             MUSIC_ARTIST = str(payload.get("artist", "Artist")).strip()
             if MAIN_LOOP and MAIN_LOOP.is_running():
@@ -1515,6 +1542,90 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                                 pass
                 asyncio.run_coroutine_threadsafe(_clear_music(), MAIN_LOOP)
             return {"success": True, "message": "Music playback stopped"}
+        elif action == "resolve_youtube":
+            u = str(payload.get("url", "")).strip()
+            meta = resolve_youtube_metadata(u)
+            if meta:
+                return {"success": True, "title": meta["title"], "author": meta["author"], "url": meta["url"], "message": f"Resolved: {meta['title']}"}
+            return {"success": False, "error": "Could not resolve YouTube URL"}
+        elif action in ("play_youtube", "stream_youtube"):
+            u = str(payload.get("url", "")).strip()
+            title = str(payload.get("title", "")).strip()
+            author = str(payload.get("author", "")).strip()
+            mode = str(payload.get("mode", "watch")).strip().lower()
+            sim_voice = bool(payload.get("sim_voice", True))
+
+            if (not title or not author) and u:
+                meta = resolve_youtube_metadata(u)
+                if meta:
+                    title = title or meta["title"]
+                    author = author or meta["author"]
+            title = title or "YouTube Video"
+            author = author or "YouTube"
+
+            YOUTUBE_URL = u
+            YOUTUBE_TITLE = title
+            YOUTUBE_AUTHOR = author
+            YOUTUBE_MODE = mode
+
+            if MAIN_LOOP and MAIN_LOOP.is_running():
+                async def _broadcast_yt():
+                    now = int(time.time() * 1000)
+                    for a in online_accounts():
+                        if mode == "music":
+                            acts = [{
+                                "name": "YouTube Music",
+                                "type": 2,
+                                "details": YOUTUBE_TITLE,
+                                "state": YOUTUBE_AUTHOR,
+                                "timestamps": {"start": now, "end": now + 240000}
+                            }]
+                        elif mode == "stream":
+                            acts = [{
+                                "name": YOUTUBE_TITLE,
+                                "type": 1,
+                                "url": "https://twitch.tv/discord"
+                            }]
+                        else:
+                            acts = [{
+                                "name": "YouTube",
+                                "type": 3,
+                                "details": YOUTUBE_TITLE,
+                                "state": YOUTUBE_AUTHOR
+                            }]
+                        op3 = {"op": 3, "d": {"since": 0, "activities": acts, "status": "online", "afk": False}}
+                        ws = a.get("ws")
+                        if ws:
+                            try:
+                                await ws.send(json.dumps(op3))
+                                a["youtube_active"] = True
+                                if sim_voice:
+                                    a["speaking"] = True
+                            except Exception:
+                                pass
+                if sim_voice:
+                    SPEAKING_SIM = True
+                asyncio.run_coroutine_threadsafe(_broadcast_yt(), MAIN_LOOP)
+            return {"success": True, "title": YOUTUBE_TITLE, "author": YOUTUBE_AUTHOR, "mode": YOUTUBE_MODE, "url": YOUTUBE_URL, "message": f"Streaming YouTube ({YOUTUBE_MODE}): {YOUTUBE_TITLE}"}
+        elif action == "stop_youtube":
+            YOUTUBE_URL = ""
+            YOUTUBE_TITLE = ""
+            YOUTUBE_AUTHOR = ""
+            SPEAKING_SIM = False
+            if MAIN_LOOP and MAIN_LOOP.is_running():
+                async def _clear_yt():
+                    op3 = {"op": 3, "d": {"since": 0, "activities": [], "status": "online", "afk": False}}
+                    for a in online_accounts():
+                        ws = a.get("ws")
+                        if ws:
+                            try:
+                                await ws.send(json.dumps(op3))
+                                a["youtube_active"] = False
+                                a["speaking"] = False
+                            except Exception:
+                                pass
+                asyncio.run_coroutine_threadsafe(_clear_yt(), MAIN_LOOP)
+            return {"success": True, "message": "YouTube streaming stopped"}
         elif action == "token_add":
             tok = payload.get("token", "").strip()
             if not tok:

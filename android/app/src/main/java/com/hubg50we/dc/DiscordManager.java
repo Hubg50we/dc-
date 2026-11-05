@@ -27,7 +27,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.1.7";
+    public static final String APP_VERSION = "1.1.8";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -52,6 +52,10 @@ public class DiscordManager {
     private boolean videoSim = false;
     private String musicTitle = "";
     private String musicArtist = "";
+    private String youtubeUrl = "";
+    private String youtubeTitle = "";
+    private String youtubeAuthor = "";
+    private String youtubeMode = "watch";
     private final long startTime;
 
     private final Map<Integer, Account> accounts = new ConcurrentHashMap<>();
@@ -85,6 +89,10 @@ public class DiscordManager {
         this.videoSim = prefs.getBoolean("video_sim", false);
         this.musicTitle = prefs.getString("music_title", "");
         this.musicArtist = prefs.getString("music_artist", "");
+        this.youtubeUrl = prefs.getString("youtube_url", "");
+        this.youtubeTitle = prefs.getString("youtube_title", "");
+        this.youtubeAuthor = prefs.getString("youtube_author", "");
+        this.youtubeMode = prefs.getString("youtube_mode", "watch");
 
         this.httpClient = new OkHttpClient.Builder()
                 .readTimeout(0, TimeUnit.MILLISECONDS)
@@ -337,6 +345,30 @@ public class DiscordManager {
             a.setVoiceState(this.guildId, a.voiceChannel, a.mute, a.deaf, video);
         }
         log((video ? "Camera/Video Enabled for " : "Camera/Video Disabled for ") + Math.min(count, inVoice.size()) + " accounts");
+    }
+
+    public JSONObject resolveYouTubeMetadata(String ytUrl) {
+        if (ytUrl == null || ytUrl.trim().isEmpty()) return null;
+        try {
+            String encoded = java.net.URLEncoder.encode(ytUrl.trim(), "UTF-8");
+            Request req = new Request.Builder()
+                    .url("https://www.youtube.com/oembed?url=" + encoded + "&format=json")
+                    .header("User-Agent", "Mozilla/5.0")
+                    .build();
+            try (Response resp = httpClient.newCall(req).execute()) {
+                if (resp.isSuccessful() && resp.body() != null) {
+                    JSONObject obj = new JSONObject(resp.body().string());
+                    JSONObject res = new JSONObject();
+                    res.put("title", obj.optString("title", "YouTube Video"));
+                    res.put("author", obj.optString("author_name", "YouTube Creator"));
+                    res.put("url", ytUrl.trim());
+                    return res;
+                }
+            }
+        } catch (Exception e) {
+            log("YouTube oEmbed error: " + e.getMessage());
+        }
+        return null;
     }
 
     public String resolveGuildIdSync(String channelId) {
@@ -664,6 +696,84 @@ public class DiscordManager {
                 res.put("success", true);
                 res.put("status", "ok");
                 res.put("message", "Music playback stopped");
+            } else if ("resolve_youtube".equals(action)) {
+                String u = payload.optString("url", "").trim();
+                JSONObject meta = resolveYouTubeMetadata(u);
+                if (meta != null) {
+                    res.put("success", true);
+                    res.put("status", "ok");
+                    res.put("title", meta.optString("title"));
+                    res.put("author", meta.optString("author"));
+                    res.put("url", meta.optString("url"));
+                    res.put("message", "Resolved: " + meta.optString("title"));
+                } else {
+                    res.put("success", false);
+                    res.put("error", "Could not resolve YouTube URL");
+                }
+            } else if ("play_youtube".equals(action) || "stream_youtube".equals(action)) {
+                String u = payload.optString("url", "").trim();
+                String title = payload.optString("title", "").trim();
+                String author = payload.optString("author", "").trim();
+                String mode = payload.optString("mode", "watch").trim().toLowerCase();
+                boolean simVoice = payload.optBoolean("sim_voice", true);
+
+                if ((title.isEmpty() || author.isEmpty()) && !u.isEmpty()) {
+                    JSONObject meta = resolveYouTubeMetadata(u);
+                    if (meta != null) {
+                        if (title.isEmpty()) title = meta.optString("title", "YouTube Video");
+                        if (author.isEmpty()) author = meta.optString("author", "YouTube");
+                    }
+                }
+                if (title.isEmpty()) title = "YouTube Video";
+                if (author.isEmpty()) author = "YouTube";
+
+                this.youtubeUrl = u;
+                this.youtubeTitle = title;
+                this.youtubeAuthor = author;
+                this.youtubeMode = mode;
+                prefs.edit()
+                        .putString("youtube_url", this.youtubeUrl)
+                        .putString("youtube_title", this.youtubeTitle)
+                        .putString("youtube_author", this.youtubeAuthor)
+                        .putString("youtube_mode", this.youtubeMode)
+                        .apply();
+
+                for (Account a : accounts.values()) {
+                    if (a.online) {
+                        a.setYouTube(true, this.youtubeTitle, this.youtubeAuthor, this.youtubeMode, this.youtubeUrl);
+                        if (simVoice) a.speaking = true;
+                    }
+                }
+                if (simVoice) {
+                    this.speakingSim = true;
+                    prefs.edit().putBoolean("speaking_sim", true).apply();
+                }
+
+                log("YouTube Stream Active: [" + mode.toUpperCase() + "] " + this.youtubeTitle + " (" + this.youtubeAuthor + ")");
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("title", this.youtubeTitle);
+                res.put("author", this.youtubeAuthor);
+                res.put("mode", this.youtubeMode);
+                res.put("url", this.youtubeUrl);
+                res.put("message", "Streaming YouTube (" + mode + "): " + this.youtubeTitle);
+            } else if ("stop_youtube".equals(action)) {
+                this.youtubeUrl = "";
+                this.youtubeTitle = "";
+                this.youtubeAuthor = "";
+                prefs.edit().putString("youtube_url", "").putString("youtube_title", "").putString("youtube_author", "").apply();
+                for (Account a : accounts.values()) {
+                    if (a.online) {
+                        a.setYouTube(false, "", "", "", "");
+                        a.speaking = false;
+                    }
+                }
+                this.speakingSim = false;
+                prefs.edit().putBoolean("speaking_sim", false).apply();
+                log("YouTube streaming stopped");
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("message", "YouTube streaming stopped");
             }
 
             // 5. Configuration & Server ID Auto-Detect
@@ -1113,6 +1223,7 @@ public class DiscordManager {
                 o.put("speaking", a.speaking);
                 o.put("video", a.video);
                 o.put("streaming", a.streaming);
+                o.put("youtube_active", a.youtubeActive);
                 String masked = a.token.length() > 14 ? a.token.substring(0, 8) + "..." + a.token.substring(a.token.length() - 4) : "******";
                 o.put("token_masked", masked);
                 accArray.put(o);
@@ -1136,6 +1247,10 @@ public class DiscordManager {
             json.put("video_sim", videoSim);
             json.put("music_title", musicTitle);
             json.put("music_artist", musicArtist);
+            json.put("youtube_url", youtubeUrl);
+            json.put("youtube_title", youtubeTitle);
+            json.put("youtube_author", youtubeAuthor);
+            json.put("youtube_mode", youtubeMode);
             json.put("presets", getPresetsArray());
             json.put("accounts", accArray);
         } catch (Exception e) {
@@ -1298,6 +1413,7 @@ public class DiscordManager {
         public boolean speaking = false;
         public boolean video = false;
         public boolean streaming = false;
+        public boolean youtubeActive = false;
 
         private WebSocket ws;
         private Handler heartHandler;
@@ -1483,6 +1599,48 @@ public class DiscordManager {
                         act.put("name", name.trim());
                         act.put("type", type);
                         if (type == 4) act.put("state", name.trim());
+                        acts.put(act);
+                    }
+                    d.put("activities", acts);
+                    op3.put("d", d);
+                    ws.send(op3.toString());
+                } catch (Exception ignored) {}
+            }
+        }
+
+        public void setYouTube(boolean enable, String title, String author, String mode, String url) {
+            this.youtubeActive = enable;
+            if (ws != null) {
+                try {
+                    JSONObject op3 = new JSONObject();
+                    op3.put("op", 3);
+                    JSONObject d = new JSONObject();
+                    d.put("since", 0);
+                    d.put("status", "online");
+                    d.put("afk", false);
+                    JSONArray acts = new JSONArray();
+                    if (enable) {
+                        JSONObject act = new JSONObject();
+                        if ("music".equalsIgnoreCase(mode)) {
+                            act.put("name", "YouTube Music");
+                            act.put("type", 2);
+                            act.put("details", title);
+                            act.put("state", author);
+                            long now = System.currentTimeMillis();
+                            JSONObject ts = new JSONObject();
+                            ts.put("start", now);
+                            ts.put("end", now + 240000);
+                            act.put("timestamps", ts);
+                        } else if ("stream".equalsIgnoreCase(mode)) {
+                            act.put("name", title);
+                            act.put("type", 1);
+                            act.put("url", "https://twitch.tv/discord");
+                        } else {
+                            act.put("name", "YouTube");
+                            act.put("type", 3);
+                            act.put("details", title);
+                            act.put("state", author);
+                        }
                         acts.put(act);
                     }
                     d.put("activities", acts);

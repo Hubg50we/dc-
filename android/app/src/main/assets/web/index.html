@@ -1021,7 +1021,7 @@
       <div class="card" style="border-color: rgba(88, 101, 242, 0.45);">
         <div class="card-title" style="color:var(--accent);">
           <span>🔄 App Updates & Version</span>
-          <span class="badge badge-voice" id="settings-app-version">v1.1.7</span>
+          <span class="badge badge-voice" id="settings-app-version">v1.1.8</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Automatically check for new releases, bug fixes, and feature updates.
@@ -1212,6 +1212,62 @@
           <div style="display:flex; gap:8px;">
             <button class="btn btn-sm" style="flex:1; background:#1db954; color:#fff;" onclick="playSpotify()">▶️ Play Music</button>
             <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="stopSpotify()">⏹️ Stop Music</button>
+          </div>
+        </div>
+
+        <!-- 4. YouTube Video & Music URL Streamer -->
+        <div style="background:var(--bg-dark); padding:10px 12px; border-radius:var(--radius-sm); margin-top:10px; border:1px solid rgba(255, 0, 0, 0.35);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:1.1rem; color:#ff0000;">▶️</span>
+              <div>
+                <strong style="font-size:0.84rem; color:var(--text-heading);">YouTube URL Video & Music Streamer</strong>
+                <div style="font-size:0.72rem; color:var(--text-muted);">Stream any YouTube video, song, or lofi radio via link</div>
+              </div>
+            </div>
+            <span class="badge badge-voice" id="youtube-status-badge">Idle</span>
+          </div>
+
+          <div class="field-group" style="margin-bottom:6px;">
+            <div class="input-row">
+              <input type="text" id="yt-url-input" placeholder="Paste YouTube Link (e.g. https://youtu.be/...)" style="flex:1;">
+              <button class="btn btn-secondary btn-sm" style="color:#ff4444; font-weight:600;" onclick="fetchYouTubeInfo()">🔍 Fetch</button>
+            </div>
+          </div>
+
+          <div style="display:flex; gap:6px; margin-bottom:6px;">
+            <input type="text" id="yt-title-input" placeholder="Video / Track Title" style="flex:2;">
+            <input type="text" id="yt-author-input" placeholder="Channel / Artist" style="flex:1;">
+          </div>
+
+          <div style="display:flex; gap:6px; align-items:center; margin-bottom:8px;">
+            <select id="yt-mode-select" style="flex:1; padding:7px 10px; border-radius:var(--radius-sm); background:var(--bg-card); border:1px solid var(--border-color); color:var(--text); font-size:0.82rem;">
+              <option value="watch" selected>🎬 Watching on YouTube (Type 3)</option>
+              <option value="music">🎵 YouTube Music Player (Type 2)</option>
+              <option value="stream">🟣 YouTube Live Streamer (Type 1)</option>
+            </select>
+            <label style="display:flex; align-items:center; gap:4px; font-size:0.75rem; color:var(--text-muted); cursor:pointer;">
+              <input type="checkbox" id="yt-sim-voice-toggle" checked style="width:16px; height:16px; accent-color:var(--success);">
+              Voice Activity
+            </label>
+          </div>
+
+          <!-- Quick YouTube Presets -->
+          <div style="display:flex; gap:4px; flex-wrap:wrap; margin-bottom:8px;">
+            <div class="preset-chip" style="font-size:0.72rem; padding:3px 8px;" onclick="loadYtPreset('https://www.youtube.com/watch?v=jfKfPfyJRdk', 'Lofi Girl - beats to relax/study to', 'Lofi Girl', 'music')">
+              ☕ Lofi Girl
+            </div>
+            <div class="preset-chip" style="font-size:0.72rem; padding:3px 8px;" onclick="loadYtPreset('https://www.youtube.com/watch?v=4xDzrJKXOOY', 'synthwave radio - chill synth / retro beats', 'Lofi Girl', 'music')">
+              🌌 Synthwave Radio
+            </div>
+            <div class="preset-chip" style="font-size:0.72rem; padding:3px 8px;" onclick="loadYtPreset('https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'Never Gonna Give You Up', 'Rick Astley', 'watch')">
+              🎸 Rick Astley
+            </div>
+          </div>
+
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-sm" style="flex:1; background:#ff0000; color:#fff;" onclick="startYouTubeStream()">▶️ Stream via URL</button>
+            <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="stopYouTubeStream()">⏹️ Stop Stream</button>
           </div>
         </div>
       </div>
@@ -1724,6 +1780,36 @@
         }
       }
 
+      if (data.youtube_title) {
+        const ytBadge = document.getElementById('youtube-status-badge');
+        if (ytBadge) {
+          ytBadge.innerText = 'Streaming';
+          ytBadge.className = 'badge badge-online';
+        }
+        const ytUrlInput = document.getElementById('yt-url-input');
+        const ytTitleInput = document.getElementById('yt-title-input');
+        const ytAuthorInput = document.getElementById('yt-author-input');
+        const ytModeSelect = document.getElementById('yt-mode-select');
+        if (ytUrlInput && document.activeElement !== ytUrlInput && !ytUrlInput.value && data.youtube_url) {
+          ytUrlInput.value = data.youtube_url;
+        }
+        if (ytTitleInput && document.activeElement !== ytTitleInput && !ytTitleInput.value) {
+          ytTitleInput.value = data.youtube_title;
+        }
+        if (ytAuthorInput && document.activeElement !== ytAuthorInput && !ytAuthorInput.value) {
+          ytAuthorInput.value = data.youtube_author || '';
+        }
+        if (ytModeSelect && document.activeElement !== ytModeSelect && data.youtube_mode) {
+          ytModeSelect.value = data.youtube_mode;
+        }
+      } else {
+        const ytBadge = document.getElementById('youtube-status-badge');
+        if (ytBadge) {
+          ytBadge.innerText = 'Idle';
+          ytBadge.className = 'badge badge-voice';
+        }
+      }
+
       if (!document.getElementById('target-channel-id').value && data.default_channel) {
         document.getElementById('target-channel-id').value = data.default_channel;
       }
@@ -1964,6 +2050,7 @@
               ${acc.speaking ? `<span class="badge badge-online">🎙️ Speaking</span>` : ''}
               ${acc.video ? `<span class="badge" style="background:rgba(88,101,242,0.25); color:#7289da; font-weight:600;">📹 Cam ON</span>` : ''}
               ${acc.streaming ? `<span class="badge" style="background:rgba(145,71,255,0.25); color:#9146ff; font-weight:600;">🟣 Live</span>` : ''}
+              ${acc.youtube_active ? `<span class="badge" style="background:rgba(255,0,0,0.25); color:#ff4d4d; font-weight:600;">▶️ YouTube</span>` : ''}
               ${(tokenHealthMap[acc.id] && tokenHealthMap[acc.id].status === 'valid') ? `<span class="badge badge-online">🛡️ Valid</span>` : ''}
               ${(tokenHealthMap[acc.id] && tokenHealthMap[acc.id].status === 'locked') ? `<span class="badge badge-mute">🔒 Locked</span>` : ''}
               ${(tokenHealthMap[acc.id] && tokenHealthMap[acc.id].status === 'invalid') ? `<span class="badge" style="background:rgba(242,63,67,0.25); color:var(--danger);">⚠️ Invalid</span>` : ''}
@@ -2803,6 +2890,100 @@
       }
     }
 
+    async function fetchYouTubeInfo() {
+      vibrate(20);
+      const url = document.getElementById('yt-url-input').value.trim();
+      if (!url) return showToast("Please paste a YouTube URL first", true);
+      showToast("Resolving video metadata...");
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'resolve_youtube', url: url })
+        });
+        const json = await res.json();
+        if (json.success) {
+          if (json.title) document.getElementById('yt-title-input').value = json.title;
+          if (json.author) document.getElementById('yt-author-input').value = json.author;
+          showToast(`Resolved: ${json.title}`);
+        } else {
+          showToast(json.error || "Could not resolve YouTube URL", true);
+        }
+      } catch (e) {
+        showToast("Error: " + e.message, true);
+      }
+    }
+
+    function loadYtPreset(url, title, author, mode) {
+      vibrate(15);
+      document.getElementById('yt-url-input').value = url;
+      document.getElementById('yt-title-input').value = title;
+      document.getElementById('yt-author-input').value = author;
+      document.getElementById('yt-mode-select').value = mode;
+      showToast(`Selected preset: ${title}`);
+    }
+
+    async function startYouTubeStream() {
+      vibrate(25);
+      const url = document.getElementById('yt-url-input').value.trim();
+      const title = document.getElementById('yt-title-input').value.trim();
+      const author = document.getElementById('yt-author-input').value.trim();
+      const mode = document.getElementById('yt-mode-select').value;
+      const simVoice = document.getElementById('yt-sim-voice-toggle').checked;
+
+      if (!url && !title) return showToast("Enter a YouTube URL or Video Title", true);
+      showToast("Launching YouTube media stream...");
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'play_youtube',
+            url: url,
+            title: title,
+            author: author,
+            mode: mode,
+            sim_voice: simVoice
+          })
+        });
+        const json = await res.json();
+        if (json.success) {
+          showToast(json.message || "Streaming YouTube!");
+          const badge = document.getElementById('youtube-status-badge');
+          if (badge) {
+            badge.innerText = 'Streaming';
+            badge.className = 'badge badge-online';
+          }
+          fetchStatus();
+        } else {
+          showToast(json.error || "Failed to start stream", true);
+        }
+      } catch (e) {
+        showToast("Error: " + e.message, true);
+      }
+    }
+
+    async function stopYouTubeStream() {
+      vibrate(20);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'stop_youtube' })
+        });
+        const json = await res.json();
+        showToast(json.message || "YouTube stream stopped");
+        const badge = document.getElementById('youtube-status-badge');
+        if (badge) {
+          badge.innerText = 'Idle';
+          badge.className = 'badge badge-voice';
+        }
+        fetchStatus();
+      } catch (e) {
+        showToast("Error stopping stream: " + e.message, true);
+      }
+    }
+
     async function toggleRotator(enabled) {
       vibrate(20);
       const rawChannels = document.getElementById('rotator-channels-input').value;
@@ -2875,7 +3056,7 @@
       return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    let currentAppVersion = '1.1.7';
+    let currentAppVersion = '1.1.8';
     let latestUpdateData = null;
 
     function toggleAutoCheckUpdate(enabled) {

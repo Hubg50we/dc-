@@ -59,7 +59,7 @@ def run_tests():
     # 2. Test GET /api/status
     try:
         st, data = http_get("/api/status")
-        check("GET /api/status Schema", st == 200 and "total_accounts" in data and "version" in data and "stealth_delay" in data and "video_sim" in data and "music_title" in data)
+        check("GET /api/status Schema", st == 200 and "total_accounts" in data and "version" in data and "stealth_delay" in data and "youtube_url" in data)
     except Exception as e:
         check("GET /api/status Schema", False, str(e))
 
@@ -198,7 +198,22 @@ def run_tests():
     except Exception as e:
         check("POST action: play_music / stop_music", False, str(e))
 
-    # 21. Test Account Remove
+    # 21. Test YouTube oEmbed Metadata Resolver
+    try:
+        st_yt, data_yt = http_post("/api/action", {"action": "resolve_youtube", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"})
+        check("POST action: resolve_youtube (oEmbed Title & Channel)", data_yt.get("success") and "Never Gonna Give You Up" in data_yt.get("title", ""), f"Title: {data_yt.get('title')}")
+    except Exception as e:
+        check("POST action: resolve_youtube", False, str(e))
+
+    # 22. Test YouTube Video & Music Streamer
+    try:
+        st_y1, data_y1 = http_post("/api/action", {"action": "play_youtube", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "mode": "music", "sim_voice": True})
+        st_y2, data_y2 = http_post("/api/action", {"action": "stop_youtube"})
+        check("POST action: play_youtube / stop_youtube (Stream via URL)", data_y1.get("success") and data_y2.get("success") and main.YOUTUBE_URL == "")
+    except Exception as e:
+        check("POST action: play_youtube / stop_youtube", False, str(e))
+
+    # 23. Test Account Remove
     try:
         st, data_rem = http_post("/api/action", {"action": "token_remove", "id": 1})
         check("POST action: token_remove", data_rem.get("success") is True)
