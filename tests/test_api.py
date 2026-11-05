@@ -309,7 +309,14 @@ def run_tests():
     except Exception as e:
         check("POST action: streambot_play / pause / resume / queue / skip / stop", False, str(e))
 
-    # 32. Test Account Remove
+    # 32. Test User Guilds Auto-Discovery
+    try:
+        st, data_guilds = http_post("/api/action", {"action": "fetch_user_guilds"})
+        check("POST action: fetch_user_guilds (Server Auto-Discovery)", data_guilds.get("success") is True and isinstance(data_guilds.get("guilds"), list))
+    except Exception as e:
+        check("POST action: fetch_user_guilds", False, str(e))
+
+    # 33. Test Account Remove
     try:
         st, data_rem = http_post("/api/action", {"action": "token_remove", "id": 1})
         check("POST action: token_remove", data_rem.get("success") is True)

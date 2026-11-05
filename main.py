@@ -72,7 +72,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.2.6"
+APP_VERSION = "1.2.7"
 AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
@@ -331,20 +331,31 @@ async def _validate_token(token):
     loop = asyncio.get_running_loop()
 
     def _do():
-        try:
-            req = urllib.request.Request(
-                f"{API}/users/@me",
-                headers={"Authorization": token, "User-Agent": "Mozilla/5.0"}
-            )
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                if resp.status == 200:
-                    data = json.loads(resp.read().decode("utf-8"))
-                    return data, None
-                return None, f"HTTP {resp.status}"
-        except urllib.error.HTTPError as e:
-            return None, f"HTTP {e.code}"
-        except Exception as e:
-            return None, str(e)
+        clean_tok = token.strip()
+        prefixes = ["", "Bot "] if not clean_tok.startswith("Bot ") else [""]
+        last_err = "HTTP 401"
+        for prefix in prefixes:
+            auth_val = prefix + clean_tok
+            try:
+                req = urllib.request.Request(
+                    f"{API}/users/@me",
+                    headers={"Authorization": auth_val, "User-Agent": "Mozilla/5.0"}
+                )
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    if resp.status == 200:
+                        data = json.loads(resp.read().decode("utf-8"))
+                        data["auth_token"] = auth_val
+                        data["is_bot"] = bool(prefix or data.get("bot", False))
+                        return data, None
+                    last_err = f"HTTP {resp.status}"
+            except urllib.error.HTTPError as e:
+                last_err = f"HTTP {e.code}"
+                if e.code == 401 and not prefix:
+                    continue
+                return None, last_err
+            except Exception as e:
+                return None, str(e)
+        return None, last_err
 
     return await loop.run_in_executor(None, _do)
 
@@ -505,7 +516,7 @@ async def remove_account(identifier):
                 json.dumps({
                     "op": 4,
                     "d": {
-                        "guild_id": GUILD_ID,
+                        "guild_id": acc.get("guild_id") or GUILD_ID,
                         "channel_id": None,
                         "self_mute": acc.get("mute", False),
                         "self_deaf": acc.get("deaf", False),
@@ -573,6 +584,8 @@ async def run_account(aid):
                     if u:
                         acc["user_id"] = u.get("id", acc.get("user_id"))
                         acc["name"] = u.get("username", acc.get("name"))
+                del event
+                del hello
 
                 acc["ws"] = ws
                 acc["online"] = True
@@ -582,6 +595,11 @@ async def run_account(aid):
 
                 while True:
                     raw_msg = await asyncio.wait_for(ws.recv(), timeout=max(30, heartbeat_interval / 1000 + 15))
+                    # Low-End Mobile Battery & GC Optimization:
+                    # Drop high-frequency chat messages, presences & typing events from 100+ servers before JSON parsing
+                    if isinstance(raw_msg, str):
+                        if '"VOICE_STATE_UPDATE"' not in raw_msg and '"op":11' not in raw_msg and '"op":7' not in raw_msg and '"op":9' not in raw_msg:
+                            continue
                     try:
                         ev = json.loads(raw_msg)
                         if ev.get("op") == 11 and acc.get("last_heartbeat_sent"):
@@ -1083,7 +1101,7 @@ async def shutdown():
                     json.dumps({
                         "op": 4,
                         "d": {
-                            "guild_id": GUILD_ID,
+                            "guild_id": acc.get("guild_id") or GUILD_ID,
                             "channel_id": None,
                             "self_mute": acc.get("mute", False),
                             "self_deaf": acc.get("deaf", False),
@@ -1877,6 +1895,35 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 try:
                     channels = fut.result(timeout=10)
                     return {"success": True, "channels": channels, "guild_id": target_gid, "message": f"Loaded {len(channels)} voice channel(s)"}
+                except Exception as e:
+                    return {"success": False, "error": str(e)}
+            return {"success": False, "error": "Bot engine not running"}
+
+        if action == "fetch_user_guilds":
+            if MAIN_LOOP and MAIN_LOOP.is_running():
+                async def _get_guilds():
+                    token = next((a["token"] for a in ACCOUNTS.values() if a.get("online") and a.get("token")), None)
+                    if not token:
+                        token = next((a["token"] for a in ACCOUNTS.values() if a.get("token")), None)
+                    if not token:
+                        return []
+                    def _do_req():
+                        try:
+                            auth = token if token.startswith("Bot ") else token
+                            req = urllib.request.Request(f"https://discord.com/api/v10/users/@me/guilds?limit=200", headers={"Authorization": auth, "User-Agent": "Mozilla/5.0"})
+                            with urllib.request.urlopen(req, timeout=8) as resp:
+                                if resp.status == 200:
+                                    all_g = json.loads(resp.read().decode("utf-8"))
+                                    return [{"id": g["id"], "name": g["name"]} for g in all_g]
+                        except Exception:
+                            pass
+                        return []
+                    return await asyncio.get_running_loop().run_in_executor(None, _do_req)
+
+                fut = asyncio.run_coroutine_threadsafe(_get_guilds(), MAIN_LOOP)
+                try:
+                    guild_list = fut.result(timeout=10)
+                    return {"success": True, "guilds": guild_list, "count": len(guild_list), "message": f"Loaded {len(guild_list)} server(s)"}
                 except Exception as e:
                     return {"success": False, "error": str(e)}
             return {"success": False, "error": "Bot engine not running"}

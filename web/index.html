@@ -876,8 +876,16 @@
             <span id="active-guild-badge" style="color:var(--success); font-weight:600; text-transform:none;"></span>
           </label>
           <div class="input-row">
-            <input type="text" id="target-guild-id" placeholder="Paste Server ID or click Detect above" oninput="updateActiveBadges()">
+            <input type="text" id="target-guild-id" placeholder="Paste Server ID or choose from My Servers" oninput="updateActiveBadges()">
             <button class="btn btn-secondary btn-sm" onclick="saveGuildId()">Save</button>
+          </div>
+          <div class="input-row" style="margin-top:6px;">
+            <select id="guild-picker-select" onchange="onGuildPickerSelect(this.value)" style="flex:2; padding:8px 10px; border-radius:var(--radius-sm); background:var(--bg-dark); border:1px solid var(--border-color); color:var(--text); font-size:0.82rem;">
+              <option value="">🌐 Select From My Servers...</option>
+            </select>
+            <button class="btn btn-secondary btn-sm" id="btn-scan-guilds" style="flex:1; color:var(--accent);" onclick="scanUserGuilds()">
+              ⚡ My Servers
+            </button>
           </div>
         </div>
 
@@ -1040,7 +1048,7 @@
       <div class="card" style="border-color: rgba(88, 101, 242, 0.45);">
         <div class="card-title" style="color:var(--accent);">
           <span>🔄 App Updates & Version</span>
-          <span class="badge badge-voice" id="settings-app-version">v1.2.6</span>
+          <span class="badge badge-voice" id="settings-app-version">v1.2.7</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Automatically check for new releases, bug fixes, and feature updates.
@@ -3287,6 +3295,50 @@
       }
     }
 
+    function onGuildPickerSelect(gid) {
+      if (!gid) return;
+      vibrate(10);
+      document.getElementById('target-guild-id').value = gid;
+      const bG = document.getElementById('batch-route-guild');
+      if (bG) bG.value = gid;
+      updateActiveBadges();
+      saveGuildId();
+      showToast('Selected server: ' + gid);
+      setTimeout(() => scanServerChannels(), 150);
+    }
+
+    async function scanUserGuilds() {
+      vibrate(20);
+      const btn = document.getElementById('btn-scan-guilds');
+      if (btn) btn.innerText = "⏳ Scanning...";
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'fetch_user_guilds' })
+        });
+        const json = await res.json();
+        if (json.guilds && json.guilds.length > 0) {
+          const picker = document.getElementById('guild-picker-select');
+          if (picker) {
+            let html = '<option value="">🏛️ Select From My Servers (' + json.guilds.length + ' found)...</option>';
+            json.guilds.forEach(g => {
+              const crown = g.owner ? ' 👑' : '';
+              html += `<option value="${escapeHtml(g.id)}">🏰 ${escapeHtml(g.name)}${crown}</option>`;
+            });
+            picker.innerHTML = html;
+          }
+          showToast(`Found ${json.guilds.length} server(s)!`);
+        } else {
+          showToast(json.error || "No servers found. Please ensure at least 1 account is connected.", true);
+        }
+      } catch (e) {
+        showToast("Scan error: " + e.message, true);
+      } finally {
+        if (btn) btn.innerText = "🏰 My Servers";
+      }
+    }
+
     let stealthDelayDebounce = null;
     function onStealthDelayChange(val) {
       const sec = (parseInt(val) / 10).toFixed(2);
@@ -4674,7 +4726,7 @@
       return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    let currentAppVersion = '1.2.6';
+    let currentAppVersion = '1.2.7';
     let latestUpdateData = null;
 
     function toggleAutoCheckUpdate(enabled) {

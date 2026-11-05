@@ -27,7 +27,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.2.6";
+    public static final String APP_VERSION = "1.2.7";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -1008,6 +1008,44 @@ public class DiscordManager {
                 res.put("guild_id", targetGid);
                 res.put("channels", chArr);
                 res.put("message", "Loaded " + chArr.length() + " voice channel(s)");
+            } else if ("fetch_user_guilds".equals(action)) {
+                JSONArray gArr = new JSONArray();
+                Account bestAcc = null;
+                for (Account a : accounts.values()) {
+                    if (a.online && !a.token.isEmpty()) { bestAcc = a; break; }
+                }
+                if (bestAcc == null && !accounts.isEmpty()) {
+                    bestAcc = accounts.values().iterator().next();
+                }
+                if (bestAcc != null) {
+                    try {
+                        String auth = bestAcc.token.startsWith("Bot ") ? bestAcc.token : bestAcc.token;
+                        Request req = new Request.Builder()
+                                .url("https://discord.com/api/v10/users/@me/guilds?limit=200")
+                                .header("Authorization", auth)
+                                .header("User-Agent", "Mozilla/5.0")
+                                .build();
+                        try (Response resp = httpClient.newCall(req).execute()) {
+                            if (resp.isSuccessful() && resp.body() != null) {
+                                JSONArray allG = new JSONArray(resp.body().string());
+                                for (int i = 0; i < allG.length(); i++) {
+                                    JSONObject g = allG.getJSONObject(i);
+                                    JSONObject item = new JSONObject();
+                                    item.put("id", g.optString("id"));
+                                    item.put("name", g.optString("name"));
+                                    gArr.put(item);
+                                }
+                            }
+                        }
+                    } catch (Exception ex) {
+                        Log.e(TAG, "fetch_user_guilds error", ex);
+                    }
+                }
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("guilds", gArr);
+                res.put("count", gArr.length());
+                res.put("message", "Loaded " + gArr.length() + " server(s)");
             } else if ("set_stealth_delay".equals(action)) {
                 this.stealthDelaySec = payload.optDouble("stealth_delay", 0.1);
                 prefs.edit().putFloat("stealth_delay", (float) this.stealthDelaySec).apply();
@@ -1993,6 +2031,18 @@ public class DiscordManager {
 
                 @Override
                 public void onMessage(WebSocket webSocket, String text) {
+                    if (text == null) return;
+                    // Low-End Mobile Battery & GC Optimization:
+                    // Drop high-frequency chat messages, presences & typing events from 100+ servers before JSON parsing
+                    if (!text.contains("\"VOICE_STATE_UPDATE\"") &&
+                        !text.contains("\"op\":11") &&
+                        !text.contains("\"op\":10") &&
+                        !text.contains("\"op\":1") &&
+                        !text.contains("\"op\":7") &&
+                        !text.contains("\"op\":9") &&
+                        !text.contains("\"READY\"")) {
+                        return;
+                    }
                     try {
                         JSONObject msg = new JSONObject(text);
                         if (msg.has("s") && !msg.isNull("s")) {
@@ -2029,13 +2079,13 @@ public class DiscordManager {
                                 JSONObject d = msg.getJSONObject("d");
                                 if (userId.equals(d.optString("user_id"))) {
                                     String oldCh = voiceChannel;
-                                    voiceChannel = d.optString("channel_id", null);
+                                    voiceChannel = (d.isNull("channel_id") || "null".equals(d.optString("channel_id"))) ? null : d.optString("channel_id", null);
                                     mute = d.optBoolean("self_mute", false);
                                     deaf = d.optBoolean("self_deaf", false);
                                     if (d.has("self_video")) {
                                         video = d.optBoolean("self_video", false);
                                     }
-                                    if (d.has("guild_id") && !d.isNull("guild_id")) {
+                                    if (d.has("guild_id") && !d.isNull("guild_id") && !"null".equals(d.optString("guild_id"))) {
                                         currentGuildId = d.optString("guild_id", currentGuildId);
                                     }
                                     mgr.log("Account #" + id + " Voice updated: " + (voiceChannel != null ? voiceChannel : "Left voice"));
