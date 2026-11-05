@@ -72,7 +72,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.2.0"
+APP_VERSION = "1.2.1"
 AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
@@ -85,6 +85,9 @@ ROTATOR_TASK = None
 SPEAKING_SIM = False
 VOICE_FLAGS = 5
 ACTIVE_SFX = ""
+VOICE_STATUS = ""
+HUMAN_CHATTER_ENABLED = False
+HUMAN_CHATTER_TASK = None
 VIDEO_SIM = False
 SCREEN_SHARE_SIM = False
 MUSIC_TITLE = ""
@@ -1155,6 +1158,8 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             "speaking_sim": SPEAKING_SIM,
             "voice_flags": VOICE_FLAGS,
             "active_sfx": ACTIVE_SFX,
+            "voice_status": VOICE_STATUS,
+            "human_chatter": HUMAN_CHATTER_ENABLED,
             "video_sim": VIDEO_SIM,
             "screenshare_sim": SCREEN_SHARE_SIM,
             "music_title": MUSIC_TITLE,
@@ -1238,7 +1243,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(404, "Not Found")
 
     def execute_action(self, payload):
-        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VOICE_FLAGS, ACTIVE_SFX, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE
+        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VOICE_FLAGS, ACTIVE_SFX, VOICE_STATUS, HUMAN_CHATTER_ENABLED, HUMAN_CHATTER_TASK, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE
         action = payload.get("action", "")
 
         if action == "clear_logs":
@@ -1362,6 +1367,86 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 a["active_sfx"] = ""
             log("🔊 Soundboard SFX stopped")
             return {"success": True, "active_sfx": "", "message": "SFX stopped"}
+
+        if action == "set_voice_status":
+            ch = payload.get("channel_id") or CHANNEL_ID
+            st_text = str(payload.get("status", "")).strip()
+            VOICE_STATUS = st_text
+            for a in ACCOUNTS.values():
+                tok = a.get("token")
+                if tok and not tok.startswith("dummy_"):
+                    try:
+                        auth = tok if tok.startswith("Bot ") else tok
+                        body = json.dumps({"status": st_text}).encode("utf-8")
+                        req = urllib.request.Request(
+                            f"https://discord.com/api/v9/channels/{ch}/voice-status",
+                            data=body,
+                            headers={"Authorization": auth, "Content-Type": "application/json", "User-Agent": "Mozilla/5.0"},
+                            method="PUT"
+                        )
+                        with urllib.request.urlopen(req, timeout=5) as r:
+                            pass
+                    except Exception:
+                        pass
+            log(f"📢 Voice channel status set: \"{st_text}\" on channel {ch}")
+            return {"success": True, "voice_status": VOICE_STATUS, "channel_id": ch, "message": f"Channel status updated: {st_text}"}
+
+        if action == "send_tts":
+            ch = payload.get("channel_id") or CHANNEL_ID
+            text = str(payload.get("text", "")).strip()
+            if not text:
+                return {"success": False, "error": "TTS text cannot be empty"}
+            for a in ACCOUNTS.values():
+                tok = a.get("token")
+                if tok and not tok.startswith("dummy_"):
+                    try:
+                        auth = tok if tok.startswith("Bot ") else tok
+                        body = json.dumps({"content": text, "tts": True}).encode("utf-8")
+                        req = urllib.request.Request(
+                            f"https://discord.com/api/v9/channels/{ch}/messages",
+                            data=body,
+                            headers={"Authorization": auth, "Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
+                        )
+                        with urllib.request.urlopen(req, timeout=5) as r:
+                            break
+                    except Exception:
+                        pass
+            log(f"🗣️ TTS Voice Announcer: \"{text}\" on channel {ch}")
+            return {"success": True, "text": text, "tts": True, "message": f"TTS Announcer broadcasted: {text}"}
+
+        if action == "set_human_chatter":
+            HUMAN_CHATTER_ENABLED = bool(payload.get("enabled", False))
+            if HUMAN_CHATTER_TASK and not HUMAN_CHATTER_TASK.done():
+                HUMAN_CHATTER_TASK.cancel()
+                HUMAN_CHATTER_TASK = None
+            if HUMAN_CHATTER_ENABLED and MAIN_LOOP and MAIN_LOOP.is_running():
+                async def _human_chatter_loop():
+                    import random
+                    while HUMAN_CHATTER_ENABLED:
+                        v_accs = [a for a in ACCOUNTS.values() if a.get("online") and a.get("voice_channel")]
+                        if v_accs:
+                            speaker = random.choice(v_accs)
+                            speaker["speaking"] = True
+                            await asyncio.sleep(random.uniform(1.2, 3.5))
+                            speaker["speaking"] = False
+                        await asyncio.sleep(random.uniform(0.8, 2.5))
+                HUMAN_CHATTER_TASK = asyncio.run_coroutine_threadsafe(_human_chatter_loop(), MAIN_LOOP)
+            log(f"👥 Human Chatter Simulation {'Enabled' if HUMAN_CHATTER_ENABLED else 'Disabled'}")
+            return {"success": True, "human_chatter": HUMAN_CHATTER_ENABLED, "message": f"Human Chatter {'Active' if HUMAN_CHATTER_ENABLED else 'Off'}"}
+
+        if action == "stream_custom_audio":
+            title = str(payload.get("title", "Custom Audio")).strip()
+            url = str(payload.get("url", "")).strip()
+            duration = float(payload.get("duration", 30.0))
+            flags = int(payload.get("flags", VOICE_FLAGS))
+            ACTIVE_SFX = title
+            SPEAKING_SIM = True
+            for a in ACCOUNTS.values():
+                a["speaking"] = True
+                a["voice_flags"] = flags
+                a["active_sfx"] = title
+            log(f"🎵 Custom Audio Stream: \"{title}\" (Flags: {flags}, Duration: {duration}s)")
+            return {"success": True, "title": title, "url": url, "duration": duration, "voice_flags": flags, "message": f"Streaming custom audio: {title}"}
 
         if action == "set_rotator":
             global ROTATOR_ENABLED, ROTATOR_INTERVAL, ROTATOR_CHANNELS, ROTATOR_TASK

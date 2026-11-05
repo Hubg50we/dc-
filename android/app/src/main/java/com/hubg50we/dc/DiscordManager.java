@@ -27,7 +27,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.2.0";
+    public static final String APP_VERSION = "1.2.1";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -51,6 +51,9 @@ public class DiscordManager {
     private boolean speakingSim = false;
     private int voiceFlags = 5; // 1=Voice, 2=Soundshare/Music, 4=Priority, 5=Dual Voice+Soundshare
     private String activeSfx = "";
+    private String voiceStatus = "";
+    private boolean humanChatter = false;
+    private Runnable humanChatterRunnable;
     private Runnable sfxResetRunnable;
     private boolean videoSim = false;
     private boolean screenShareSim = false;
@@ -1086,6 +1089,91 @@ public class DiscordManager {
                 res.put("status", "ok");
                 res.put("active_sfx", "");
                 res.put("message", "SFX stopped");
+            } else if ("set_voice_status".equals(action)) {
+                String ch = payload.optString("channel_id", this.defaultChannelId);
+                String st = payload.optString("status", "").trim();
+                this.voiceStatus = st;
+                log("📢 Voice channel status set: \"" + st + "\" on channel " + ch);
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("voice_status", this.voiceStatus);
+                res.put("channel_id", ch);
+                res.put("message", "Channel status updated: " + st);
+            } else if ("send_tts".equals(action)) {
+                String ch = payload.optString("channel_id", this.defaultChannelId);
+                String txt = payload.optString("text", "").trim();
+                if (txt.isEmpty()) {
+                    res.put("success", false);
+                    res.put("error", "TTS text cannot be empty");
+                } else {
+                    log("🗣️ TTS Voice Announcer: \"" + txt + "\" on channel " + ch);
+                    res.put("success", true);
+                    res.put("status", "ok");
+                    res.put("text", txt);
+                    res.put("tts", true);
+                    res.put("message", "TTS Announcer broadcasted: " + txt);
+                }
+            } else if ("set_human_chatter".equals(action)) {
+                this.humanChatter = payload.optBoolean("enabled", false);
+                if (humanChatterRunnable != null) {
+                    mainHandler.removeCallbacks(humanChatterRunnable);
+                    humanChatterRunnable = null;
+                }
+                if (this.humanChatter) {
+                    humanChatterRunnable = new Runnable() {
+                        @Override
+                        public void run() {
+                            if (!humanChatter) return;
+                            List<Account> vAccs = new ArrayList<>();
+                            for (Account a : accounts.values()) {
+                                if (a.online && a.voiceChannel != null) vAccs.add(a);
+                            }
+                            if (!vAccs.isEmpty()) {
+                                int idx = (int) (Math.random() * vAccs.size());
+                                Account spk = vAccs.get(idx);
+                                spk.speaking = true;
+                                long dur = 1200 + (long) (Math.random() * 2500);
+                                mainHandler.postDelayed(() -> {
+                                    spk.speaking = false;
+                                    long pause = 800 + (long) (Math.random() * 2000);
+                                    if (humanChatter && humanChatterRunnable != null) {
+                                        mainHandler.postDelayed(humanChatterRunnable, pause);
+                                    }
+                                }, dur);
+                            } else {
+                                if (humanChatter && humanChatterRunnable != null) {
+                                    mainHandler.postDelayed(this, 3000);
+                                }
+                            }
+                        }
+                    };
+                    mainHandler.post(humanChatterRunnable);
+                }
+                log("👥 Human Chatter Simulation " + (this.humanChatter ? "Enabled" : "Disabled"));
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("human_chatter", this.humanChatter);
+                res.put("message", "Human Chatter " + (this.humanChatter ? "Active" : "Off"));
+            } else if ("stream_custom_audio".equals(action)) {
+                String title = payload.optString("title", "Custom Audio").trim();
+                String url = payload.optString("url", "").trim();
+                double dur = payload.optDouble("duration", 30.0);
+                int flags = payload.optInt("flags", this.voiceFlags);
+                this.activeSfx = title;
+                this.speakingSim = true;
+                for (Account a : accounts.values()) {
+                    a.speaking = true;
+                    a.voiceFlags = flags;
+                    a.activeSfx = title;
+                }
+                log("🎵 Custom Audio Stream: \"" + title + "\" (Flags: " + flags + ", " + dur + "s)");
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("title", title);
+                res.put("url", url);
+                res.put("duration", dur);
+                res.put("voice_flags", flags);
+                res.put("message", "Streaming custom audio: " + title);
             } else if ("clear_logs".equals(action)) {
                 logs.clear();
                 log("Live console cleared.");
@@ -1352,6 +1440,8 @@ public class DiscordManager {
             json.put("speaking_sim", speakingSim);
             json.put("voice_flags", voiceFlags);
             json.put("active_sfx", activeSfx);
+            json.put("voice_status", voiceStatus);
+            json.put("human_chatter", humanChatter);
             json.put("video_sim", videoSim);
             json.put("screenshare_sim", screenShareSim);
             json.put("music_title", musicTitle);

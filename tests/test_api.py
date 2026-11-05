@@ -230,7 +230,36 @@ def run_tests():
     except Exception as e:
         check("POST action: play_sfx / stop_sfx / set_voice_flags", False, str(e))
 
-    # 25. Test Account Remove
+    # 25. Test Voice Channel Status Banner (Official 2026 API)
+    try:
+        st_vst, data_vst = http_post("/api/action", {"action": "set_voice_status", "status": "🔴 LIVE: 24/7 Music Radio", "channel_id": TEST_VC})
+        check("POST action: set_voice_status (Channel Status Banner)", data_vst.get("success") and data_vst.get("voice_status") == "🔴 LIVE: 24/7 Music Radio")
+    except Exception as e:
+        check("POST action: set_voice_status", False, str(e))
+
+    # 26. Test TTS Voice Announcer
+    try:
+        st_tts, data_tts = http_post("/api/action", {"action": "send_tts", "text": "Testing TTS Announcer Voice", "channel_id": TEST_VC})
+        check("POST action: send_tts (Text-to-Speech Channel Announcer)", data_tts.get("success") and data_tts.get("text") == "Testing TTS Announcer Voice")
+    except Exception as e:
+        check("POST action: send_tts", False, str(e))
+
+    # 27. Test Human Chatter Simulation
+    try:
+        st_hc1, data_hc1 = http_post("/api/action", {"action": "set_human_chatter", "enabled": True})
+        st_hc2, data_hc2 = http_post("/api/action", {"action": "set_human_chatter", "enabled": False})
+        check("POST action: set_human_chatter (Conversational Speaking Turns)", data_hc1.get("success") and data_hc2.get("success") and main.HUMAN_CHATTER_ENABLED is False)
+    except Exception as e:
+        check("POST action: set_human_chatter", False, str(e))
+
+    # 28. Test Custom Audio Streamer
+    try:
+        st_ca, data_ca = http_post("/api/action", {"action": "stream_custom_audio", "title": "MyCustomAudio.mp3", "duration": 45.0, "flags": 5})
+        check("POST action: stream_custom_audio (Direct Audio & MP3 Streamer)", data_ca.get("success") and data_ca.get("title") == "MyCustomAudio.mp3")
+    except Exception as e:
+        check("POST action: stream_custom_audio", False, str(e))
+
+    # 29. Test Account Remove
     try:
         st, data_rem = http_post("/api/action", {"action": "token_remove", "id": 1})
         check("POST action: token_remove", data_rem.get("success") is True)

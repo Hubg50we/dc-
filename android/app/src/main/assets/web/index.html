@@ -1021,7 +1021,7 @@
       <div class="card" style="border-color: rgba(88, 101, 242, 0.45);">
         <div class="card-title" style="color:var(--accent);">
           <span>🔄 App Updates & Version</span>
-          <span class="badge badge-voice" id="settings-app-version">v1.2.0</span>
+          <span class="badge badge-voice" id="settings-app-version">v1.2.1</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Automatically check for new releases, bug fixes, and feature updates.
@@ -1289,21 +1289,34 @@
           </div>
         </div>
 
-        <!-- 6. Voice Channel Soundboard, Screamer & Audio FX -->
+        <!-- 6. Voice Soundboard, Screamer FX & Audio Studio -->
         <div style="background:var(--bg-dark); padding:10px 12px; border-radius:var(--radius-sm); margin-top:10px; border:1px solid rgba(244, 63, 94, 0.35);">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
             <div style="display:flex; align-items:center; gap:6px;">
               <span style="font-size:1.1rem; color:#f43f5e;">🔊</span>
               <div>
-                <strong style="font-size:0.84rem; color:var(--text-heading);">Voice Channel Soundboard & Audio FX Studio</strong>
-                <div style="font-size:0.72rem; color:var(--text-muted);">Scream / Jump Scare, DJ Airhorn, Siren, 808 Bass, & Music with Discord Speaking rings</div>
+                <strong style="font-size:0.84rem; color:var(--text-heading);">Voice Soundboard, Screamer FX & Audio Studio</strong>
+                <div style="font-size:0.72rem; color:var(--text-muted);">Screamers, Pitch FX, MP3 Uploader, TTS & Human Chatter with live Spectrum</div>
               </div>
             </div>
             <span class="badge badge-voice" id="sfx-status-badge">Idle</span>
           </div>
 
+          <!-- Live Neon Audio Frequency Spectrum Visualizer -->
+          <canvas id="audio-spectrum-canvas" width="300" height="40" style="width:100%; height:40px; border-radius:var(--radius-sm); background:#06060c; border:1px solid rgba(244,63,94,0.25); margin-bottom:8px; display:block;"></canvas>
+
+          <!-- Voice Changer & Pitch Shifter Selector -->
+          <div style="display:flex; gap:4px; align-items:center; margin-bottom:8px; flex-wrap:wrap;">
+            <span style="font-size:0.72rem; color:var(--text-muted); margin-right:4px;">Voice FX:</span>
+            <button class="preset-chip active" id="vfx-normal" style="font-size:0.7rem; padding:3px 7px;" onclick="setVoiceFx('normal')">🎙️ Normal</button>
+            <button class="preset-chip" id="vfx-demon" style="font-size:0.7rem; padding:3px 7px;" onclick="setVoiceFx('demon')">👹 Demon</button>
+            <button class="preset-chip" id="vfx-chipmunk" style="font-size:0.7rem; padding:3px 7px;" onclick="setVoiceFx('chipmunk')">🐿️ Chipmunk</button>
+            <button class="preset-chip" id="vfx-robot" style="font-size:0.7rem; padding:3px 7px;" onclick="setVoiceFx('robot')">🤖 Robot</button>
+            <button class="preset-chip" id="vfx-megaphone" style="font-size:0.7rem; padding:3px 7px;" onclick="setVoiceFx('megaphone')">📢 Megaphone</button>
+          </div>
+
           <!-- Soundboard FX Trigger Buttons -->
-          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap:6px; margin-bottom:8px;">
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap:5px; margin-bottom:8px;">
             <button class="btn btn-secondary btn-sm" style="display:flex; align-items:center; justify-content:center; gap:4px; font-weight:600; border-color:rgba(239,68,68,0.5); color:#fca5a5;" onclick="triggerSfx('scream')">
               <span>😱 Scream</span>
             </button>
@@ -1324,7 +1337,21 @@
             </button>
           </div>
 
-          <!-- Voice Transmission Flags & Phone Speaker Preview Switch -->
+          <!-- Custom Audio / MP3 File Uploader & Direct Stream -->
+          <div style="background:rgba(0,0,0,0.25); border:1px dashed var(--border-color); border-radius:var(--radius-sm); padding:7px 9px; margin-bottom:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+              <span style="font-size:0.73rem; color:var(--text-muted); font-weight:600;">📁 Upload MP3 / WAV Audio File</span>
+              <span style="font-size:0.7rem; color:var(--text-muted);" id="audio-filename-badge">No file chosen</span>
+            </div>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <input type="file" id="custom-audio-file" accept="audio/*" style="display:none;" onchange="handleAudioFileUpload(this)">
+              <button class="btn btn-secondary btn-sm" style="font-size:0.75rem; padding:4px 9px;" onclick="document.getElementById('custom-audio-file').click()">📂 Browse Audio</button>
+              <input type="text" id="direct-audio-url" placeholder="Or paste direct Audio URL (.mp3 / stream)" style="flex:1; padding:5px 8px; font-size:0.75rem; background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-sm); color:var(--text);">
+              <button class="btn btn-primary btn-sm" style="font-size:0.75rem; padding:4px 9px;" onclick="streamCustomAudioUrl()">▶️ Stream</button>
+            </div>
+          </div>
+
+          <!-- Voice Transmission Flags & Settings -->
           <div style="display:flex; gap:6px; align-items:center; justify-content:space-between; flex-wrap:wrap; font-size:0.75rem;">
             <div style="display:flex; align-items:center; gap:6px; flex:1; min-width:180px;">
               <span style="color:var(--text-muted); font-size:0.75rem;">Voice Mode:</span>
@@ -1339,6 +1366,59 @@
             <label style="display:flex; align-items:center; gap:4px; color:var(--text-muted); cursor:pointer;">
               <input type="checkbox" id="sfx-speaker-preview-toggle" checked style="width:14px; height:14px; accent-color:var(--accent);">
               <span>🔊 Speaker Preview</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 7. Discord Voice Channel Status Banner (Official 2026 API) -->
+        <div style="background:var(--bg-dark); padding:10px 12px; border-radius:var(--radius-sm); margin-top:10px; border:1px solid rgba(139, 92, 246, 0.35);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:1.1rem; color:#8b5cf6;">🏷️</span>
+              <div>
+                <strong style="font-size:0.84rem; color:var(--text-heading);">Voice Channel Status Banner</strong>
+                <div style="font-size:0.72rem; color:var(--text-muted);">Displays real-time status text & topic directly under the voice channel name</div>
+              </div>
+            </div>
+            <span class="badge badge-voice" id="voice-status-badge">None</span>
+          </div>
+          <div class="field-group" style="margin-bottom:6px;">
+            <div class="input-row">
+              <input type="text" id="voice-status-input" placeholder="e.g. 🔴 LIVE: 24/7 Music Radio | 🎙️ Chill Lounge" style="flex:1;">
+              <button class="btn btn-primary btn-sm" onclick="setVoiceStatus()">Set Status</button>
+              <button class="btn btn-secondary btn-sm" onclick="clearVoiceStatus()">Clear</button>
+            </div>
+          </div>
+          <div style="display:flex; gap:4px; flex-wrap:wrap;">
+            <div class="preset-chip" style="font-size:0.7rem; padding:2px 7px;" onclick="applyVoiceStatusPreset('🔴 LIVE: 24/7 Synthwave Radio')">📻 Synthwave</div>
+            <div class="preset-chip" style="font-size:0.7rem; padding:2px 7px;" onclick="applyVoiceStatusPreset('😱 HORROR NIGHT: Screamer Marathon')">😱 Horror</div>
+            <div class="preset-chip" style="font-size:0.7rem; padding:2px 7px;" onclick="applyVoiceStatusPreset('🎙️ AFK / Do Not Disturb')">💤 AFK</div>
+            <div class="preset-chip" style="font-size:0.7rem; padding:2px 7px;" onclick="applyVoiceStatusPreset('🎮 Gaming Lobby | 60 FPS')">🎮 Gaming</div>
+          </div>
+        </div>
+
+        <!-- 8. TTS Voice Announcer & Human Chatter Simulation -->
+        <div style="background:var(--bg-dark); padding:10px 12px; border-radius:var(--radius-sm); margin-top:10px; border:1px solid rgba(16, 185, 129, 0.35);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:1.1rem; color:#10b981;">🗣️</span>
+              <div>
+                <strong style="font-size:0.84rem; color:var(--text-heading);">TTS Voice Announcer & Human Chatter</strong>
+                <div style="font-size:0.72rem; color:var(--text-muted);">Text-to-speech channel voice broadcast and human-like conversational speaking turns</div>
+              </div>
+            </div>
+            <span class="badge badge-voice" id="human-chatter-badge">Chatter Off</span>
+          </div>
+          <div class="field-group" style="margin-bottom:6px;">
+            <div class="input-row">
+              <input type="text" id="tts-input" placeholder="Enter message to broadcast via TTS..." style="flex:1;">
+              <button class="btn btn-primary btn-sm" style="background:#10b981; color:#fff;" onclick="sendTtsAnnounce()">🗣️ Broadcast TTS</button>
+            </div>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <label style="display:flex; align-items:center; gap:6px; font-size:0.75rem; color:var(--text-muted); cursor:pointer;">
+              <input type="checkbox" id="human-chatter-toggle" onchange="toggleHumanChatter(this.checked)" style="width:16px; height:16px; accent-color:#10b981;">
+              <span>👥 Human Chatter Simulator (Random conversational speaking turns)</span>
             </label>
           </div>
         </div>
@@ -1906,6 +1986,26 @@
         const vfSelect = document.getElementById('voice-flags-select');
         if (vfSelect && document.activeElement !== vfSelect) {
           vfSelect.value = String(data.voice_flags);
+        }
+      }
+
+      if (data.voice_status !== undefined) {
+        const vStBadge = document.getElementById('voice-status-badge');
+        if (vStBadge) {
+          vStBadge.innerText = data.voice_status ? data.voice_status : 'None';
+          vStBadge.className = data.voice_status ? 'badge badge-online' : 'badge badge-voice';
+        }
+      }
+
+      if (data.human_chatter !== undefined) {
+        const hcBadge = document.getElementById('human-chatter-badge');
+        if (hcBadge) {
+          hcBadge.innerText = data.human_chatter ? 'Chatter Active' : 'Chatter Off';
+          hcBadge.className = data.human_chatter ? 'badge badge-online' : 'badge badge-voice';
+        }
+        const hcToggle = document.getElementById('human-chatter-toggle');
+        if (hcToggle && document.activeElement !== hcToggle) {
+          hcToggle.checked = Boolean(data.human_chatter);
         }
       }
 
@@ -3118,20 +3218,74 @@
       }
     }
 
-    // --- Web Audio SFX Synthesizer & Voice Soundboard ---
+    // --- Web Audio SFX Synthesizer, Spectrum & Studio ---
     let webAudioCtx = null;
+    let audioAnalyser = null;
     let activeAudioNodes = [];
     let sfxCountdownTimer = null;
+    let currentVoiceFx = 'normal';
+    let spectrumAnimationId = null;
 
     function getAudioContext() {
       if (!webAudioCtx) {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        if (AudioCtx) webAudioCtx = new AudioCtx();
+        if (AudioCtx) {
+          webAudioCtx = new AudioCtx();
+          audioAnalyser = webAudioCtx.createAnalyser();
+          audioAnalyser.fftSize = 64;
+          audioAnalyser.connect(webAudioCtx.destination);
+          initSpectrumVisualizer();
+        }
       }
       if (webAudioCtx && webAudioCtx.state === 'suspended') {
         webAudioCtx.resume();
       }
       return webAudioCtx;
+    }
+
+    function initSpectrumVisualizer() {
+      const canvas = document.getElementById('audio-spectrum-canvas');
+      if (!canvas || !audioAnalyser) return;
+      const ctx = canvas.getContext('2d');
+      const bufferLength = audioAnalyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+
+      function draw() {
+        spectrumAnimationId = requestAnimationFrame(draw);
+        audioAnalyser.getByteFrequencyData(dataArray);
+
+        ctx.fillStyle = '#06060c';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const barWidth = (canvas.width / bufferLength) * 1.8;
+        let x = 0;
+
+        for (let i = 0; i < bufferLength; i++) {
+          const barHeight = (dataArray[i] / 255) * canvas.height * 0.9;
+          const grad = ctx.createLinearGradient(0, canvas.height, 0, 0);
+          grad.addColorStop(0, '#f43f5e');
+          grad.addColorStop(0.5, '#a855f7');
+          grad.addColorStop(1, '#3b82f6');
+          ctx.fillStyle = grad;
+
+          ctx.fillRect(x, canvas.height - barHeight, barWidth - 2, barHeight);
+          x += barWidth;
+        }
+      }
+      if (!spectrumAnimationId) draw();
+    }
+
+    function setVoiceFx(fx) {
+      currentVoiceFx = fx;
+      ['normal', 'demon', 'chipmunk', 'robot', 'megaphone'].forEach(name => {
+        const el = document.getElementById('vfx-' + name);
+        if (el) {
+          if (name === fx) el.classList.add('active');
+          else el.classList.remove('active');
+        }
+      });
+      vibrate(15);
+      showToast('Voice FX: ' + fx.toUpperCase());
     }
 
     function stopLocalSfxAudio() {
@@ -3150,31 +3304,36 @@
         const now = ctx.currentTime;
         stopLocalSfxAudio();
 
+        const dest = audioAnalyser || ctx.destination;
+
+        let pitchMult = 1.0;
+        if (currentVoiceFx === 'demon') pitchMult = 0.55;
+        else if (currentVoiceFx === 'chipmunk') pitchMult = 1.75;
+
         if (type === 'scream') {
-          // Horror Screamer FX: Dual FM-swept high oscillators with LFO screech vibrato
           const osc1 = ctx.createOscillator();
           const osc2 = ctx.createOscillator();
           const gain = ctx.createGain();
           const filter = ctx.createBiquadFilter();
 
-          osc1.type = 'sawtooth';
+          osc1.type = currentVoiceFx === 'demon' ? 'sawtooth' : 'triangle';
           osc2.type = 'square';
           filter.type = 'bandpass';
-          filter.frequency.setValueAtTime(2400, now);
+          filter.frequency.setValueAtTime(2400 * pitchMult, now);
           filter.Q.setValueAtTime(3.5, now);
 
-          osc1.frequency.setValueAtTime(750, now);
-          osc1.frequency.exponentialRampToValueAtTime(1950, now + 0.35);
-          osc1.frequency.exponentialRampToValueAtTime(800, now + 1.4);
+          osc1.frequency.setValueAtTime(750 * pitchMult, now);
+          osc1.frequency.exponentialRampToValueAtTime(1950 * pitchMult, now + 0.35);
+          osc1.frequency.exponentialRampToValueAtTime(800 * pitchMult, now + 1.4);
 
-          osc2.frequency.setValueAtTime(820, now);
-          osc2.frequency.exponentialRampToValueAtTime(2200, now + 0.4);
-          osc2.frequency.exponentialRampToValueAtTime(600, now + 1.4);
+          osc2.frequency.setValueAtTime(820 * pitchMult, now);
+          osc2.frequency.exponentialRampToValueAtTime(2200 * pitchMult, now + 0.4);
+          osc2.frequency.exponentialRampToValueAtTime(600 * pitchMult, now + 1.4);
 
           const lfo = ctx.createOscillator();
           const lfoGain = ctx.createGain();
-          lfo.frequency.setValueAtTime(45, now);
-          lfoGain.gain.setValueAtTime(280, now);
+          lfo.frequency.setValueAtTime(currentVoiceFx === 'robot' ? 60 : 45, now);
+          lfoGain.gain.setValueAtTime(280 * pitchMult, now);
           lfo.connect(osc1.frequency);
           lfo.connect(osc2.frequency);
           lfo.start(now);
@@ -3188,7 +3347,7 @@
           osc1.connect(filter);
           osc2.connect(filter);
           filter.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(dest);
 
           osc1.start(now);
           osc2.start(now);
@@ -3197,10 +3356,9 @@
           activeAudioNodes.push(osc1, osc2);
 
         } else if (type === 'airhorn') {
-          // DJ Airhorn: 3 bursts of brass fanfare tones
           const burstDur = 0.22;
           const bursts = [0, 0.28, 0.56];
-          const freqs = [466.16, 587.33, 700.0, 932.33];
+          const freqs = [466.16 * pitchMult, 587.33 * pitchMult, 700.0 * pitchMult, 932.33 * pitchMult];
           bursts.forEach(offset => {
             const bNow = now + offset;
             freqs.forEach(f => {
@@ -3212,7 +3370,7 @@
               g.gain.setValueAtTime(0.18, bNow);
               g.gain.exponentialRampToValueAtTime(0.001, bNow + burstDur);
               osc.connect(g);
-              g.connect(ctx.destination);
+              g.connect(dest);
               osc.start(bNow);
               osc.stop(bNow + burstDur);
               activeAudioNodes.push(osc);
@@ -3220,7 +3378,6 @@
           });
 
         } else if (type === 'siren') {
-          // Emergency Police Siren: triangle wave sweeping 650Hz <-> 1100Hz
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
           osc.type = 'triangle';
@@ -3228,36 +3385,34 @@
           gain.gain.linearRampToValueAtTime(0.001, now + 3.0);
           for (let i = 0; i < 6; i++) {
             const t = now + i * 0.5;
-            osc.frequency.setValueAtTime(650, t);
-            osc.frequency.linearRampToValueAtTime(1150, t + 0.25);
-            osc.frequency.linearRampToValueAtTime(650, t + 0.5);
+            osc.frequency.setValueAtTime(650 * pitchMult, t);
+            osc.frequency.linearRampToValueAtTime(1150 * pitchMult, t + 0.25);
+            osc.frequency.linearRampToValueAtTime(650 * pitchMult, t + 0.5);
           }
           osc.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(dest);
           osc.start(now);
           osc.stop(now + 3.0);
           activeAudioNodes.push(osc);
 
         } else if (type === 'bassdrop') {
-          // 808 Sub-Bass Drop: 130Hz down to 32Hz
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
           osc.type = 'sine';
-          osc.frequency.setValueAtTime(130, now);
-          osc.frequency.exponentialRampToValueAtTime(32, now + 1.8);
+          osc.frequency.setValueAtTime(130 * pitchMult, now);
+          osc.frequency.exponentialRampToValueAtTime(32 * pitchMult, now + 1.8);
           gain.gain.setValueAtTime(0.8, now);
           gain.gain.exponentialRampToValueAtTime(0.001, now + 2.0);
           osc.connect(gain);
-          gain.connect(ctx.destination);
+          gain.connect(dest);
           osc.start(now);
           osc.stop(now + 2.0);
           activeAudioNodes.push(osc);
 
         } else if (type === 'lofi') {
-          // Lofi Chords: warm electric piano chords
           const chords = [
-            [293.66, 349.23, 440.0, 523.25], // Dm7
-            [261.63, 329.63, 392.0, 493.88]  // Cmaj7
+            [293.66 * pitchMult, 349.23 * pitchMult, 440.0 * pitchMult, 523.25 * pitchMult],
+            [261.63 * pitchMult, 329.63 * pitchMult, 392.0 * pitchMult, 493.88 * pitchMult]
           ];
           chords.forEach((chord, idx) => {
             const cNow = now + idx * 1.5;
@@ -3273,7 +3428,7 @@
               g.gain.exponentialRampToValueAtTime(0.001, cNow + 1.4);
               osc.connect(filter);
               filter.connect(g);
-              g.connect(ctx.destination);
+              g.connect(dest);
               osc.start(cNow);
               osc.stop(cNow + 1.4);
               activeAudioNodes.push(osc);
@@ -3361,6 +3516,150 @@
       } catch (e) {}
     }
 
+    // --- Custom Audio & MP3 Upload ---
+    async function handleAudioFileUpload(input) {
+      if (!input.files || input.files.length === 0) return;
+      const file = input.files[0];
+      const fnameBadge = document.getElementById('audio-filename-badge');
+      if (fnameBadge) fnameBadge.innerText = file.name;
+      showToast(`Loading: ${file.name}...`);
+      try {
+        const ctx = getAudioContext();
+        const arrayBuf = await file.arrayBuffer();
+        const audioBuf = await ctx.decodeAudioData(arrayBuf);
+        stopLocalSfxAudio();
+        const srcNode = ctx.createBufferSource();
+        srcNode.buffer = audioBuf;
+        const dest = audioAnalyser || ctx.destination;
+        srcNode.connect(dest);
+        srcNode.start(0);
+        activeAudioNodes.push(srcNode);
+
+        const duration = Math.min(300, Math.round(audioBuf.duration));
+        const flags = parseInt(document.getElementById('voice-flags-select')?.value) || 5;
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'stream_custom_audio', title: file.name, duration: duration, flags: flags })
+        });
+        const json = await res.json();
+        showToast(json.message || `Broadcasting: ${file.name}`);
+        const badge = document.getElementById('sfx-status-badge');
+        if (badge) {
+          badge.innerText = `🔊 ${file.name.substring(0, 16)}...`;
+          badge.className = 'badge badge-online';
+        }
+      } catch (e) {
+        showToast("Audio decode error: " + e.message, true);
+      }
+    }
+
+    async function streamCustomAudioUrl() {
+      const url = document.getElementById('direct-audio-url')?.value.trim();
+      if (!url) return showToast("Enter a direct audio URL", true);
+      vibrate(20);
+      showToast("Connecting audio stream...");
+      try {
+        const flags = parseInt(document.getElementById('voice-flags-select')?.value) || 5;
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'stream_custom_audio', title: 'Web Audio Stream', url: url, duration: 60, flags: flags })
+        });
+        const json = await res.json();
+        showToast(json.message || "Streaming direct audio URL");
+        const badge = document.getElementById('sfx-status-badge');
+        if (badge) {
+          badge.innerText = '🔊 Live Stream';
+          badge.className = 'badge badge-online';
+        }
+      } catch (e) {
+        showToast("Stream error: " + e.message, true);
+      }
+    }
+
+    // --- Voice Channel Status Banner ---
+    async function setVoiceStatus() {
+      vibrate(20);
+      const statusText = document.getElementById('voice-status-input')?.value.trim() || '';
+      const ch = document.getElementById('target-channel-id')?.value.trim();
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set_voice_status', status: statusText, channel_id: ch })
+        });
+        const json = await res.json();
+        showToast(json.message || "Status updated");
+        const badge = document.getElementById('voice-status-badge');
+        if (badge) {
+          badge.innerText = statusText ? statusText : 'None';
+          badge.className = statusText ? 'badge badge-online' : 'badge badge-voice';
+        }
+      } catch (e) {
+        showToast("Error updating status: " + e.message, true);
+      }
+    }
+
+    async function clearVoiceStatus() {
+      const input = document.getElementById('voice-status-input');
+      if (input) input.value = '';
+      await setVoiceStatus();
+    }
+
+    function applyVoiceStatusPreset(text) {
+      const input = document.getElementById('voice-status-input');
+      if (input) input.value = text;
+      setVoiceStatus();
+    }
+
+    // --- TTS Announcer & Human Chatter ---
+    async function sendTtsAnnounce() {
+      vibrate(25);
+      const text = document.getElementById('tts-input')?.value.trim();
+      if (!text) return showToast("Enter TTS text to announce", true);
+      const ch = document.getElementById('target-channel-id')?.value.trim();
+
+      if (window.speechSynthesis) {
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.rate = 1.0;
+        utter.pitch = currentVoiceFx === 'demon' ? 0.5 : (currentVoiceFx === 'chipmunk' ? 1.8 : 1.0);
+        window.speechSynthesis.speak(utter);
+      }
+
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'send_tts', text: text, channel_id: ch })
+        });
+        const json = await res.json();
+        showToast(json.message || "TTS broadcasted!");
+      } catch (e) {
+        showToast("Error sending TTS: " + e.message, true);
+      }
+    }
+
+    async function toggleHumanChatter(enabled) {
+      vibrate(20);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set_human_chatter', enabled: enabled })
+        });
+        const json = await res.json();
+        showToast(json.message || `Human Chatter ${enabled ? 'Started' : 'Stopped'}`);
+        const badge = document.getElementById('human-chatter-badge');
+        if (badge) {
+          badge.innerText = enabled ? 'Chatter Active' : 'Chatter Off';
+          badge.className = enabled ? 'badge badge-online' : 'badge badge-voice';
+        }
+      } catch (e) {
+        showToast("Error configuring chatter: " + e.message, true);
+      }
+    }
+
     async function toggleRotator(enabled) {
       vibrate(20);
       const rawChannels = document.getElementById('rotator-channels-input').value;
@@ -3433,7 +3732,7 @@
       return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    let currentAppVersion = '1.2.0';
+    let currentAppVersion = '1.2.1';
     let latestUpdateData = null;
 
     function toggleAutoCheckUpdate(enabled) {
