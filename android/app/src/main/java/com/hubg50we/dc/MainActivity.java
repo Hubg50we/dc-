@@ -94,6 +94,12 @@ public class MainActivity extends AppCompatActivity {
         settings.setAllowContentAccess(true);
         settings.setDatabaseEnabled(true);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
+        settings.setMediaPlaybackRequiresUserGesture(false);
+
+        // Auto-request camera & microphone permissions if needed for WebRTC streaming
+        if (checkSelfPermission(android.Manifest.permission.CAMERA) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.CAMERA, android.Manifest.permission.RECORD_AUDIO}, 101);
+        }
 
         // Register high-performance bidirectional JavaScript bridge
         webView.addJavascriptInterface(new AndroidBridge(), "AndroidBridge");
@@ -110,6 +116,11 @@ public class MainActivity extends AppCompatActivity {
         });
 
         webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public void onPermissionRequest(final android.webkit.PermissionRequest request) {
+                runOnUiThread(() -> request.grant(request.getResources()));
+            }
+
             @Override
             public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
                 MainActivity.this.filePathCallback = filePathCallback;

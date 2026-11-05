@@ -259,7 +259,15 @@ def run_tests():
     except Exception as e:
         check("POST action: stream_custom_audio", False, str(e))
 
-    # 29. Test Account Remove
+    # 29. Test Real Video & Camera Streaming Studio
+    try:
+        st_rv1, data_rv1 = http_post("/api/action", {"action": "stream_real_video", "mode": "camera", "title": "Live Camera Feed", "resolution": "720p", "fps": 30})
+        st_rv2, data_rv2 = http_post("/api/action", {"action": "stop_real_video"})
+        check("POST action: stream_real_video / stop_real_video (Real Camera & Video Stream)", data_rv1.get("success") and data_rv2.get("success") and data_rv1.get("mode") == "camera" and main.REAL_VIDEO_ACTIVE is False)
+    except Exception as e:
+        check("POST action: stream_real_video / stop_real_video", False, str(e))
+
+    # 30. Test Account Remove
     try:
         st, data_rem = http_post("/api/action", {"action": "token_remove", "id": 1})
         check("POST action: token_remove", data_rem.get("success") is True)

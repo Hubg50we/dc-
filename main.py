@@ -72,7 +72,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.2.1"
+APP_VERSION = "1.2.2"
 AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
@@ -88,6 +88,9 @@ ACTIVE_SFX = ""
 VOICE_STATUS = ""
 HUMAN_CHATTER_ENABLED = False
 HUMAN_CHATTER_TASK = None
+REAL_VIDEO_ACTIVE = False
+REAL_VIDEO_MODE = ""
+REAL_VIDEO_TITLE = ""
 VIDEO_SIM = False
 SCREEN_SHARE_SIM = False
 MUSIC_TITLE = ""
@@ -1160,6 +1163,8 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             "active_sfx": ACTIVE_SFX,
             "voice_status": VOICE_STATUS,
             "human_chatter": HUMAN_CHATTER_ENABLED,
+            "real_video_active": REAL_VIDEO_ACTIVE,
+            "real_video_mode": REAL_VIDEO_MODE,
             "video_sim": VIDEO_SIM,
             "screenshare_sim": SCREEN_SHARE_SIM,
             "music_title": MUSIC_TITLE,
@@ -1243,7 +1248,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(404, "Not Found")
 
     def execute_action(self, payload):
-        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VOICE_FLAGS, ACTIVE_SFX, VOICE_STATUS, HUMAN_CHATTER_ENABLED, HUMAN_CHATTER_TASK, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE
+        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VOICE_FLAGS, ACTIVE_SFX, VOICE_STATUS, HUMAN_CHATTER_ENABLED, HUMAN_CHATTER_TASK, REAL_VIDEO_ACTIVE, REAL_VIDEO_MODE, REAL_VIDEO_TITLE, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE
         action = payload.get("action", "")
 
         if action == "clear_logs":
@@ -1447,6 +1452,36 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 a["active_sfx"] = title
             log(f"🎵 Custom Audio Stream: \"{title}\" (Flags: {flags}, Duration: {duration}s)")
             return {"success": True, "title": title, "url": url, "duration": duration, "voice_flags": flags, "message": f"Streaming custom audio: {title}"}
+
+        if action == "stream_real_video":
+            mode = str(payload.get("mode", "camera")).lower()
+            title = str(payload.get("title", f"Real Video ({mode.capitalize()})")).strip()
+            res = str(payload.get("resolution", "720p"))
+            fps = int(payload.get("fps", 30))
+            REAL_VIDEO_ACTIVE = True
+            REAL_VIDEO_MODE = mode
+            REAL_VIDEO_TITLE = title
+            VIDEO_SIM = True
+            SCREEN_SHARE_SIM = True
+            SPEAKING_SIM = True
+            for a in ACCOUNTS.values():
+                a["video"] = True
+                a["screenshare"] = True
+                a["speaking"] = True
+            log(f"🎥 Real Video Stream activated [mode={mode.upper()}, {res}@{fps}fps, title={title}] on all accounts")
+            return {"success": True, "active": True, "mode": mode, "title": title, "resolution": res, "fps": fps, "message": f"Real video streaming active ({mode.upper()})"}
+
+        if action == "stop_real_video":
+            REAL_VIDEO_ACTIVE = False
+            REAL_VIDEO_MODE = ""
+            REAL_VIDEO_TITLE = ""
+            VIDEO_SIM = False
+            SCREEN_SHARE_SIM = False
+            for a in ACCOUNTS.values():
+                a["video"] = False
+                a["screenshare"] = False
+            log("🎥 Real Video Stream stopped")
+            return {"success": True, "active": False, "message": "Real video stream stopped"}
 
         if action == "set_rotator":
             global ROTATOR_ENABLED, ROTATOR_INTERVAL, ROTATOR_CHANNELS, ROTATOR_TASK

@@ -1021,7 +1021,7 @@
       <div class="card" style="border-color: rgba(88, 101, 242, 0.45);">
         <div class="card-title" style="color:var(--accent);">
           <span>🔄 App Updates & Version</span>
-          <span class="badge badge-voice" id="settings-app-version">v1.2.1</span>
+          <span class="badge badge-voice" id="settings-app-version">v1.2.2</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Automatically check for new releases, bug fixes, and feature updates.
@@ -1163,19 +1163,61 @@
           Simulate native camera/video streaming, purple Twitch Go-Live broadcaster badge, and official green Spotify music playback.
         </p>
 
-        <!-- 1. Camera / Video Streaming -->
-        <div style="background:var(--bg-dark); padding:10px 12px; border-radius:var(--radius-sm); margin-bottom:10px;">
+        <!-- 1. Real Video & Camera Streaming Studio -->
+        <div style="background:var(--bg-dark); padding:10px 12px; border-radius:var(--radius-sm); margin-bottom:10px; border:1px solid rgba(88, 101, 242, 0.45);">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
             <div>
-              <strong style="font-size:0.84rem; color:var(--text-heading);">📹 Camera / Video Streaming</strong>
-              <div style="font-size:0.72rem; color:var(--text-muted);">Displays camera icon in Discord voice</div>
+              <strong style="font-size:0.84rem; color:var(--text-heading);">🎥 Real Video & Camera Streaming Studio</strong>
+              <div style="font-size:0.72rem; color:var(--text-muted);">Real-time live phone camera, screen capture, & MP4 file video streaming</div>
             </div>
             <span class="badge badge-voice" id="video-sim-badge">Off</span>
           </div>
-          <div style="display:flex; gap:8px;">
-            <button class="btn btn-primary btn-sm" style="flex:1;" onclick="toggleCamera(true)">📹 Camera ON</button>
-            <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="toggleCamera(false)">🚫 Camera OFF</button>
+
+          <!-- Real Video Viewfinder Box -->
+          <div style="position:relative; width:100%; height:190px; background:#040408; border-radius:var(--radius-sm); overflow:hidden; border:1px solid rgba(88,101,242,0.3); margin-bottom:8px;">
+            <video id="real-video-stream-elem" autoplay playsinline muted style="width:100%; height:100%; object-fit:contain; display:none; background:#000;"></video>
+            <div id="real-video-empty-state" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--text-muted); font-size:0.78rem; gap:6px;">
+              <span style="font-size:2.2rem; opacity:0.5;">📹</span>
+              <span style="font-weight:600; color:var(--text);">Live Video Feed Offline</span>
+              <span style="font-size:0.7rem; opacity:0.7;">Start Phone Camera, Screen Share, or Stream a Video file below</span>
+            </div>
+            <div id="real-video-live-pill" style="display:none; position:absolute; top:8px; left:8px; background:rgba(239,68,68,0.92); color:#fff; font-size:0.65rem; font-weight:700; padding:2px 8px; border-radius:4px; letter-spacing:0.5px;">
+              🔴 LIVE VIDEO STREAMING
+            </div>
+            <div id="real-video-res-pill" style="display:none; position:absolute; top:8px; right:8px; background:rgba(0,0,0,0.75); color:#4ade80; font-size:0.65rem; font-family:monospace; padding:2px 6px; border-radius:4px;">
+              720p @ 30 FPS
+            </div>
           </div>
+
+          <!-- Video Filter FX Selector -->
+          <div style="display:flex; gap:4px; align-items:center; margin-bottom:8px; flex-wrap:wrap;">
+            <span style="font-size:0.72rem; color:var(--text-muted); margin-right:4px;">Filter:</span>
+            <button class="preset-chip active" id="filter-normal" style="font-size:0.7rem; padding:2px 6px;" onclick="setVideoFilter('normal')">Normal</button>
+            <button class="preset-chip" id="filter-neon" style="font-size:0.7rem; padding:2px 6px;" onclick="setVideoFilter('neon')">🌈 Cyberpunk</button>
+            <button class="preset-chip" id="filter-matrix" style="font-size:0.7rem; padding:2px 6px;" onclick="setVideoFilter('matrix')">🟢 Matrix</button>
+            <button class="preset-chip" id="filter-mono" style="font-size:0.7rem; padding:2px 6px;" onclick="setVideoFilter('mono')">⚪ B&W</button>
+            <button class="preset-chip" id="filter-warm" style="font-size:0.7rem; padding:2px 6px;" onclick="setVideoFilter('warm')">🌅 Vintage</button>
+          </div>
+
+          <!-- Real Video Control Buttons Grid -->
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:6px; margin-bottom:8px;">
+            <button class="btn btn-primary btn-sm" style="display:flex; align-items:center; justify-content:center; gap:4px;" onclick="startRealCameraStream()">
+              <span>📸 Start Camera</span>
+            </button>
+            <button class="btn btn-secondary btn-sm" style="display:flex; align-items:center; justify-content:center; gap:4px;" onclick="flipRealCamera()">
+              <span>🔄 Flip Cam</span>
+            </button>
+            <button class="btn btn-primary btn-sm" style="display:flex; align-items:center; justify-content:center; gap:4px; background:#8b5cf6; border-color:#8b5cf6;" onclick="startRealScreenStream()">
+              <span>🖥️ Share Screen</span>
+            </button>
+            <button class="btn btn-secondary btn-sm" style="display:flex; align-items:center; justify-content:center; gap:4px;" onclick="document.getElementById('real-video-file-picker').click()">
+              <span>🎬 Stream MP4</span>
+            </button>
+            <button class="btn btn-secondary btn-sm" style="display:flex; align-items:center; justify-content:center; gap:4px; color:#ef4444; border-color:rgba(239,68,68,0.4);" onclick="stopRealVideoStream()">
+              <span>⏹️ Stop Video</span>
+            </button>
+          </div>
+          <input type="file" id="real-video-file-picker" accept="video/*" style="display:none;" onchange="handleRealVideoFileUpload(this)">
         </div>
 
         <!-- 2. Go Live / Twitch Streamer Badge -->
@@ -2979,6 +3021,201 @@
       }
     }
 
+    // --- Real Video & Camera Streaming Studio ---
+    let realMediaStream = null;
+    let cameraFacingMode = 'user'; // 'user' (front) or 'environment' (back)
+    let currentVideoFilter = 'normal';
+
+    function setVideoFilter(filter) {
+      currentVideoFilter = filter;
+      const vElem = document.getElementById('real-video-stream-elem');
+      if (vElem) {
+        if (filter === 'neon') vElem.style.filter = 'contrast(1.4) saturate(2.0) hue-rotate(90deg)';
+        else if (filter === 'matrix') vElem.style.filter = 'contrast(1.5) sepia(1) hue-rotate(80deg) saturate(3)';
+        else if (filter === 'mono') vElem.style.filter = 'grayscale(1) contrast(1.2)';
+        else if (filter === 'warm') vElem.style.filter = 'sepia(0.6) saturate(1.4) contrast(1.1)';
+        else vElem.style.filter = 'none';
+      }
+      ['normal', 'neon', 'matrix', 'mono', 'warm'].forEach(f => {
+        const btn = document.getElementById('filter-' + f);
+        if (btn) {
+          if (f === filter) btn.classList.add('active');
+          else btn.classList.remove('active');
+        }
+      });
+      vibrate(15);
+      showToast('Video filter: ' + filter.toUpperCase());
+    }
+
+    async function startRealCameraStream() {
+      vibrate(25);
+      showToast('Requesting Camera Access...');
+      try {
+        if (realMediaStream) {
+          realMediaStream.getTracks().forEach(t => t.stop());
+        }
+        const constraints = {
+          video: {
+            facingMode: cameraFacingMode,
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            frameRate: { ideal: 30 }
+          },
+          audio: true
+        };
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        attachRealVideoStream(stream, 'camera', 'Live Camera Feed');
+      } catch (e) {
+        showToast('Camera error: ' + e.message, true);
+        console.error('Camera access error', e);
+      }
+    }
+
+    async function flipRealCamera() {
+      cameraFacingMode = (cameraFacingMode === 'user') ? 'environment' : 'user';
+      vibrate(20);
+      showToast(`Switched to ${cameraFacingMode === 'user' ? 'Front' : 'Back'} Camera`);
+      if (realMediaStream) {
+        await startRealCameraStream();
+      }
+    }
+
+    async function startRealScreenStream() {
+      vibrate(25);
+      showToast('Requesting Screen Capture...');
+      try {
+        if (realMediaStream) {
+          realMediaStream.getTracks().forEach(t => t.stop());
+        }
+        if (!navigator.mediaDevices.getDisplayMedia) {
+          return showToast('Screen capture not supported on this device', true);
+        }
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+          video: { cursor: 'always' },
+          audio: true
+        });
+        attachRealVideoStream(stream, 'screen', 'Live Screen Share');
+      } catch (e) {
+        showToast('Screen share error: ' + e.message, true);
+      }
+    }
+
+    function handleRealVideoFileUpload(input) {
+      if (!input.files || input.files.length === 0) return;
+      const file = input.files[0];
+      vibrate(25);
+      showToast(`Playing video file: ${file.name}...`);
+      const fileUrl = URL.createObjectURL(file);
+      const vElem = document.getElementById('real-video-stream-elem');
+      const emptyState = document.getElementById('real-video-empty-state');
+      const livePill = document.getElementById('real-video-live-pill');
+      const resPill = document.getElementById('real-video-res-pill');
+
+      if (realMediaStream) {
+        realMediaStream.getTracks().forEach(t => t.stop());
+        realMediaStream = null;
+      }
+
+      vElem.srcObject = null;
+      vElem.src = fileUrl;
+      vElem.muted = false;
+      vElem.loop = true;
+      vElem.style.display = 'block';
+      emptyState.style.display = 'none';
+      livePill.style.display = 'block';
+      resPill.style.display = 'block';
+      resPill.innerText = 'VIDEO FILE';
+      vElem.play();
+
+      notifyRealVideoStreamBackend('file', file.name);
+    }
+
+    async function attachRealVideoStream(stream, mode, title) {
+      realMediaStream = stream;
+      const vElem = document.getElementById('real-video-stream-elem');
+      const emptyState = document.getElementById('real-video-empty-state');
+      const livePill = document.getElementById('real-video-live-pill');
+      const resPill = document.getElementById('real-video-res-pill');
+
+      vElem.src = '';
+      vElem.srcObject = stream;
+      vElem.muted = true;
+      vElem.style.display = 'block';
+      emptyState.style.display = 'none';
+      livePill.style.display = 'block';
+      resPill.style.display = 'block';
+
+      stream.getVideoTracks().forEach(track => {
+        track.onended = () => stopRealVideoStream();
+        const settings = track.getSettings ? track.getSettings() : {};
+        const w = settings.width || 1280;
+        const h = settings.height || 720;
+        const fps = Math.round(settings.frameRate || 30);
+        resPill.innerText = `${w}x${h} @ ${fps}fps`;
+      });
+
+      await vElem.play();
+      notifyRealVideoStreamBackend(mode, title);
+    }
+
+    async function notifyRealVideoStreamBackend(mode, title) {
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'stream_real_video', mode: mode, title: title, resolution: '720p', fps: 30 })
+        });
+        const json = await res.json();
+        showToast(json.message || 'Real video streaming active!');
+        const vBadge = document.getElementById('video-sim-badge');
+        if (vBadge) {
+          vBadge.innerText = 'LIVE ' + mode.toUpperCase();
+          vBadge.className = 'badge badge-online';
+        }
+      } catch (e) {
+        console.error('Real video API error', e);
+      }
+    }
+
+    async function stopRealVideoStream() {
+      vibrate(20);
+      if (realMediaStream) {
+        realMediaStream.getTracks().forEach(t => t.stop());
+        realMediaStream = null;
+      }
+      const vElem = document.getElementById('real-video-stream-elem');
+      const emptyState = document.getElementById('real-video-empty-state');
+      const livePill = document.getElementById('real-video-live-pill');
+      const resPill = document.getElementById('real-video-res-pill');
+
+      if (vElem) {
+        vElem.pause();
+        vElem.srcObject = null;
+        vElem.src = '';
+        vElem.style.display = 'none';
+      }
+      if (emptyState) emptyState.style.display = 'flex';
+      if (livePill) livePill.style.display = 'none';
+      if (resPill) resPill.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'stop_real_video' })
+        });
+        const json = await res.json();
+        showToast(json.message || 'Video stream stopped');
+        const vBadge = document.getElementById('video-sim-badge');
+        if (vBadge) {
+          vBadge.innerText = 'Off';
+          vBadge.className = 'badge badge-voice';
+        }
+      } catch (e) {
+        showToast('Error stopping video: ' + e.message, true);
+      }
+    }
+
     async function toggleCamera(enabled) {
       vibrate(20);
       try {
@@ -3732,7 +3969,7 @@
       return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    let currentAppVersion = '1.2.1';
+    let currentAppVersion = '1.2.2';
     let latestUpdateData = null;
 
     function toggleAutoCheckUpdate(enabled) {

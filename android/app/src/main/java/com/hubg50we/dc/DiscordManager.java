@@ -27,7 +27,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.2.1";
+    public static final String APP_VERSION = "1.2.2";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -55,6 +55,8 @@ public class DiscordManager {
     private boolean humanChatter = false;
     private Runnable humanChatterRunnable;
     private Runnable sfxResetRunnable;
+    private boolean realVideoActive = false;
+    private String realVideoMode = "";
     private boolean videoSim = false;
     private boolean screenShareSim = false;
     private String musicTitle = "";
@@ -1174,6 +1176,52 @@ public class DiscordManager {
                 res.put("duration", dur);
                 res.put("voice_flags", flags);
                 res.put("message", "Streaming custom audio: " + title);
+            } else if ("stream_real_video".equals(action)) {
+                String mode = payload.optString("mode", "camera").toLowerCase();
+                String title = payload.optString("title", "Real Video (" + mode + ")").trim();
+                String resStr = payload.optString("resolution", "720p");
+                int fps = payload.optInt("fps", 30);
+                this.realVideoActive = true;
+                this.realVideoMode = mode;
+                this.videoSim = true;
+                this.screenShareSim = true;
+                this.speakingSim = true;
+                for (Account a : accounts.values()) {
+                    a.video = true;
+                    a.screenShare = true;
+                    a.speaking = true;
+                    if (a.online && a.voiceChannel != null) {
+                        a.setVoiceState(a.currentGuildId, a.voiceChannel, a.mute, a.deaf, true);
+                        a.startScreenShare(a.currentGuildId);
+                    }
+                }
+                log("🎥 Real Video Stream activated [mode=" + mode.toUpperCase() + ", " + resStr + "@" + fps + "fps, title=" + title + "] on all bots");
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("active", true);
+                res.put("mode", mode);
+                res.put("title", title);
+                res.put("resolution", resStr);
+                res.put("fps", fps);
+                res.put("message", "Real video streaming active (" + mode.toUpperCase() + ")");
+            } else if ("stop_real_video".equals(action)) {
+                this.realVideoActive = false;
+                this.realVideoMode = "";
+                this.videoSim = false;
+                this.screenShareSim = false;
+                for (Account a : accounts.values()) {
+                    a.video = false;
+                    a.screenShare = false;
+                    if (a.online && a.voiceChannel != null) {
+                        a.setVoiceState(a.currentGuildId, a.voiceChannel, a.mute, a.deaf, false);
+                        a.stopScreenShare(a.currentGuildId);
+                    }
+                }
+                log("🎥 Real Video Stream stopped");
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("active", false);
+                res.put("message", "Real video stream stopped");
             } else if ("clear_logs".equals(action)) {
                 logs.clear();
                 log("Live console cleared.");
@@ -1442,6 +1490,8 @@ public class DiscordManager {
             json.put("active_sfx", activeSfx);
             json.put("voice_status", voiceStatus);
             json.put("human_chatter", humanChatter);
+            json.put("real_video_active", realVideoActive);
+            json.put("real_video_mode", realVideoMode);
             json.put("video_sim", videoSim);
             json.put("screenshare_sim", screenShareSim);
             json.put("music_title", musicTitle);
