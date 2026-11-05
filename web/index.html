@@ -1021,7 +1021,7 @@
       <div class="card" style="border-color: rgba(88, 101, 242, 0.45);">
         <div class="card-title" style="color:var(--accent);">
           <span>🔄 App Updates & Version</span>
-          <span class="badge badge-voice" id="settings-app-version">v1.1.6</span>
+          <span class="badge badge-voice" id="settings-app-version">v1.1.7</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Automatically check for new releases, bug fixes, and feature updates.
@@ -1153,6 +1153,69 @@
         </div>
       </div>
 
+      <!-- Media, Video & Music Studio Card -->
+      <div class="card" style="border-color: rgba(145, 71, 255, 0.45);">
+        <div class="card-title" style="color:#b27bff;">
+          <span>🎬 Media, Video & Music Studio</span>
+          <span class="badge" id="media-studio-badge" style="background:rgba(145,71,255,0.25); color:#c490ff;">PRO</span>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px;">
+          Simulate native camera/video streaming, purple Twitch Go-Live broadcaster badge, and official green Spotify music playback.
+        </p>
+
+        <!-- 1. Camera / Video Streaming -->
+        <div style="background:var(--bg-dark); padding:10px 12px; border-radius:var(--radius-sm); margin-bottom:10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <div>
+              <strong style="font-size:0.84rem; color:var(--text-heading);">📹 Camera / Video Streaming</strong>
+              <div style="font-size:0.72rem; color:var(--text-muted);">Displays camera icon in Discord voice</div>
+            </div>
+            <span class="badge badge-voice" id="video-sim-badge">Off</span>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-primary btn-sm" style="flex:1;" onclick="toggleCamera(true)">📹 Camera ON</button>
+            <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="toggleCamera(false)">🚫 Camera OFF</button>
+          </div>
+        </div>
+
+        <!-- 2. Go Live / Twitch Streamer Badge -->
+        <div style="background:var(--bg-dark); padding:10px 12px; border-radius:var(--radius-sm); margin-bottom:10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <div>
+              <strong style="font-size:0.84rem; color:var(--text-heading);">🟣 Go Live / Streamer Status</strong>
+              <div style="font-size:0.72rem; color:var(--text-muted);">Broadcasts purple Streaming badge on profiles</div>
+            </div>
+            <span class="badge badge-voice" id="stream-status-badge">Offline</span>
+          </div>
+          <div class="field-group" style="margin-bottom:6px;">
+            <input type="text" id="stream-title-input" placeholder="Stream Title (e.g. Speedrun Tournament)" value="Live Stream">
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-sm" style="flex:1; background:#9146ff; color:#fff;" onclick="startStream()">🟣 Go Live</button>
+            <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="stopStream()">⏹️ End Stream</button>
+          </div>
+        </div>
+
+        <!-- 3. Spotify Music Player Simulation -->
+        <div style="background:var(--bg-dark); padding:10px 12px; border-radius:var(--radius-sm);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <div>
+              <strong style="font-size:0.84rem; color:var(--text-heading);">🎵 Spotify Music Player</strong>
+              <div style="font-size:0.72rem; color:var(--text-muted);">Broadcasts official green listening card</div>
+            </div>
+            <span class="badge badge-voice" id="music-status-badge">Stopped</span>
+          </div>
+          <div style="display:flex; gap:6px; margin-bottom:6px;">
+            <input type="text" id="music-title-input" placeholder="Track Title (e.g. Starboy)" style="flex:1;">
+            <input type="text" id="music-artist-input" placeholder="Artist (e.g. The Weeknd)" style="flex:1;">
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-sm" style="flex:1; background:#1db954; color:#fff;" onclick="playSpotify()">▶️ Play Music</button>
+            <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="stopSpotify()">⏹️ Stop Music</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Channel Hopper & Auto-Rotator Card -->
       <div class="card">
         <div class="card-title">
@@ -1260,6 +1323,7 @@
     <button class="btn btn-primary btn-sm" style="flex:2;" onclick="triggerAction('move')">🔊 Join</button>
     <button class="btn btn-warning btn-sm" style="flex:1;" onclick="triggerAction('mute')">🔇 Mute</button>
     <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="triggerAction('unmute')">🔊 Unmute</button>
+    <button class="btn btn-secondary btn-sm" style="flex:1;" id="dock-cam-btn" onclick="toggleCameraDock()">📹 Cam</button>
     <button class="btn btn-danger btn-sm" style="flex:1;" onclick="triggerAction('disconnect')">✕ Leave</button>
   </div>
 
@@ -1630,6 +1694,36 @@
         }
       }
 
+      if (data.video_sim !== undefined) {
+        const vBadge = document.getElementById('video-sim-badge');
+        if (vBadge) {
+          vBadge.innerText = data.video_sim ? 'Active' : 'Off';
+          vBadge.className = data.video_sim ? 'badge badge-online' : 'badge badge-voice';
+        }
+      }
+
+      if (data.music_title) {
+        const mBadge = document.getElementById('music-status-badge');
+        if (mBadge) {
+          mBadge.innerText = 'Playing';
+          mBadge.className = 'badge badge-online';
+        }
+        const mTitleInput = document.getElementById('music-title-input');
+        const mArtistInput = document.getElementById('music-artist-input');
+        if (mTitleInput && document.activeElement !== mTitleInput && !mTitleInput.value) {
+          mTitleInput.value = data.music_title;
+        }
+        if (mArtistInput && document.activeElement !== mArtistInput && !mArtistInput.value) {
+          mArtistInput.value = data.music_artist || '';
+        }
+      } else {
+        const mBadge = document.getElementById('music-status-badge');
+        if (mBadge) {
+          mBadge.innerText = 'Stopped';
+          mBadge.className = 'badge badge-voice';
+        }
+      }
+
       if (!document.getElementById('target-channel-id').value && data.default_channel) {
         document.getElementById('target-channel-id').value = data.default_channel;
       }
@@ -1868,6 +1962,8 @@
               ${inVoice ? `<span class="badge badge-voice">🔊 ${escapeHtml(acc.voice_channel)}${acc.guild_id ? ' <span style="font-size:0.72rem; opacity:0.8;">(Svr: ' + escapeHtml(acc.guild_id) + ')</span>' : ''}</span>` : `<span class="badge" style="background:#202225; color:#888;">Idle</span>`}
               ${acc.ping ? `<span class="badge" style="background:rgba(88,101,242,0.18); color:var(--accent); font-weight:600;">⚡ ${acc.ping}ms</span>` : ''}
               ${acc.speaking ? `<span class="badge badge-online">🎙️ Speaking</span>` : ''}
+              ${acc.video ? `<span class="badge" style="background:rgba(88,101,242,0.25); color:#7289da; font-weight:600;">📹 Cam ON</span>` : ''}
+              ${acc.streaming ? `<span class="badge" style="background:rgba(145,71,255,0.25); color:#9146ff; font-weight:600;">🟣 Live</span>` : ''}
               ${(tokenHealthMap[acc.id] && tokenHealthMap[acc.id].status === 'valid') ? `<span class="badge badge-online">🛡️ Valid</span>` : ''}
               ${(tokenHealthMap[acc.id] && tokenHealthMap[acc.id].status === 'locked') ? `<span class="badge badge-mute">🔒 Locked</span>` : ''}
               ${(tokenHealthMap[acc.id] && tokenHealthMap[acc.id].status === 'invalid') ? `<span class="badge" style="background:rgba(242,63,67,0.25); color:var(--danger);">⚠️ Invalid</span>` : ''}
@@ -1879,6 +1975,7 @@
             <div class="acc-card-actions" onclick="event.stopPropagation()">
               <button class="btn btn-secondary btn-sm" style="color:var(--accent); font-weight:600;" onclick="openBotModal(${acc.id})">🎯 Route</button>
               ${inVoice ? `
+                <button class="btn btn-secondary btn-sm" onclick="sendIndividualAction(${acc.id}, '${acc.video ? 'unvideo' : 'video'}')">${acc.video ? '🚫 Cam' : '📹 Cam'}</button>
                 <button class="btn btn-secondary btn-sm" onclick="sendIndividualAction(${acc.id}, '${acc.mute ? 'unmute' : 'mute'}')">${acc.mute ? '🔊 Unmute' : '🔇 Mute'}</button>
                 <button class="btn btn-secondary btn-sm" onclick="sendIndividualAction(${acc.id}, '${acc.deaf ? 'undeafen' : 'deafen'}')">${acc.deaf ? '🎧 Undeaf' : '🙉 Deaf'}</button>
                 <button class="btn btn-danger btn-sm" onclick="sendIndividualAction(${acc.id}, 'disconnect')">✕</button>
@@ -1930,6 +2027,10 @@
         </div>
 
         <div style="display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="sendIndividualAction(${acc.id}, 'video'); closeModal()">📹 Camera ON</button>
+            <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="sendIndividualAction(${acc.id}, 'unvideo'); closeModal()">🚫 Camera OFF</button>
+          </div>
           <div style="display:flex; gap:8px;">
             <button class="btn btn-secondary" style="flex:1;" onclick="sendIndividualAction(${acc.id}, 'mute'); closeModal()">🔇 Mute</button>
             <button class="btn btn-secondary" style="flex:1;" onclick="sendIndividualAction(${acc.id}, 'unmute'); closeModal()">🔊 Unmute</button>
@@ -2586,6 +2687,122 @@
       }
     }
 
+    async function toggleCamera(enabled) {
+      vibrate(20);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: enabled ? 'video' : 'unvideo', percent: currentPercent })
+        });
+        const json = await res.json();
+        showToast(json.message || `Camera ${enabled ? 'enabled' : 'disabled'}`);
+        const vBadge = document.getElementById('video-sim-badge');
+        if (vBadge) {
+          vBadge.innerText = enabled ? 'Active' : 'Off';
+          vBadge.className = enabled ? 'badge badge-online' : 'badge badge-voice';
+        }
+        fetchStatus();
+      } catch (e) {
+        showToast("Error updating camera: " + e.message, true);
+      }
+    }
+
+    let dockCamState = false;
+    async function toggleCameraDock() {
+      dockCamState = !dockCamState;
+      await toggleCamera(dockCamState);
+      const btn = document.getElementById('dock-cam-btn');
+      if (btn) btn.innerText = dockCamState ? '🚫 Cam' : '📹 Cam';
+    }
+
+    async function startStream() {
+      vibrate(25);
+      const title = document.getElementById('stream-title-input').value.trim() || 'Live Stream';
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set_stream', enabled: true, title: title, url: 'https://twitch.tv/discord' })
+        });
+        const json = await res.json();
+        showToast(json.message || "Go Live streamer status activated!");
+        const sBadge = document.getElementById('stream-status-badge');
+        if (sBadge) {
+          sBadge.innerText = 'Live';
+          sBadge.className = 'badge badge-online';
+        }
+        fetchStatus();
+      } catch (e) {
+        showToast("Error starting stream: " + e.message, true);
+      }
+    }
+
+    async function stopStream() {
+      vibrate(20);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set_stream', enabled: false })
+        });
+        const json = await res.json();
+        showToast(json.message || "Streaming stopped");
+        const sBadge = document.getElementById('stream-status-badge');
+        if (sBadge) {
+          sBadge.innerText = 'Offline';
+          sBadge.className = 'badge badge-voice';
+        }
+        fetchStatus();
+      } catch (e) {
+        showToast("Error stopping stream: " + e.message, true);
+      }
+    }
+
+    async function playSpotify() {
+      vibrate(25);
+      const title = document.getElementById('music-title-input').value.trim() || 'Starboy';
+      const artist = document.getElementById('music-artist-input').value.trim() || 'The Weeknd';
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'play_music', title: title, artist: artist })
+        });
+        const json = await res.json();
+        showToast(json.message || `Playing ${title}`);
+        const mBadge = document.getElementById('music-status-badge');
+        if (mBadge) {
+          mBadge.innerText = 'Playing';
+          mBadge.className = 'badge badge-online';
+        }
+        fetchStatus();
+      } catch (e) {
+        showToast("Error playing music: " + e.message, true);
+      }
+    }
+
+    async function stopSpotify() {
+      vibrate(20);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'stop_music' })
+        });
+        const json = await res.json();
+        showToast(json.message || "Music stopped");
+        const mBadge = document.getElementById('music-status-badge');
+        if (mBadge) {
+          mBadge.innerText = 'Stopped';
+          mBadge.className = 'badge badge-voice';
+        }
+        fetchStatus();
+      } catch (e) {
+        showToast("Error stopping music: " + e.message, true);
+      }
+    }
+
     async function toggleRotator(enabled) {
       vibrate(20);
       const rawChannels = document.getElementById('rotator-channels-input').value;
@@ -2658,7 +2875,7 @@
       return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    let currentAppVersion = '1.1.6';
+    let currentAppVersion = '1.1.7';
     let latestUpdateData = null;
 
     function toggleAutoCheckUpdate(enabled) {

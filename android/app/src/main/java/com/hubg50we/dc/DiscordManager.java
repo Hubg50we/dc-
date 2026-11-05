@@ -27,7 +27,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.1.6";
+    public static final String APP_VERSION = "1.1.7";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -49,6 +49,9 @@ public class DiscordManager {
     private int rotatorIndex = 0;
     private Runnable rotatorRunnable;
     private boolean speakingSim = false;
+    private boolean videoSim = false;
+    private String musicTitle = "";
+    private String musicArtist = "";
     private final long startTime;
 
     private final Map<Integer, Account> accounts = new ConcurrentHashMap<>();
@@ -79,6 +82,9 @@ public class DiscordManager {
         this.rotatorEnabled = prefs.getBoolean("rotator_enabled", false);
         this.rotatorIntervalSec = prefs.getInt("rotator_interval", 300);
         this.speakingSim = prefs.getBoolean("speaking_sim", false);
+        this.videoSim = prefs.getBoolean("video_sim", false);
+        this.musicTitle = prefs.getString("music_title", "");
+        this.musicArtist = prefs.getString("music_artist", "");
 
         this.httpClient = new OkHttpClient.Builder()
                 .readTimeout(0, TimeUnit.MILLISECONDS)
@@ -318,6 +324,21 @@ public class DiscordManager {
         log("Disconnected " + Math.min(count, inVoice.size()) + " accounts");
     }
 
+    public void videoAll(boolean video, int percent) {
+        this.videoSim = video;
+        prefs.edit().putBoolean("video_sim", this.videoSim).apply();
+        List<Account> inVoice = new ArrayList<>();
+        for (Account a : accounts.values()) {
+            if (a.online && a.voiceChannel != null) inVoice.add(a);
+        }
+        int count = Math.max(1, (int) Math.round(inVoice.size() * (percent / 100.0)));
+        for (int i = 0; i < Math.min(count, inVoice.size()); i++) {
+            Account a = inVoice.get(i);
+            a.setVoiceState(this.guildId, a.voiceChannel, a.mute, a.deaf, video);
+        }
+        log((video ? "Camera/Video Enabled for " : "Camera/Video Disabled for ") + Math.min(count, inVoice.size()) + " accounts");
+    }
+
     public String resolveGuildIdSync(String channelId) {
         if (Looper.myLooper() == Looper.getMainLooper()) {
             java.util.concurrent.ExecutorService ex = java.util.concurrent.Executors.newSingleThreadExecutor();
@@ -529,6 +550,10 @@ public class DiscordManager {
                                 a.setVoiceState(accGid, a.voiceChannel, a.mute, false);
                             } else if ("disconnect".equals(sub) || "leave".equals(sub)) {
                                 a.leaveVoice(accGid);
+                            } else if ("video".equals(sub)) {
+                                a.setVoiceState(accGid, a.voiceChannel, a.mute, a.deaf, true);
+                            } else if ("unvideo".equals(sub)) {
+                                a.setVoiceState(accGid, a.voiceChannel, a.mute, a.deaf, false);
                             } else if ("reconnect".equals(sub)) {
                                 a.reconnect(httpClient, this);
                             }
@@ -599,6 +624,46 @@ public class DiscordManager {
                 res.put("success", true);
                 res.put("status", "ok");
                 res.put("message", "Disconnected accounts");
+            } else if ("video".equals(action) || "camera_on".equals(action)) {
+                videoAll(true, percent);
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("message", "Camera/Video enabled for accounts");
+            } else if ("unvideo".equals(action) || "camera_off".equals(action)) {
+                videoAll(false, percent);
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("message", "Camera/Video disabled for accounts");
+            } else if ("set_stream".equals(action) || "stream".equals(action)) {
+                String streamTitle = payload.optString("title", "Live Stream").trim();
+                String streamUrl = payload.optString("url", "https://twitch.tv/discord").trim();
+                boolean enable = payload.optBoolean("enabled", true);
+                for (Account a : accounts.values()) {
+                    if (a.online) a.setStreaming(enable, streamTitle, streamUrl);
+                }
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("message", enable ? "Streamer status activated: " + streamTitle : "Streaming status stopped");
+            } else if ("play_music".equals(action) || "set_music".equals(action)) {
+                this.musicTitle = payload.optString("title", "Song Title").trim();
+                this.musicArtist = payload.optString("artist", "Artist").trim();
+                prefs.edit().putString("music_title", this.musicTitle).putString("music_artist", this.musicArtist).apply();
+                for (Account a : accounts.values()) {
+                    if (a.online) a.setSpotify(true, this.musicTitle, this.musicArtist);
+                }
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("message", "Spotify player simulating: " + this.musicTitle + " by " + this.musicArtist);
+            } else if ("stop_music".equals(action)) {
+                this.musicTitle = "";
+                this.musicArtist = "";
+                prefs.edit().putString("music_title", "").putString("music_artist", "").apply();
+                for (Account a : accounts.values()) {
+                    if (a.online) a.setSpotify(false, "", "");
+                }
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("message", "Music playback stopped");
             }
 
             // 5. Configuration & Server ID Auto-Detect
@@ -851,6 +916,10 @@ public class DiscordManager {
                         target.setVoiceState(accGid, target.voiceChannel, target.mute, false);
                     } else if ("disconnect".equals(sub) || "leave".equals(sub)) {
                         target.leaveVoice(accGid);
+                    } else if ("video".equals(sub)) {
+                        target.setVoiceState(accGid, target.voiceChannel, target.mute, target.deaf, true);
+                    } else if ("unvideo".equals(sub)) {
+                        target.setVoiceState(accGid, target.voiceChannel, target.mute, target.deaf, false);
                     } else if ("reconnect".equals(sub)) {
                         target.reconnect(httpClient, this);
                     }
@@ -1042,6 +1111,8 @@ public class DiscordManager {
                 o.put("deaf", a.deaf);
                 o.put("ping", a.pingMs);
                 o.put("speaking", a.speaking);
+                o.put("video", a.video);
+                o.put("streaming", a.streaming);
                 String masked = a.token.length() > 14 ? a.token.substring(0, 8) + "..." + a.token.substring(a.token.length() - 4) : "******";
                 o.put("token_masked", masked);
                 accArray.put(o);
@@ -1062,6 +1133,9 @@ public class DiscordManager {
             json.put("rotator_enabled", rotatorEnabled);
             json.put("rotator_interval", rotatorIntervalSec);
             json.put("speaking_sim", speakingSim);
+            json.put("video_sim", videoSim);
+            json.put("music_title", musicTitle);
+            json.put("music_artist", musicArtist);
             json.put("presets", getPresetsArray());
             json.put("accounts", accArray);
         } catch (Exception e) {
@@ -1222,6 +1296,8 @@ public class DiscordManager {
         public int pingMs = 0;
         public long lastHeartbeatSent = 0;
         public boolean speaking = false;
+        public boolean video = false;
+        public boolean streaming = false;
 
         private WebSocket ws;
         private Handler heartHandler;
@@ -1294,6 +1370,9 @@ public class DiscordManager {
                                     voiceChannel = d.optString("channel_id", null);
                                     mute = d.optBoolean("self_mute", false);
                                     deaf = d.optBoolean("self_deaf", false);
+                                    if (d.has("self_video")) {
+                                        video = d.optBoolean("self_video", false);
+                                    }
                                     if (d.has("guild_id") && !d.isNull("guild_id")) {
                                         currentGuildId = d.optString("guild_id", currentGuildId);
                                     }
@@ -1413,6 +1492,65 @@ public class DiscordManager {
             }
         }
 
+        public void setStreaming(boolean enable, String streamTitle, String streamUrl) {
+            this.streaming = enable;
+            if (ws != null) {
+                try {
+                    JSONObject op3 = new JSONObject();
+                    op3.put("op", 3);
+                    JSONObject d = new JSONObject();
+                    d.put("since", 0);
+                    d.put("status", "online");
+                    d.put("afk", false);
+                    JSONArray acts = new JSONArray();
+                    if (enable) {
+                        JSONObject act = new JSONObject();
+                        act.put("name", streamTitle != null && !streamTitle.isEmpty() ? streamTitle : "Live Stream");
+                        act.put("type", 1);
+                        act.put("url", streamUrl != null && !streamUrl.isEmpty() ? streamUrl : "https://twitch.tv/discord");
+                        acts.put(act);
+                    }
+                    d.put("activities", acts);
+                    op3.put("d", d);
+                    ws.send(op3.toString());
+                } catch (Exception ignored) {}
+            }
+        }
+
+        public void setSpotify(boolean enable, String title, String artist) {
+            if (ws != null) {
+                try {
+                    JSONObject op3 = new JSONObject();
+                    op3.put("op", 3);
+                    JSONObject d = new JSONObject();
+                    d.put("since", 0);
+                    d.put("status", "online");
+                    d.put("afk", false);
+                    JSONArray acts = new JSONArray();
+                    if (enable && title != null && !title.isEmpty()) {
+                        JSONObject act = new JSONObject();
+                        act.put("name", "Spotify");
+                        act.put("type", 2);
+                        act.put("details", title);
+                        act.put("state", artist != null && !artist.isEmpty() ? artist : "Unknown Artist");
+                        long now = System.currentTimeMillis();
+                        JSONObject ts = new JSONObject();
+                        ts.put("start", now);
+                        ts.put("end", now + 210000);
+                        act.put("timestamps", ts);
+                        JSONObject party = new JSONObject();
+                        party.put("id", "spotify:" + id);
+                        act.put("party", party);
+                        act.put("flags", 48);
+                        acts.put(act);
+                    }
+                    d.put("activities", acts);
+                    op3.put("d", d);
+                    ws.send(op3.toString());
+                } catch (Exception ignored) {}
+            }
+        }
+
         private void sendHeartbeat() {
             if (ws != null) {
                 try {
@@ -1456,6 +1594,10 @@ public class DiscordManager {
         }
 
         public void setVoiceState(String guildId, String channelId, boolean mute, boolean deaf) {
+            setVoiceState(guildId, channelId, mute, deaf, this.video);
+        }
+
+        public void setVoiceState(String guildId, String channelId, boolean mute, boolean deaf, boolean video) {
             this.userLeftIntentional = false;
             if (channelId == null || channelId.isEmpty() || "null".equals(channelId)) {
                 leaveVoice(guildId);
@@ -1475,12 +1617,14 @@ public class DiscordManager {
                     d.put("channel_id", channelId);
                     d.put("self_mute", mute);
                     d.put("self_deaf", deaf);
+                    d.put("self_video", video);
                     op4.put("d", d);
                     ws.send(op4.toString());
                     this.currentGuildId = guildId;
                     this.voiceChannel = channelId;
                     this.mute = mute;
                     this.deaf = deaf;
+                    this.video = video;
                 } catch (Exception e) {
                     Log.e(TAG, "Voice state update error", e);
                 }
@@ -1502,10 +1646,12 @@ public class DiscordManager {
                     d.put("channel_id", JSONObject.NULL);
                     d.put("self_mute", false);
                     d.put("self_deaf", false);
+                    d.put("self_video", false);
                     op4.put("d", d);
                     ws.send(op4.toString());
                     this.voiceChannel = null;
                     this.currentGuildId = "";
+                    this.video = false;
                 } catch (Exception ignored) {}
             }
         }

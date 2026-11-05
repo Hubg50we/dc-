@@ -59,7 +59,7 @@ def run_tests():
     # 2. Test GET /api/status
     try:
         st, data = http_get("/api/status")
-        check("GET /api/status Schema", st == 200 and "total_accounts" in data and "version" in data and "stealth_delay" in data and "rotator_enabled" in data)
+        check("GET /api/status Schema", st == 200 and "total_accounts" in data and "version" in data and "stealth_delay" in data and "video_sim" in data and "music_title" in data)
     except Exception as e:
         check("GET /api/status Schema", False, str(e))
 
@@ -164,16 +164,41 @@ def run_tests():
     except Exception as e:
         check("POST action: fetch_guild_channels", False, str(e))
 
-    # 17. Test Batch Actions (Move, Mute, Deafen)
+    # 17. Test Batch Actions (Move, Mute, Deafen, Video)
     try:
         st, data_move = http_post("/api/action", {"action": "batch_action", "ids": [1], "sub_action": "join", "channel_id": TEST_VC})
         st_mute, data_mute = http_post("/api/action", {"action": "batch_action", "ids": [1], "sub_action": "mute"})
         st_unmute, data_unmute = http_post("/api/action", {"action": "batch_action", "ids": [1], "sub_action": "unmute"})
-        check("POST action: batch_action (join, mute, unmute)", data_move.get("success") and data_mute.get("success") and data_unmute.get("success"))
+        st_vid, data_vid = http_post("/api/action", {"action": "batch_action", "ids": [1], "sub_action": "video"})
+        check("POST action: batch_action (join, mute, unmute, video)", data_move.get("success") and data_mute.get("success") and data_unmute.get("success") and data_vid.get("success"))
     except Exception as e:
         check("POST action: batch_action", False, str(e))
 
-    # 18. Test Account Remove
+    # 18. Test Video / Camera Streaming Simulation
+    try:
+        st_v1, data_v1 = http_post("/api/action", {"action": "video", "percent": 100})
+        st_v2, data_v2 = http_post("/api/action", {"action": "unvideo", "percent": 100})
+        check("POST action: video / unvideo (Camera Streaming)", data_v1.get("success") and data_v2.get("success") and main.VIDEO_SIM is False)
+    except Exception as e:
+        check("POST action: video / unvideo", False, str(e))
+
+    # 19. Test Go Live / Streamer Status
+    try:
+        st_s1, data_s1 = http_post("/api/action", {"action": "set_stream", "enabled": True, "title": "Audit Streamer"})
+        st_s2, data_s2 = http_post("/api/action", {"action": "set_stream", "enabled": False})
+        check("POST action: set_stream (Go Live Streamer)", data_s1.get("success") and data_s2.get("success"))
+    except Exception as e:
+        check("POST action: set_stream", False, str(e))
+
+    # 20. Test Spotify Music Player Simulation
+    try:
+        st_m1, data_m1 = http_post("/api/action", {"action": "play_music", "title": "Starboy", "artist": "The Weeknd"})
+        st_m2, data_m2 = http_post("/api/action", {"action": "stop_music"})
+        check("POST action: play_music / stop_music (Spotify Simulation)", data_m1.get("success") and data_m2.get("success") and main.MUSIC_TITLE == "")
+    except Exception as e:
+        check("POST action: play_music / stop_music", False, str(e))
+
+    # 21. Test Account Remove
     try:
         st, data_rem = http_post("/api/action", {"action": "token_remove", "id": 1})
         check("POST action: token_remove", data_rem.get("success") is True)

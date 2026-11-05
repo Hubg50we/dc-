@@ -72,7 +72,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.1.6"
+APP_VERSION = "1.1.7"
 AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
@@ -83,6 +83,11 @@ ROTATOR_CHANNELS = []
 ROTATOR_INDEX = 0
 ROTATOR_TASK = None
 SPEAKING_SIM = False
+VIDEO_SIM = False
+MUSIC_TITLE = ""
+MUSIC_ARTIST = ""
+STREAM_TITLE = ""
+STREAM_URL = ""
 
 # Account registry: id -> dict
 ACCOUNTS = {}
@@ -351,7 +356,7 @@ def pick_targets(percent, pool):
     return random.sample(pool, min(count, len(pool)))
 
 
-async def apply(targets, channel="keep", mute="keep", deaf="keep", guild=None):
+async def apply(targets, channel="keep", mute="keep", deaf="keep", video="keep", guild=None):
     done = 0
     target_guild = guild or GUILD_ID
     if channel not in ("keep", None) and not guild:
@@ -366,6 +371,7 @@ async def apply(targets, channel="keep", mute="keep", deaf="keep", guild=None):
                 new_channel = conn.get("voice_channel") if channel == "keep" else channel
                 new_mute = conn.get("mute", False) if mute == "keep" else mute
                 new_deaf = conn.get("deaf", False) if deaf == "keep" else deaf
+                new_video = conn.get("video", False) if video == "keep" else video
                 act_guild = guild or conn.get("guild_id") or target_guild or GUILD_ID
                 await ws.send(
                     json.dumps({
@@ -375,12 +381,14 @@ async def apply(targets, channel="keep", mute="keep", deaf="keep", guild=None):
                             "channel_id": new_channel,
                             "self_mute": new_mute,
                             "self_deaf": new_deaf,
+                            "self_video": new_video,
                         },
                     })
                 )
                 conn["voice_channel"] = new_channel
                 conn["mute"] = new_mute
                 conn["deaf"] = new_deaf
+                conn["video"] = new_video
                 if new_channel is not None:
                     conn["user_left_intentional"] = False
                     conn["desired_channel"] = new_channel
@@ -541,6 +549,7 @@ async def run_account(aid):
                                 acc["voice_channel"] = d.get("channel_id")
                                 acc["mute"] = d.get("self_mute", False)
                                 acc["deaf"] = d.get("self_deaf", False)
+                                acc["video"] = d.get("self_video", False)
                                 if d.get("guild_id"):
                                     acc["guild_id"] = d.get("guild_id")
                                 
@@ -1116,6 +1125,9 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             "rotator_enabled": ROTATOR_ENABLED,
             "rotator_interval": ROTATOR_INTERVAL,
             "speaking_sim": SPEAKING_SIM,
+            "video_sim": VIDEO_SIM,
+            "music_title": MUSIC_TITLE,
+            "music_artist": MUSIC_ARTIST,
             "presets": get_channel_presets(),
             "accounts": [
                 {
@@ -1130,6 +1142,8 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                     "deaf": a.get("deaf", False),
                     "ping": a.get("ping", 0),
                     "speaking": a.get("speaking", False),
+                    "video": a.get("video", False),
+                    "streaming": a.get("streaming", False),
                     "error": a.get("error"),
                 }
                 for a in sorted(ACCOUNTS.values(), key=lambda x: x["id"])
@@ -1435,6 +1449,72 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             coro = self._run_deaf(percent, True)
         elif action == "undeafen":
             coro = self._run_deaf(percent, False)
+        elif action in ("video", "camera_on"):
+            coro = self._run_video(percent, True)
+        elif action in ("unvideo", "camera_off"):
+            coro = self._run_video(percent, False)
+        elif action in ("set_stream", "stream"):
+            global STREAM_TITLE, STREAM_URL
+            STREAM_TITLE = str(payload.get("title", "Live Stream")).strip()
+            STREAM_URL = str(payload.get("url", "https://twitch.tv/discord")).strip()
+            enable = bool(payload.get("enabled", True))
+            if MAIN_LOOP and MAIN_LOOP.is_running():
+                async def _broadcast_stream():
+                    acts = []
+                    if enable:
+                        acts.append({"name": STREAM_TITLE or "Live Stream", "type": 1, "url": STREAM_URL or "https://twitch.tv/discord"})
+                    op3 = {"op": 3, "d": {"since": 0, "activities": acts, "status": "online", "afk": False}}
+                    for a in online_accounts():
+                        ws = a.get("ws")
+                        if ws:
+                            try:
+                                await ws.send(json.dumps(op3))
+                                a["streaming"] = enable
+                            except Exception:
+                                pass
+                asyncio.run_coroutine_threadsafe(_broadcast_stream(), MAIN_LOOP)
+            return {"success": True, "message": f"Streamer status {'activated: ' + STREAM_TITLE if enable else 'stopped'}", "streaming": enable}
+        elif action in ("play_music", "set_music"):
+            global MUSIC_TITLE, MUSIC_ARTIST
+            MUSIC_TITLE = str(payload.get("title", "Song Title")).strip()
+            MUSIC_ARTIST = str(payload.get("artist", "Artist")).strip()
+            if MAIN_LOOP and MAIN_LOOP.is_running():
+                async def _broadcast_music():
+                    now = int(time.time() * 1000)
+                    for a in online_accounts():
+                        acts = [{
+                            "name": "Spotify",
+                            "type": 2,
+                            "details": MUSIC_TITLE,
+                            "state": MUSIC_ARTIST,
+                            "timestamps": {"start": now, "end": now + 210000},
+                            "party": {"id": f"spotify:{a['id']}"},
+                            "flags": 48
+                        }]
+                        op3 = {"op": 3, "d": {"since": 0, "activities": acts, "status": "online", "afk": False}}
+                        ws = a.get("ws")
+                        if ws:
+                            try:
+                                await ws.send(json.dumps(op3))
+                            except Exception:
+                                pass
+                asyncio.run_coroutine_threadsafe(_broadcast_music(), MAIN_LOOP)
+            return {"success": True, "message": f"Spotify player simulating: {MUSIC_TITLE} by {MUSIC_ARTIST}", "music_title": MUSIC_TITLE, "music_artist": MUSIC_ARTIST}
+        elif action == "stop_music":
+            MUSIC_TITLE = ""
+            MUSIC_ARTIST = ""
+            if MAIN_LOOP and MAIN_LOOP.is_running():
+                async def _clear_music():
+                    op3 = {"op": 3, "d": {"since": 0, "activities": [], "status": "online", "afk": False}}
+                    for a in online_accounts():
+                        ws = a.get("ws")
+                        if ws:
+                            try:
+                                await ws.send(json.dumps(op3))
+                            except Exception:
+                                pass
+                asyncio.run_coroutine_threadsafe(_clear_music(), MAIN_LOOP)
+            return {"success": True, "message": "Music playback stopped"}
         elif action == "token_add":
             tok = payload.get("token", "").strip()
             if not tok:
@@ -1463,6 +1543,10 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 coro = apply(targets, deaf=True, guild=target_gid)
             elif sub == "undeafen":
                 coro = apply(targets, deaf=False, guild=target_gid)
+            elif sub == "video":
+                coro = apply(targets, video=True, guild=target_gid)
+            elif sub == "unvideo":
+                coro = apply(targets, video=False, guild=target_gid)
             else:
                 return {"success": False, "error": f"Unknown batch sub_action: {sub}"}
         elif action == "token_remove":
@@ -1511,6 +1595,13 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         done = await apply(targets, deaf=state)
         return f"{done}/{len(targets)} account(s) deafen={state}"
 
+    async def _run_video(self, percent, state):
+        global VIDEO_SIM
+        VIDEO_SIM = state
+        targets = pick_targets(percent, voice_accounts())
+        done = await apply(targets, video=state)
+        return f"{done}/{len(targets)} account(s) video={state}"
+
     async def _run_account_action(self, aid, sub, ch, guild=None):
         acc = find_account(aid)
         if not acc:
@@ -1534,6 +1625,12 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         elif sub == "undeafen":
             await apply([acc], deaf=False, guild=guild)
             return "Undeafened"
+        elif sub == "video":
+            await apply([acc], video=True, guild=guild)
+            return "Camera/Video Enabled"
+        elif sub == "unvideo":
+            await apply([acc], video=False, guild=guild)
+            return "Camera/Video Disabled"
         raise ValueError(f"Unknown subaction: {sub}")
 
 
