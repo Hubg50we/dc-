@@ -44,7 +44,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.3.3";
+    public static final String APP_VERSION = "1.3.4";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -2348,7 +2348,7 @@ public class DiscordManager {
                                     if (voiceConnection != null) {
                                         voiceConnection.close();
                                     }
-                                    voiceConnection = new DiscordVoiceConnection(this, gId, voiceChannel, sessionId, token, endpoint, client, mgr);
+                                    voiceConnection = new DiscordVoiceConnection(Account.this, gId, voiceChannel, sessionId, token, endpoint, client, mgr);
                                     voiceConnection.connect();
                                 }
                             }
