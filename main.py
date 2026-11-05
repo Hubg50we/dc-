@@ -72,10 +72,17 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.1.5"
+APP_VERSION = "1.1.6"
 AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
+STEALTH_DELAY = float(os.environ.get("STEALTH_DELAY", "0.1"))
+ROTATOR_ENABLED = False
+ROTATOR_INTERVAL = 300
+ROTATOR_CHANNELS = []
+ROTATOR_INDEX = 0
+ROTATOR_TASK = None
+SPEAKING_SIM = False
 
 # Account registry: id -> dict
 ACCOUNTS = {}
@@ -205,6 +212,7 @@ def save_env_config():
         auto_rejoin_found = False
         activity_name_found = False
         activity_type_found = False
+        stealth_delay_found = False
         new_lines = []
         for line in lines:
             if line.startswith("GUILD_ID="):
@@ -225,6 +233,9 @@ def save_env_config():
             elif line.startswith("ACTIVITY_TYPE="):
                 new_lines.append(f"ACTIVITY_TYPE={CUSTOM_ACTIVITY_TYPE}\n")
                 activity_type_found = True
+            elif line.startswith("STEALTH_DELAY="):
+                new_lines.append(f"STEALTH_DELAY={STEALTH_DELAY}\n")
+                stealth_delay_found = True
             else:
                 new_lines.append(line)
 
@@ -240,6 +251,8 @@ def save_env_config():
             new_lines.append(f"ACTIVITY_NAME={CUSTOM_ACTIVITY_NAME}\n")
         if not activity_type_found:
             new_lines.append(f"ACTIVITY_TYPE={CUSTOM_ACTIVITY_TYPE}\n")
+        if not stealth_delay_found:
+            new_lines.append(f"STEALTH_DELAY={STEALTH_DELAY}\n")
 
         with open(env_path, "w", encoding="utf-8") as f:
             f.writelines(new_lines)
@@ -378,7 +391,11 @@ async def apply(targets, channel="keep", mute="keep", deaf="keep", guild=None):
                     conn["user_left_intentional"] = True
                     conn["desired_channel"] = None
                 done += 1
-                await asyncio.sleep(0.1)
+                if STEALTH_DELAY > 0.05:
+                    jitter = (random.random() * 0.4 - 0.2) * STEALTH_DELAY
+                    await asyncio.sleep(max(0.02, STEALTH_DELAY + jitter))
+                else:
+                    await asyncio.sleep(0.05)
                 break
             except Exception as e:
                 if attempt == 0:
@@ -472,7 +489,7 @@ async def run_account(aid):
             async with websockets.connect(uri, max_size=20 * 1024 * 1024) as ws:
                 hello = json.loads(await asyncio.wait_for(ws.recv(), timeout=15))
                 heartbeat_interval = hello["d"]["heartbeat_interval"]
-                hb = asyncio.create_task(heartbeat(ws, heartbeat_interval))
+                hb = asyncio.create_task(heartbeat(ws, heartbeat_interval, acc))
 
                 presence_obj = {"status": "online", "afk": False, "since": 0}
                 if CUSTOM_ACTIVITY_NAME:
@@ -514,6 +531,8 @@ async def run_account(aid):
                     raw_msg = await asyncio.wait_for(ws.recv(), timeout=max(30, heartbeat_interval / 1000 + 15))
                     try:
                         ev = json.loads(raw_msg)
+                        if ev.get("op") == 11 and acc.get("last_heartbeat_sent"):
+                            acc["ping"] = int(max(1, (time.time() * 1000) - acc["last_heartbeat_sent"]))
                         t = ev.get("t")
                         if t == "VOICE_STATE_UPDATE":
                             d = ev.get("d", {})
@@ -609,9 +628,11 @@ async def save_tokens_to_file(path):
     print(f"Saved {len(ACCOUNTS)} token(s) to {path}.")
 
 
-async def heartbeat(ws, interval):
+async def heartbeat(ws, interval, acc=None):
     while True:
         await asyncio.sleep(interval / 1000)
+        if acc is not None:
+            acc["last_heartbeat_sent"] = time.time() * 1000
         await ws.send(json.dumps({"op": 1, "d": None}))
 
 
@@ -1091,6 +1112,10 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             "auto_rejoin": AUTO_REJOIN,
             "activity_name": CUSTOM_ACTIVITY_NAME,
             "activity_type": CUSTOM_ACTIVITY_TYPE,
+            "stealth_delay": STEALTH_DELAY,
+            "rotator_enabled": ROTATOR_ENABLED,
+            "rotator_interval": ROTATOR_INTERVAL,
+            "speaking_sim": SPEAKING_SIM,
             "presets": get_channel_presets(),
             "accounts": [
                 {
@@ -1103,6 +1128,8 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                     "guild_id": a.get("guild_id", ""),
                     "mute": a.get("mute", False),
                     "deaf": a.get("deaf", False),
+                    "ping": a.get("ping", 0),
+                    "speaking": a.get("speaking", False),
                     "error": a.get("error"),
                 }
                 for a in sorted(ACCOUNTS.values(), key=lambda x: x["id"])
@@ -1246,6 +1273,74 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             presets.append({"name": name, "channel_id": ch, "guild_id": gid})
             save_channel_presets(presets)
             return {"success": True, "message": f"Saved channel preset '{name}'", "presets": presets}
+
+        if action == "set_stealth_delay":
+            global STEALTH_DELAY
+            STEALTH_DELAY = float(payload.get("stealth_delay", 0.1))
+            save_env_config()
+            return {"success": True, "stealth_delay": STEALTH_DELAY, "message": f"Stealth delay set to {STEALTH_DELAY:.2f}s"}
+
+        if action == "set_speaking":
+            global SPEAKING_SIM
+            SPEAKING_SIM = bool(payload.get("speaking", False))
+            for a in ACCOUNTS.values():
+                a["speaking"] = SPEAKING_SIM
+            return {"success": True, "speaking_sim": SPEAKING_SIM, "message": f"Speaking indicator {'Active' if SPEAKING_SIM else 'Off'}"}
+
+        if action == "set_rotator":
+            global ROTATOR_ENABLED, ROTATOR_INTERVAL, ROTATOR_CHANNELS, ROTATOR_TASK
+            ROTATOR_ENABLED = bool(payload.get("enabled", False))
+            ROTATOR_INTERVAL = max(10, int(payload.get("interval", 300)))
+            ROTATOR_CHANNELS = [str(c).strip() for c in payload.get("channels", []) if str(c).strip()]
+            if ROTATOR_TASK and not ROTATOR_TASK.done():
+                ROTATOR_TASK.cancel()
+                ROTATOR_TASK = None
+            if ROTATOR_ENABLED and ROTATOR_CHANNELS and MAIN_LOOP and MAIN_LOOP.is_running():
+                async def _rotator_loop():
+                    idx = 0
+                    while ROTATOR_ENABLED and RUNNING and ROTATOR_CHANNELS:
+                        await asyncio.sleep(ROTATOR_INTERVAL)
+                        if not ROTATOR_ENABLED or not ROTATOR_CHANNELS:
+                            break
+                        target_ch = ROTATOR_CHANNELS[idx % len(ROTATOR_CHANNELS)]
+                        idx += 1
+                        print(f"[Rotator] 🔀 Auto-Rotator: Moving bots to {target_ch}")
+                        targets = pick_targets(100, online_accounts())
+                        await apply(targets, channel=target_ch)
+                ROTATOR_TASK = asyncio.run_coroutine_threadsafe(_rotator_loop(), MAIN_LOOP)
+            return {"success": True, "rotator_enabled": ROTATOR_ENABLED, "rotator_interval": ROTATOR_INTERVAL, "message": f"Auto-Rotator {'Started' if ROTATOR_ENABLED else 'Stopped'}"}
+
+        if action == "fetch_guild_channels":
+            target_gid = payload.get("guild_id") or GUILD_ID
+            if not target_gid:
+                return {"success": False, "error": "Server (Guild) ID required"}
+            if MAIN_LOOP and MAIN_LOOP.is_running():
+                async def _get_channels():
+                    token = next((a["token"] for a in ACCOUNTS.values() if a.get("online") and a.get("token")), None)
+                    if not token:
+                        token = next((a["token"] for a in ACCOUNTS.values() if a.get("token")), None)
+                    if not token:
+                        return []
+                    def _do_req():
+                        try:
+                            auth = token if token.startswith("Bot ") else token
+                            req = urllib.request.Request(f"https://discord.com/api/v10/guilds/{target_gid}/channels", headers={"Authorization": auth, "User-Agent": "Mozilla/5.0"})
+                            with urllib.request.urlopen(req, timeout=8) as resp:
+                                if resp.status == 200:
+                                    all_ch = json.loads(resp.read().decode("utf-8"))
+                                    return [{"id": c["id"], "name": c["name"], "type": c.get("type", 0), "position": c.get("position", 0)} for c in all_ch if c.get("type") in (2, 13)]
+                        except Exception:
+                            pass
+                        return []
+                    return await asyncio.get_running_loop().run_in_executor(None, _do_req)
+
+                fut = asyncio.run_coroutine_threadsafe(_get_channels(), MAIN_LOOP)
+                try:
+                    channels = fut.result(timeout=10)
+                    return {"success": True, "channels": channels, "guild_id": target_gid, "message": f"Loaded {len(channels)} voice channel(s)"}
+                except Exception as e:
+                    return {"success": False, "error": str(e)}
+            return {"success": False, "error": "Bot engine not running"}
 
         if action == "delete_preset":
             name = payload.get("name", "").strip()

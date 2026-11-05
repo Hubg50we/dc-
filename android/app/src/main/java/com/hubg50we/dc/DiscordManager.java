@@ -27,7 +27,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.1.5";
+    public static final String APP_VERSION = "1.1.6";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -42,6 +42,13 @@ public class DiscordManager {
     private boolean autoRejoin = true;
     private String customActivityName = "";
     private int customActivityType = 0; // 0=Playing, 1=Streaming, 2=Listening, 3=Watching, 4=Custom
+    private double stealthDelaySec = 0.1;
+    private boolean rotatorEnabled = false;
+    private int rotatorIntervalSec = 300;
+    private final List<String> rotatorChannels = Collections.synchronizedList(new ArrayList<>());
+    private int rotatorIndex = 0;
+    private Runnable rotatorRunnable;
+    private boolean speakingSim = false;
     private final long startTime;
 
     private final Map<Integer, Account> accounts = new ConcurrentHashMap<>();
@@ -68,6 +75,10 @@ public class DiscordManager {
         this.autoRejoin = prefs.getBoolean("auto_rejoin", true);
         this.customActivityName = prefs.getString("activity_name", "");
         this.customActivityType = prefs.getInt("activity_type", 0);
+        this.stealthDelaySec = prefs.getFloat("stealth_delay", 0.1f);
+        this.rotatorEnabled = prefs.getBoolean("rotator_enabled", false);
+        this.rotatorIntervalSec = prefs.getInt("rotator_interval", 300);
+        this.speakingSim = prefs.getBoolean("speaking_sim", false);
 
         this.httpClient = new OkHttpClient.Builder()
                 .readTimeout(0, TimeUnit.MILLISECONDS)
@@ -225,10 +236,48 @@ public class DiscordManager {
         int count = Math.max(1, (int) Math.round(online.size() * (percent / 100.0)));
         int moved = 0;
         for (int i = 0; i < Math.min(count, online.size()); i++) {
+            if (stealthDelaySec > 0.05 && i > 0) {
+                try {
+                    long base = (long) (stealthDelaySec * 1000);
+                    long jitter = (long) ((Math.random() * 0.4 - 0.2) * base);
+                    Thread.sleep(Math.max(20, base + jitter));
+                } catch (InterruptedException ignored) {}
+            }
             online.get(i).setVoiceState(this.guildId, channelId, false, false);
             moved++;
         }
         log("Moved " + moved + "/" + online.size() + " accounts to " + channelId);
+    }
+
+    public synchronized void setRotatorConfig(boolean enabled, int intervalSec, List<String> channels) {
+        this.rotatorEnabled = enabled;
+        this.rotatorIntervalSec = Math.max(10, intervalSec);
+        this.rotatorChannels.clear();
+        if (channels != null) this.rotatorChannels.addAll(channels);
+        this.rotatorIndex = 0;
+        prefs.edit().putBoolean("rotator_enabled", this.rotatorEnabled)
+                    .putInt("rotator_interval", this.rotatorIntervalSec).apply();
+        if (rotatorRunnable != null) {
+            mainHandler.removeCallbacks(rotatorRunnable);
+            rotatorRunnable = null;
+        }
+        if (this.rotatorEnabled && !this.rotatorChannels.isEmpty()) {
+            rotatorRunnable = new Runnable() {
+                @Override
+                public void run() {
+                    if (!rotatorEnabled || rotatorChannels.isEmpty()) return;
+                    String targetCh = rotatorChannels.get(rotatorIndex % rotatorChannels.size());
+                    rotatorIndex++;
+                    log("🔀 Auto-Rotator: Moving bots to channel " + targetCh + " (Next in " + rotatorIntervalSec + "s)");
+                    new Thread(() -> movePercent(targetCh, 100)).start();
+                    mainHandler.postDelayed(this, rotatorIntervalSec * 1000L);
+                }
+            };
+            mainHandler.postDelayed(rotatorRunnable, rotatorIntervalSec * 1000L);
+            log("🔀 Auto-Rotator Started: Rotating " + rotatorChannels.size() + " channels every " + rotatorIntervalSec + "s");
+        } else {
+            log("🔀 Auto-Rotator Stopped.");
+        }
     }
 
     public void muteAll(boolean mute, int percent) {
@@ -682,6 +731,87 @@ public class DiscordManager {
                     res.put("error", "Could not detect Server ID. Ensure Channel ID is valid and tokens are added.");
                     res.put("message", "Could not detect Server ID from Channel ID: " + ch);
                 }
+            } else if ("fetch_guild_channels".equals(action)) {
+                String targetGid = payload.optString("guild_id", this.guildId).trim();
+                if (targetGid.isEmpty()) targetGid = this.guildId;
+                JSONArray chArr = new JSONArray();
+                Account bestAcc = null;
+                for (Account a : accounts.values()) {
+                    if (a.online && !a.token.isEmpty()) { bestAcc = a; break; }
+                }
+                if (bestAcc == null && !accounts.isEmpty()) {
+                    bestAcc = accounts.values().iterator().next();
+                }
+                if (bestAcc != null && !targetGid.isEmpty()) {
+                    try {
+                        String auth = bestAcc.token.startsWith("Bot ") ? bestAcc.token : bestAcc.token;
+                        Request req = new Request.Builder()
+                                .url("https://discord.com/api/v10/guilds/" + targetGid + "/channels")
+                                .header("Authorization", auth)
+                                .header("User-Agent", "Mozilla/5.0")
+                                .build();
+                        try (Response resp = httpClient.newCall(req).execute()) {
+                            if (resp.isSuccessful() && resp.body() != null) {
+                                JSONArray allCh = new JSONArray(resp.body().string());
+                                for (int i = 0; i < allCh.length(); i++) {
+                                    JSONObject c = allCh.getJSONObject(i);
+                                    int cType = c.optInt("type", 0);
+                                    if (cType == 2 || cType == 13) {
+                                        JSONObject vch = new JSONObject();
+                                        vch.put("id", c.optString("id"));
+                                        vch.put("name", c.optString("name"));
+                                        vch.put("type", cType);
+                                        vch.put("position", c.optInt("position", 0));
+                                        chArr.put(vch);
+                                    }
+                                }
+                            }
+                        }
+                    } catch (Exception ex) {
+                        Log.e(TAG, "fetch_guild_channels error", ex);
+                    }
+                }
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("guild_id", targetGid);
+                res.put("channels", chArr);
+                res.put("message", "Loaded " + chArr.length() + " voice channel(s)");
+            } else if ("set_stealth_delay".equals(action)) {
+                this.stealthDelaySec = payload.optDouble("stealth_delay", 0.1);
+                prefs.edit().putFloat("stealth_delay", (float) this.stealthDelaySec).apply();
+                log("Stealth Join Delay set to " + String.format("%.2f", this.stealthDelaySec) + "s");
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("stealth_delay", this.stealthDelaySec);
+                res.put("message", "Stealth delay updated to " + String.format("%.2f", this.stealthDelaySec) + "s");
+            } else if ("set_rotator".equals(action)) {
+                boolean en = payload.optBoolean("enabled", false);
+                int interval = payload.optInt("interval", 300);
+                List<String> chList = new ArrayList<>();
+                JSONArray arr = payload.optJSONArray("channels");
+                if (arr != null) {
+                    for (int i = 0; i < arr.length(); i++) {
+                        String c = arr.optString(i, "").trim();
+                        if (!c.isEmpty()) chList.add(c);
+                    }
+                }
+                setRotatorConfig(en, interval, chList);
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("rotator_enabled", this.rotatorEnabled);
+                res.put("rotator_interval", this.rotatorIntervalSec);
+                res.put("message", "Auto-Rotator " + (this.rotatorEnabled ? "Started" : "Stopped"));
+            } else if ("set_speaking".equals(action)) {
+                this.speakingSim = payload.optBoolean("speaking", false);
+                prefs.edit().putBoolean("speaking_sim", this.speakingSim).apply();
+                for (Account a : accounts.values()) {
+                    a.speaking = this.speakingSim;
+                }
+                log("Speaking Indicator " + (this.speakingSim ? "Enabled (Green Ring)" : "Disabled"));
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("speaking_sim", this.speakingSim);
+                res.put("message", "Speaking Indicator " + (this.speakingSim ? "Active" : "Off"));
             } else if ("clear_logs".equals(action)) {
                 logs.clear();
                 log("Live console cleared.");
@@ -910,6 +1040,8 @@ public class DiscordManager {
                 o.put("guild_id", a.currentGuildId != null ? a.currentGuildId : "");
                 o.put("mute", a.mute);
                 o.put("deaf", a.deaf);
+                o.put("ping", a.pingMs);
+                o.put("speaking", a.speaking);
                 String masked = a.token.length() > 14 ? a.token.substring(0, 8) + "..." + a.token.substring(a.token.length() - 4) : "******";
                 o.put("token_masked", masked);
                 accArray.put(o);
@@ -926,6 +1058,10 @@ public class DiscordManager {
             json.put("auto_rejoin", autoRejoin);
             json.put("activity_name", customActivityName);
             json.put("activity_type", customActivityType);
+            json.put("stealth_delay", stealthDelaySec);
+            json.put("rotator_enabled", rotatorEnabled);
+            json.put("rotator_interval", rotatorIntervalSec);
+            json.put("speaking_sim", speakingSim);
             json.put("presets", getPresetsArray());
             json.put("accounts", accArray);
         } catch (Exception e) {
@@ -1083,6 +1219,9 @@ public class DiscordManager {
         public String desiredGuildId = "";
         public String desiredChannelId = "";
         public boolean userLeftIntentional = false;
+        public int pingMs = 0;
+        public long lastHeartbeatSent = 0;
+        public boolean speaking = false;
 
         private WebSocket ws;
         private Handler heartHandler;
@@ -1137,7 +1276,9 @@ public class DiscordManager {
                             mgr.log("Account #" + id + " Invalid Session (Op 9). Reconnecting with delay...");
                             new Handler(Looper.getMainLooper()).postDelayed(() -> reconnect(client, mgr), 3000);
                         } else if (op == 11) { // HEARTBEAT ACK
-                            // Acknowledged, heartbeat is alive and healthy
+                            if (lastHeartbeatSent > 0) {
+                                pingMs = (int) Math.max(1, System.currentTimeMillis() - lastHeartbeatSent);
+                            }
                         } else if (op == 0) { // DISPATCH
                             String t = msg.optString("t", "");
                             if ("READY".equals(t)) {
@@ -1275,6 +1416,7 @@ public class DiscordManager {
         private void sendHeartbeat() {
             if (ws != null) {
                 try {
+                    lastHeartbeatSent = System.currentTimeMillis();
                     JSONObject hb = new JSONObject();
                     hb.put("op", 1);
                     if (lastSequence >= 0) {

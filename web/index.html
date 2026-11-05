@@ -841,6 +841,14 @@
             <button class="btn btn-secondary btn-sm" onclick="saveDefaultChannel()">Save</button>
             <button class="btn btn-secondary btn-sm" style="color:var(--accent);" onclick="autoDetectGuild()" title="Auto-detect Server ID">🔍 Detect</button>
           </div>
+          <div class="input-row" style="margin-top:6px;">
+            <select id="channel-picker-select" onchange="onChannelPickerSelect(this.value)" style="flex:2; padding:8px 10px; border-radius:var(--radius-sm); background:var(--bg-dark); border:1px solid var(--border-color); color:var(--text); font-size:0.82rem;">
+              <option value="">📋 Select Voice Channel...</option>
+            </select>
+            <button class="btn btn-secondary btn-sm" id="btn-scan-channels" style="flex:1; color:var(--accent);" onclick="scanServerChannels()">
+              📡 Scan Server
+            </button>
+          </div>
         </div>
 
         <div class="field-group">
@@ -1013,7 +1021,7 @@
       <div class="card" style="border-color: rgba(88, 101, 242, 0.45);">
         <div class="card-title" style="color:var(--accent);">
           <span>🔄 App Updates & Version</span>
-          <span class="badge badge-voice" id="settings-app-version">v1.1.5</span>
+          <span class="badge badge-voice" id="settings-app-version">v1.1.6</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Automatically check for new releases, bug fixes, and feature updates.
@@ -1104,6 +1112,75 @@
             <div style="font-size:0.72rem; color:var(--text-muted);">Rejoins automatically when disconnected unexpectedly</div>
           </div>
           <input type="checkbox" id="auto-rejoin-toggle" checked onchange="toggleAutoRejoin(this.checked)" style="width:20px; height:20px; accent-color:var(--success);">
+        </div>
+      </div>
+
+      <!-- Stealth Join Delay & Anti-Rate-Limit Card -->
+      <div class="card">
+        <div class="card-title">
+          <span>⏱️ Stealth Join Pacing</span>
+          <span class="badge badge-voice" id="stealth-delay-badge">0.10s</span>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
+          Adds randomized spacing between each bot when connecting or moving in voice to prevent server rate-limits and avoid anti-spam audits.
+        </p>
+        <div class="slider-box">
+          <input type="range" id="stealth-range" min="0" max="30" value="1" oninput="onStealthDelayChange(this.value)" style="width:100%; accent-color:var(--accent);">
+          <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-muted); margin-top:4px;">
+            <span>0s (Instant)</span>
+            <span>1.0s (Safe)</span>
+            <span>2.0s (Stealth)</span>
+            <span>3.0s (Ghost)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Speaking Indicator Simulation Card -->
+      <div class="card" style="border-color: rgba(35, 165, 90, 0.45);">
+        <div class="card-title" style="color:var(--success);">
+          <span>🎙️ Speaking Indicator Simulation</span>
+          <span class="badge badge-voice" id="speaking-sim-badge">Off</span>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
+          Simulates voice activity so all connected bot avatars display active green speaking indicators in Discord voice channels.
+        </p>
+        <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-dark); padding:10px 12px; border-radius:var(--radius-sm);">
+          <div>
+            <strong style="font-size:0.84rem; color:var(--text-heading);">Voice Activity Green Rings</strong>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Displays active green rings on bot profiles</div>
+          </div>
+          <input type="checkbox" id="speaking-sim-toggle" onchange="toggleSpeakingSim(this.checked)" style="width:20px; height:20px; accent-color:var(--success);">
+        </div>
+      </div>
+
+      <!-- Channel Hopper & Auto-Rotator Card -->
+      <div class="card">
+        <div class="card-title">
+          <span>🔀 Channel Hopper & Auto-Rotator</span>
+          <span class="badge badge-voice" id="rotator-status-badge">Disabled</span>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
+          Automatically cycles your bots across multiple voice channels on a timer to simulate continuous server activity.
+        </p>
+        <div class="field-group">
+          <label class="field-label">Target Channels (Comma-separated IDs)</label>
+          <input type="text" id="rotator-channels-input" placeholder="e.g. 123456789, 987654321, 555666777">
+        </div>
+        <div class="field-group" style="margin-top:6px;">
+          <label class="field-label">Hop Interval</label>
+          <select id="rotator-interval-select" style="width:100%; padding:10px 12px; border-radius:var(--radius-sm); background:var(--bg-dark); border:1px solid var(--border-color); color:var(--text); font-size:0.86rem;">
+            <option value="60">Every 1 Minute</option>
+            <option value="180">Every 3 Minutes</option>
+            <option value="300" selected>Every 5 Minutes</option>
+            <option value="600">Every 10 Minutes</option>
+          </select>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-dark); padding:10px 12px; border-radius:var(--radius-sm); margin-top:8px;">
+          <div>
+            <strong style="font-size:0.84rem; color:var(--text-heading);">Enable Auto-Rotator</strong>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Moves bots sequentially across listed channels</div>
+          </div>
+          <input type="checkbox" id="rotator-toggle" onchange="toggleRotator(this.checked)" style="width:20px; height:20px; accent-color:var(--accent);">
         </div>
       </div>
 
@@ -1520,6 +1597,39 @@
         }
       }
 
+      if (data.stealth_delay !== undefined) {
+        const sRange = document.getElementById('stealth-range');
+        if (sRange && document.activeElement !== sRange) {
+          sRange.value = Math.round(data.stealth_delay * 10);
+        }
+        const sBadge = document.getElementById('stealth-delay-badge');
+        if (sBadge) sBadge.innerText = Number(data.stealth_delay).toFixed(2) + 's';
+      }
+
+      if (data.speaking_sim !== undefined) {
+        const spToggle = document.getElementById('speaking-sim-toggle');
+        if (spToggle && document.activeElement !== spToggle) {
+          spToggle.checked = !!data.speaking_sim;
+        }
+        const spBadge = document.getElementById('speaking-sim-badge');
+        if (spBadge) {
+          spBadge.innerText = data.speaking_sim ? 'Active' : 'Off';
+          spBadge.className = data.speaking_sim ? 'badge badge-online' : 'badge badge-voice';
+        }
+      }
+
+      if (data.rotator_enabled !== undefined) {
+        const rToggle = document.getElementById('rotator-toggle');
+        if (rToggle && document.activeElement !== rToggle) {
+          rToggle.checked = !!data.rotator_enabled;
+        }
+        const rBadge = document.getElementById('rotator-status-badge');
+        if (rBadge) {
+          rBadge.innerText = data.rotator_enabled ? 'Active' : 'Disabled';
+          rBadge.className = data.rotator_enabled ? 'badge badge-online' : 'badge badge-voice';
+        }
+      }
+
       if (!document.getElementById('target-channel-id').value && data.default_channel) {
         document.getElementById('target-channel-id').value = data.default_channel;
       }
@@ -1756,6 +1866,8 @@
 
             <div class="acc-pills">
               ${inVoice ? `<span class="badge badge-voice">🔊 ${escapeHtml(acc.voice_channel)}${acc.guild_id ? ' <span style="font-size:0.72rem; opacity:0.8;">(Svr: ' + escapeHtml(acc.guild_id) + ')</span>' : ''}</span>` : `<span class="badge" style="background:#202225; color:#888;">Idle</span>`}
+              ${acc.ping ? `<span class="badge" style="background:rgba(88,101,242,0.18); color:var(--accent); font-weight:600;">⚡ ${acc.ping}ms</span>` : ''}
+              ${acc.speaking ? `<span class="badge badge-online">🎙️ Speaking</span>` : ''}
               ${(tokenHealthMap[acc.id] && tokenHealthMap[acc.id].status === 'valid') ? `<span class="badge badge-online">🛡️ Valid</span>` : ''}
               ${(tokenHealthMap[acc.id] && tokenHealthMap[acc.id].status === 'locked') ? `<span class="badge badge-mute">🔒 Locked</span>` : ''}
               ${(tokenHealthMap[acc.id] && tokenHealthMap[acc.id].status === 'invalid') ? `<span class="badge" style="background:rgba(242,63,67,0.25); color:var(--danger);">⚠️ Invalid</span>` : ''}
@@ -2389,6 +2501,118 @@
       }
     }
 
+    function onChannelPickerSelect(chId) {
+      if (!chId) return;
+      vibrate(10);
+      document.getElementById('target-channel-id').value = chId;
+      const bCh = document.getElementById('batch-route-ch');
+      if (bCh) bCh.value = chId;
+      updateActiveBadges();
+      showToast('Selected channel: ' + chId);
+    }
+
+    async function scanServerChannels() {
+      vibrate(20);
+      const gid = document.getElementById('target-guild-id').value.trim();
+      const btn = document.getElementById('btn-scan-channels');
+      if (btn) btn.innerText = "⏳ Scanning...";
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'fetch_guild_channels', guild_id: gid })
+        });
+        const json = await res.json();
+        if (json.channels && json.channels.length > 0) {
+          const picker = document.getElementById('channel-picker-select');
+          if (picker) {
+            let html = '<option value="">📋 Select Voice Channel (' + json.channels.length + ' found)...</option>';
+            json.channels.forEach(c => {
+              const prefix = c.type === 13 ? '🎭' : '🔊';
+              html += `<option value="${escapeHtml(c.id)}">${prefix} ${escapeHtml(c.name)}</option>`;
+            });
+            picker.innerHTML = html;
+          }
+          if (json.guild_id && !gid) {
+            document.getElementById('target-guild-id').value = json.guild_id;
+          }
+          showToast(`Found ${json.channels.length} voice channel(s)!`);
+        } else {
+          showToast(json.error || "No voice channels detected. Check Server ID.", true);
+        }
+      } catch (e) {
+        showToast("Scan error: " + e.message, true);
+      } finally {
+        if (btn) btn.innerText = "📡 Scan Server";
+      }
+    }
+
+    let stealthDelayDebounce = null;
+    function onStealthDelayChange(val) {
+      const sec = (parseInt(val) / 10).toFixed(2);
+      const badge = document.getElementById('stealth-delay-badge');
+      if (badge) badge.innerText = sec + 's';
+      clearTimeout(stealthDelayDebounce);
+      stealthDelayDebounce = setTimeout(async () => {
+        try {
+          await fetch('/api/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'set_stealth_delay', stealth_delay: parseFloat(sec) })
+          });
+          showToast(`Stealth delay: ${sec}s`);
+        } catch (ignored) {}
+      }, 350);
+    }
+
+    async function toggleSpeakingSim(enabled) {
+      vibrate(15);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set_speaking', speaking: enabled })
+        });
+        const json = await res.json();
+        showToast(json.message || "Speaking simulation updated");
+        const badge = document.getElementById('speaking-sim-badge');
+        if (badge) {
+          badge.innerText = enabled ? 'Active' : 'Off';
+          badge.className = enabled ? 'badge badge-online' : 'badge badge-voice';
+        }
+        fetchStatus();
+      } catch (e) {
+        showToast("Error updating speaking simulation: " + e.message, true);
+      }
+    }
+
+    async function toggleRotator(enabled) {
+      vibrate(20);
+      const rawChannels = document.getElementById('rotator-channels-input').value;
+      const channels = rawChannels.split(',').map(s => s.trim()).filter(Boolean);
+      const interval = parseInt(document.getElementById('rotator-interval-select').value) || 300;
+      if (enabled && channels.length === 0) {
+        document.getElementById('rotator-toggle').checked = false;
+        return showToast("Enter at least one channel ID to rotate", true);
+      }
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set_rotator', enabled: enabled, interval: interval, channels: channels })
+        });
+        const json = await res.json();
+        showToast(json.message || `Auto-Rotator ${enabled ? 'Started' : 'Stopped'}`);
+        const badge = document.getElementById('rotator-status-badge');
+        if (badge) {
+          badge.innerText = enabled ? 'Active' : 'Disabled';
+          badge.className = enabled ? 'badge badge-online' : 'badge badge-voice';
+        }
+      } catch (e) {
+        showToast("Error configuring rotator: " + e.message, true);
+      }
+    }
+
     async function executeTerminalCmd() {
       vibrate(15);
       const input = document.getElementById('cmd-input');
@@ -2434,7 +2658,7 @@
       return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    let currentAppVersion = '1.1.1';
+    let currentAppVersion = '1.1.6';
     let latestUpdateData = null;
 
     function toggleAutoCheckUpdate(enabled) {
