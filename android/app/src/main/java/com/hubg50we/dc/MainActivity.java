@@ -492,16 +492,26 @@ public class MainActivity extends AppCompatActivity {
                     "cmd appops set " + pkg + " RECORD_AUDIO allow"
                 };
                 for (String cmd : cmds) {
-                    try {
-                        Process p = Shizuku.newProcess(new String[]{"sh", "-c", cmd}, null, null);
-                        p.waitFor();
-                    } catch (Throwable ignored) {}
+                    runPrivilegedShizukuCommand(cmd);
                 }
                 Log.i(TAG, "⚡ Shizuku privileged optimizations applied successfully!");
             } catch (Throwable t) {
                 Log.e(TAG, "Failed applying Shizuku optimizations", t);
             }
         }).start();
+    }
+
+    public static void runPrivilegedShizukuCommand(String cmd) {
+        try {
+            Class<?> shizukuClass = Class.forName("rikka.shizuku.Shizuku");
+            java.lang.reflect.Method newProcessMethod = shizukuClass.getDeclaredMethod("newProcess", String[].class, String[].class, String.class);
+            newProcessMethod.setAccessible(true);
+            Object p = newProcessMethod.invoke(null, new String[]{"sh", "-c", cmd}, null, null);
+            if (p != null) {
+                java.lang.reflect.Method waitFor = p.getClass().getMethod("waitFor");
+                waitFor.invoke(p);
+            }
+        } catch (Throwable ignored) {}
     }
 
     @Override

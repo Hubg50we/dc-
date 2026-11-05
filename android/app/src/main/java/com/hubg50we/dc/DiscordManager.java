@@ -1076,10 +1076,7 @@ public class DiscordManager {
                             "cmd appops set " + pkg + " RECORD_AUDIO allow"
                         };
                         for (String c : cmds) {
-                            try {
-                                Process p = rikka.shizuku.Shizuku.newProcess(new String[]{"sh", "-c", c}, null, null);
-                                p.waitFor();
-                            } catch (Throwable ignored) {}
+                            MainActivity.runPrivilegedShizukuCommand(c);
                         }
                         success = true;
                     }
