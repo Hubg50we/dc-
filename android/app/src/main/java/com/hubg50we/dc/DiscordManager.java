@@ -269,7 +269,7 @@ public class DiscordManager {
                     String targetCh = rotatorChannels.get(rotatorIndex % rotatorChannels.size());
                     rotatorIndex++;
                     log("🔀 Auto-Rotator: Moving bots to channel " + targetCh + " (Next in " + rotatorIntervalSec + "s)");
-                    new Thread(() -> movePercent(targetCh, 100)).start();
+                    new Thread(() -> moveAll(targetCh, 100)).start();
                     mainHandler.postDelayed(this, rotatorIntervalSec * 1000L);
                 }
             };
