@@ -275,7 +275,41 @@ def run_tests():
     except Exception as e:
         check("POST action: stream_web / stop_web", False, str(e))
 
-    # 31. Test Account Remove
+    # 31. Test StreamBot (ysdragon/StreamBot) Video & Queue Engine
+    try:
+        # Play direct / YT video
+        st_sb1, d_sb1 = http_post("/api/action", {"action": "streambot_play", "url": "https://www.youtube.com/watch?v=jfKfPfyJRdk", "title": "Lofi Beats"})
+        # Add item to queue
+        st_sb2, d_sb2 = http_post("/api/action", {"action": "streambot_queue_add", "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", "title": "Big Buck Bunny"})
+        # Pause & Resume
+        st_sb3, d_sb3 = http_post("/api/action", {"action": "streambot_pause"})
+        st_sb4, d_sb4 = http_post("/api/action", {"action": "streambot_resume"})
+        # Volume, Loop, Quality
+        st_sb5, d_sb5 = http_post("/api/action", {"action": "streambot_set_volume", "volume": 125})
+        st_sb6, d_sb6 = http_post("/api/action", {"action": "streambot_set_loop", "mode": "video"})
+        st_sb7, d_sb7 = http_post("/api/action", {"action": "streambot_set_quality", "resolution": "1080p", "fps": 60, "bitrate": "4500k"})
+        # Skip to queued track
+        st_sb8, d_sb8 = http_post("/api/action", {"action": "streambot_skip"})
+        # Stop
+        st_sb9, d_sb9 = http_post("/api/action", {"action": "streambot_stop"})
+        
+        sb_ok = (
+            d_sb1.get("success") is True and
+            d_sb2.get("success") is True and
+            d_sb3.get("success") is True and
+            d_sb4.get("success") is True and
+            d_sb5.get("volume") == 125 and
+            d_sb6.get("loop_mode") == "video" and
+            d_sb7.get("fps") == 60 and
+            d_sb8.get("success") is True and
+            d_sb9.get("success") is True and
+            main.STREAMBOT_STATUS == "idle"
+        )
+        check("POST action: streambot_play / pause / resume / queue / skip / stop (StreamBot Engine)", sb_ok)
+    except Exception as e:
+        check("POST action: streambot_play / pause / resume / queue / skip / stop", False, str(e))
+
+    # 32. Test Account Remove
     try:
         st, data_rem = http_post("/api/action", {"action": "token_remove", "id": 1})
         check("POST action: token_remove", data_rem.get("success") is True)

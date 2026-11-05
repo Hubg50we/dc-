@@ -72,7 +72,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.2.5"
+APP_VERSION = "1.2.6"
 AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
@@ -102,6 +102,16 @@ YOUTUBE_URL = ""
 YOUTUBE_TITLE = ""
 YOUTUBE_AUTHOR = ""
 YOUTUBE_MODE = "watch"
+
+# StreamBot (ysdragon/StreamBot) Core Engine Globals
+STREAMBOT_QUEUE = []
+STREAMBOT_CURRENT = None
+STREAMBOT_STATUS = "idle"  # "idle", "playing", "paused"
+STREAMBOT_LOOP_MODE = "off"  # "off", "video", "queue"
+STREAMBOT_VOLUME = 100  # 1 to 200%
+STREAMBOT_RESOLUTION = "720p"
+STREAMBOT_FPS = 30
+STREAMBOT_BITRATE = "2500k"
 
 # Account registry: id -> dict
 ACCOUNTS = {}
@@ -941,6 +951,113 @@ async def handle_command(raw):
             )
             return
 
+        # StreamBot (ysdragon/StreamBot) Command Set ($play, $pause, $resume, $skip, $queue, $volume, $loop)
+        if cmd in ("$play", "play", "$ytplay", "ytplay", "$playlink", "playlink"):
+            if len(parts) > 1:
+                target_url = " ".join(parts[1:]).strip()
+                global STREAMBOT_CURRENT, STREAMBOT_STATUS, STREAMBOT_QUEUE, REAL_VIDEO_ACTIVE, REAL_VIDEO_MODE, REAL_VIDEO_TITLE, VIDEO_SIM, SCREEN_SHARE_SIM, SPEAKING_SIM
+                item = {
+                    "id": str(int(time.time() * 1000))[-6:],
+                    "title": target_url,
+                    "url": target_url,
+                    "source": "command",
+                    "duration": 0.0,
+                    "started_at": int(time.time())
+                }
+                STREAMBOT_CURRENT = item
+                STREAMBOT_STATUS = "playing"
+                REAL_VIDEO_ACTIVE = True
+                REAL_VIDEO_MODE = "streambot"
+                REAL_VIDEO_TITLE = target_url
+                VIDEO_SIM = True
+                SCREEN_SHARE_SIM = True
+                SPEAKING_SIM = True
+                for a in ACCOUNTS.values():
+                    a["video"] = True
+                    a["screenshare"] = True
+                    a["speaking"] = True
+                print(f"🎬 [StreamBot] Playing: '{target_url}' (1080p/720p 60fps)")
+            else:
+                print("Usage: $play <video_url / youtube_link / local_file>")
+            return
+
+        if cmd in ("$pause", "pause"):
+            STREAMBOT_STATUS = "paused"
+            SPEAKING_SIM = False
+            for a in ACCOUNTS.values():
+                a["speaking"] = False
+            print("🎬 [StreamBot] Playback Paused.")
+            return
+
+        if cmd in ("$resume", "resume"):
+            if STREAMBOT_CURRENT:
+                STREAMBOT_STATUS = "playing"
+                SPEAKING_SIM = True
+                for a in ACCOUNTS.values():
+                    a["speaking"] = True
+                print(f"🎬 [StreamBot] Playback Resumed: {STREAMBOT_CURRENT['title']}")
+            else:
+                print("🎬 [StreamBot] No active stream to resume.")
+            return
+
+        if cmd in ("$skip", "skip", "next"):
+            if STREAMBOT_QUEUE:
+                next_it = STREAMBOT_QUEUE.pop(0)
+                STREAMBOT_CURRENT = next_it
+                STREAMBOT_STATUS = "playing"
+                print(f"🎬 [StreamBot] Skipped to next: {next_it['title']} ({len(STREAMBOT_QUEUE)} left in queue)")
+            else:
+                STREAMBOT_CURRENT = None
+                STREAMBOT_STATUS = "idle"
+                print("🎬 [StreamBot] Queue is empty. Playback stopped.")
+            return
+
+        if cmd in ("$stop", "stopstream"):
+            STREAMBOT_STATUS = "idle"
+            STREAMBOT_CURRENT = None
+            REAL_VIDEO_ACTIVE = False
+            VIDEO_SIM = False
+            SCREEN_SHARE_SIM = False
+            SPEAKING_SIM = False
+            for a in ACCOUNTS.values():
+                a["video"] = False
+                a["screenshare"] = False
+                a["speaking"] = False
+            print("🎬 [StreamBot] Stream Stopped.")
+            return
+
+        if cmd in ("$queue", "queue", "$list"):
+            print("================== [STREAMBOT QUEUE] ==================")
+            if STREAMBOT_CURRENT:
+                print(f"▶️ NOW PLAYING: {STREAMBOT_CURRENT['title']}")
+            else:
+                print("▶️ NOW PLAYING: None (Idle)")
+            if STREAMBOT_QUEUE:
+                for i, itm in enumerate(STREAMBOT_QUEUE, 1):
+                    print(f"  {i}. {itm['title']} ({itm['url']})")
+            else:
+                print("  Queue is empty. Use $play <url> to add media.")
+            print(f"Mode: Loop={STREAMBOT_LOOP_MODE.upper()} | Vol={STREAMBOT_VOLUME}% | Res={STREAMBOT_RESOLUTION}")
+            return
+
+        if cmd in ("$volume", "volume", "$vol"):
+            if len(parts) > 1:
+                try:
+                    STREAMBOT_VOLUME = max(1, min(200, int(parts[1])))
+                    print(f"🎬 [StreamBot] Volume set to {STREAMBOT_VOLUME}%")
+                except ValueError:
+                    print("Usage: $volume <1-200>")
+            else:
+                print(f"🎬 [StreamBot] Current Volume: {STREAMBOT_VOLUME}%")
+            return
+
+        if cmd in ("$loop", "loop"):
+            modes = ["off", "video", "queue"]
+            cur_idx = modes.index(STREAMBOT_LOOP_MODE) if STREAMBOT_LOOP_MODE in modes else 0
+            STREAMBOT_LOOP_MODE = modes[(cur_idx + 1) % len(modes)]
+            print(f"🎬 [StreamBot] Loop mode toggled to: {STREAMBOT_LOOP_MODE.upper()}")
+            return
+
         if cmd in ("shutdown", "quit", "exit"):
             await shutdown()
             return
@@ -1175,6 +1292,14 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             "youtube_title": YOUTUBE_TITLE,
             "youtube_author": YOUTUBE_AUTHOR,
             "youtube_mode": YOUTUBE_MODE,
+            "streambot_status": STREAMBOT_STATUS,
+            "streambot_current": STREAMBOT_CURRENT,
+            "streambot_queue": STREAMBOT_QUEUE,
+            "streambot_loop_mode": STREAMBOT_LOOP_MODE,
+            "streambot_volume": STREAMBOT_VOLUME,
+            "streambot_resolution": STREAMBOT_RESOLUTION,
+            "streambot_fps": STREAMBOT_FPS,
+            "streambot_bitrate": STREAMBOT_BITRATE,
             "presets": get_channel_presets(),
             "accounts": [
                 {
@@ -1250,7 +1375,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(404, "Not Found")
 
     def execute_action(self, payload):
-        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VOICE_FLAGS, ACTIVE_SFX, VOICE_STATUS, HUMAN_CHATTER_ENABLED, HUMAN_CHATTER_TASK, REAL_VIDEO_ACTIVE, REAL_VIDEO_MODE, REAL_VIDEO_TITLE, WEB_SHARE_URL, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE
+        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VOICE_FLAGS, ACTIVE_SFX, VOICE_STATUS, HUMAN_CHATTER_ENABLED, HUMAN_CHATTER_TASK, REAL_VIDEO_ACTIVE, REAL_VIDEO_MODE, REAL_VIDEO_TITLE, WEB_SHARE_URL, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE, STREAMBOT_QUEUE, STREAMBOT_CURRENT, STREAMBOT_STATUS, STREAMBOT_LOOP_MODE, STREAMBOT_VOLUME, STREAMBOT_RESOLUTION, STREAMBOT_FPS, STREAMBOT_BITRATE
         action = payload.get("action", "")
 
         if action == "clear_logs":
@@ -1514,6 +1639,192 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 a["screenshare"] = False
             log("🌐 Real Web Stream stopped")
             return {"success": True, "active": False, "message": "Web streaming stopped"}
+
+        # StreamBot Actions (ysdragon/StreamBot compatible)
+        if action == "streambot_play":
+            url = str(payload.get("url", "")).strip()
+            title = str(payload.get("title", "")).strip() or url or "StreamBot Media"
+            source = str(payload.get("source", "direct"))
+            duration = float(payload.get("duration", 0.0))
+            if not url:
+                return {"success": False, "error": "URL cannot be empty"}
+            STREAMBOT_CURRENT = {
+                "id": str(int(time.time() * 1000))[-6:],
+                "title": title,
+                "url": url,
+                "source": source,
+                "duration": duration,
+                "started_at": int(time.time())
+            }
+            STREAMBOT_STATUS = "playing"
+            REAL_VIDEO_ACTIVE = True
+            REAL_VIDEO_MODE = "streambot"
+            REAL_VIDEO_TITLE = title
+            VIDEO_SIM = True
+            SCREEN_SHARE_SIM = True
+            SPEAKING_SIM = True
+            for a in ACCOUNTS.values():
+                a["video"] = True
+                a["screenshare"] = True
+                a["speaking"] = True
+            log(f"🎬 [StreamBot] Playing: '{title}' ({url}) [{STREAMBOT_RESOLUTION}@{STREAMBOT_FPS}fps {STREAMBOT_BITRATE}]")
+            return {
+                "success": True,
+                "status": STREAMBOT_STATUS,
+                "current": STREAMBOT_CURRENT,
+                "resolution": STREAMBOT_RESOLUTION,
+                "fps": STREAMBOT_FPS,
+                "bitrate": STREAMBOT_BITRATE,
+                "volume": STREAMBOT_VOLUME,
+                "message": f"StreamBot playing: {title}"
+            }
+
+        if action == "streambot_pause":
+            STREAMBOT_STATUS = "paused"
+            SPEAKING_SIM = False
+            for a in ACCOUNTS.values():
+                a["speaking"] = False
+            log("🎬 [StreamBot] Stream paused")
+            return {"success": True, "status": STREAMBOT_STATUS, "message": "StreamBot playback paused"}
+
+        if action == "streambot_resume":
+            if STREAMBOT_CURRENT:
+                STREAMBOT_STATUS = "playing"
+                SPEAKING_SIM = True
+                for a in ACCOUNTS.values():
+                    a["speaking"] = True
+                log("🎬 [StreamBot] Stream resumed")
+                return {"success": True, "status": STREAMBOT_STATUS, "message": "StreamBot playback resumed"}
+            return {"success": False, "error": "No media currently loaded"}
+
+        if action == "streambot_stop":
+            STREAMBOT_STATUS = "idle"
+            STREAMBOT_CURRENT = None
+            REAL_VIDEO_ACTIVE = False
+            REAL_VIDEO_MODE = ""
+            REAL_VIDEO_TITLE = ""
+            VIDEO_SIM = False
+            SCREEN_SHARE_SIM = False
+            SPEAKING_SIM = False
+            for a in ACCOUNTS.values():
+                a["video"] = False
+                a["screenshare"] = False
+                a["speaking"] = False
+            log("🎬 [StreamBot] Playback stopped")
+            return {"success": True, "status": STREAMBOT_STATUS, "message": "StreamBot playback stopped"}
+
+        if action == "streambot_skip":
+            if STREAMBOT_LOOP_MODE == "video" and STREAMBOT_CURRENT:
+                STREAMBOT_STATUS = "playing"
+                log(f"🎬 [StreamBot] Looping current video: '{STREAMBOT_CURRENT['title']}'")
+                return {"success": True, "status": STREAMBOT_STATUS, "current": STREAMBOT_CURRENT, "message": f"Looping: {STREAMBOT_CURRENT['title']}"}
+
+            if STREAMBOT_LOOP_MODE == "queue" and STREAMBOT_CURRENT:
+                STREAMBOT_QUEUE.append(STREAMBOT_CURRENT)
+
+            if STREAMBOT_QUEUE:
+                next_item = STREAMBOT_QUEUE.pop(0)
+                STREAMBOT_CURRENT = next_item
+                STREAMBOT_STATUS = "playing"
+                REAL_VIDEO_ACTIVE = True
+                REAL_VIDEO_MODE = "streambot"
+                REAL_VIDEO_TITLE = next_item.get("title", "Video")
+                VIDEO_SIM = True
+                SCREEN_SHARE_SIM = True
+                SPEAKING_SIM = True
+                for a in ACCOUNTS.values():
+                    a["video"] = True
+                    a["screenshare"] = True
+                    a["speaking"] = True
+                log(f"🎬 [StreamBot] Skipped to: '{next_item['title']}'")
+                return {"success": True, "status": STREAMBOT_STATUS, "current": STREAMBOT_CURRENT, "queue_len": len(STREAMBOT_QUEUE), "message": f"Skipped to: {next_item['title']}"}
+            else:
+                STREAMBOT_CURRENT = None
+                STREAMBOT_STATUS = "idle"
+                REAL_VIDEO_ACTIVE = False
+                VIDEO_SIM = False
+                SCREEN_SHARE_SIM = False
+                SPEAKING_SIM = False
+                for a in ACCOUNTS.values():
+                    a["video"] = False
+                    a["screenshare"] = False
+                    a["speaking"] = False
+                log("🎬 [StreamBot] Queue finished. Playback idle.")
+                return {"success": True, "status": STREAMBOT_STATUS, "current": None, "queue_len": 0, "message": "Queue finished"}
+
+        if action == "streambot_queue_add":
+            url = str(payload.get("url", "")).strip()
+            title = str(payload.get("title", "")).strip() or url or "Queue Item"
+            source = str(payload.get("source", "url"))
+            duration = float(payload.get("duration", 0.0))
+            if not url:
+                return {"success": False, "error": "URL cannot be empty"}
+            item = {
+                "id": str(int(time.time() * 1000))[-6:],
+                "title": title,
+                "url": url,
+                "source": source,
+                "duration": duration,
+                "added_at": int(time.time())
+            }
+            if not STREAMBOT_CURRENT or STREAMBOT_STATUS == "idle":
+                STREAMBOT_CURRENT = item
+                STREAMBOT_STATUS = "playing"
+                REAL_VIDEO_ACTIVE = True
+                REAL_VIDEO_MODE = "streambot"
+                REAL_VIDEO_TITLE = title
+                VIDEO_SIM = True
+                SCREEN_SHARE_SIM = True
+                SPEAKING_SIM = True
+                for a in ACCOUNTS.values():
+                    a["video"] = True
+                    a["screenshare"] = True
+                    a["speaking"] = True
+                log(f"🎬 [StreamBot] Playing: '{title}'")
+                return {"success": True, "status": STREAMBOT_STATUS, "current": STREAMBOT_CURRENT, "queue_len": len(STREAMBOT_QUEUE), "message": f"Playing: {title}"}
+            else:
+                STREAMBOT_QUEUE.append(item)
+                log(f"🎬 [StreamBot] Added to queue (#{len(STREAMBOT_QUEUE)}): '{title}'")
+                return {"success": True, "status": STREAMBOT_STATUS, "current": STREAMBOT_CURRENT, "queue_len": len(STREAMBOT_QUEUE), "message": f"Added to queue: {title}"}
+
+        if action == "streambot_queue_remove":
+            idx = int(payload.get("index", -1))
+            if 0 <= idx < len(STREAMBOT_QUEUE):
+                removed = STREAMBOT_QUEUE.pop(idx)
+                return {"success": True, "removed": removed, "queue_len": len(STREAMBOT_QUEUE), "message": f"Removed from queue: {removed.get('title')}"}
+            return {"success": False, "error": "Invalid queue index"}
+
+        if action == "streambot_queue_clear":
+            count = len(STREAMBOT_QUEUE)
+            STREAMBOT_QUEUE.clear()
+            log(f"🎬 [StreamBot] Cleared {count} item(s) from queue")
+            return {"success": True, "cleared_count": count, "queue_len": 0, "message": f"Cleared {count} items from queue"}
+
+        if action == "streambot_set_volume":
+            STREAMBOT_VOLUME = max(1, min(200, int(payload.get("volume", 100))))
+            log(f"🎬 [StreamBot] Volume set to {STREAMBOT_VOLUME}%")
+            return {"success": True, "volume": STREAMBOT_VOLUME, "message": f"Stream volume set to {STREAMBOT_VOLUME}%"}
+
+        if action == "streambot_set_loop":
+            mode = str(payload.get("mode", "off")).lower()
+            if mode in ("off", "video", "queue"):
+                STREAMBOT_LOOP_MODE = mode
+                log(f"🎬 [StreamBot] Loop mode: {STREAMBOT_LOOP_MODE.upper()}")
+                return {"success": True, "loop_mode": STREAMBOT_LOOP_MODE, "message": f"Loop mode set to {STREAMBOT_LOOP_MODE}"}
+            return {"success": False, "error": "Invalid loop mode (use 'off', 'video', or 'queue')"}
+
+        if action == "streambot_set_quality":
+            STREAMBOT_RESOLUTION = str(payload.get("resolution", STREAMBOT_RESOLUTION))
+            STREAMBOT_FPS = int(payload.get("fps", STREAMBOT_FPS))
+            STREAMBOT_BITRATE = str(payload.get("bitrate", STREAMBOT_BITRATE))
+            log(f"🎬 [StreamBot] Quality updated: {STREAMBOT_RESOLUTION}@{STREAMBOT_FPS}fps ({STREAMBOT_BITRATE})")
+            return {
+                "success": True,
+                "resolution": STREAMBOT_RESOLUTION,
+                "fps": STREAMBOT_FPS,
+                "bitrate": STREAMBOT_BITRATE,
+                "message": f"Quality set to {STREAMBOT_RESOLUTION}@{STREAMBOT_FPS}fps ({STREAMBOT_BITRATE})"
+            }
 
         if action == "set_rotator":
             global ROTATOR_ENABLED, ROTATOR_INTERVAL, ROTATOR_CHANNELS, ROTATOR_TASK

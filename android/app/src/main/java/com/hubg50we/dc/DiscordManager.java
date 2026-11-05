@@ -27,7 +27,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.2.5";
+    public static final String APP_VERSION = "1.2.6";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -66,6 +66,17 @@ public class DiscordManager {
     private String youtubeTitle = "";
     private String youtubeAuthor = "";
     private String youtubeMode = "watch";
+
+    // StreamBot (ysdragon/StreamBot) Core Engine State
+    private String streambotStatus = "idle";
+    private JSONObject streambotCurrent = null;
+    private final List<JSONObject> streambotQueue = Collections.synchronizedList(new ArrayList<>());
+    private String streambotLoopMode = "off";
+    private int streambotVolume = 100;
+    private String streambotResolution = "720p";
+    private int streambotFps = 30;
+    private String streambotBitrate = "2500k";
+
     private final long startTime;
 
     private final Map<Integer, Account> accounts = new ConcurrentHashMap<>();
@@ -1268,6 +1279,226 @@ public class DiscordManager {
                 res.put("status", "ok");
                 res.put("active", false);
                 res.put("message", "Web streaming stopped");
+            } else if ("streambot_play".equals(action)) {
+                String url = payload.optString("url", "").trim();
+                String title = payload.optString("title", "").trim();
+                if (title.isEmpty()) title = url.isEmpty() ? "StreamBot Media" : url;
+                String source = payload.optString("source", "direct");
+                double duration = payload.optDouble("duration", 0.0);
+                if (url.isEmpty()) {
+                    res.put("success", false);
+                    res.put("error", "URL cannot be empty");
+                } else {
+                    this.streambotCurrent = new JSONObject();
+                    this.streambotCurrent.put("id", String.valueOf(System.currentTimeMillis() % 1000000));
+                    this.streambotCurrent.put("title", title);
+                    this.streambotCurrent.put("url", url);
+                    this.streambotCurrent.put("source", source);
+                    this.streambotCurrent.put("duration", duration);
+                    this.streambotCurrent.put("started_at", System.currentTimeMillis() / 1000);
+                    this.streambotStatus = "playing";
+                    this.realVideoActive = true;
+                    this.realVideoMode = "streambot";
+                    this.realVideoTitle = title;
+                    this.videoSim = true;
+                    this.screenShareSim = true;
+                    this.speakingSim = true;
+                    for (Account a : accounts.values()) {
+                        a.video = true;
+                        a.screenShare = true;
+                        a.speaking = true;
+                        if (a.online && a.voiceChannel != null) {
+                            a.setVoiceState(a.currentGuildId, a.voiceChannel, a.mute, a.deaf, true);
+                            a.startScreenShare(a.currentGuildId);
+                        }
+                    }
+                    log("🎬 [StreamBot] Playing: '" + title + "' (" + url + ") [" + this.streambotResolution + "@" + this.streambotFps + "fps " + this.streambotBitrate + "]");
+                    res.put("success", true);
+                    res.put("status", this.streambotStatus);
+                    res.put("current", this.streambotCurrent);
+                    res.put("resolution", this.streambotResolution);
+                    res.put("fps", this.streambotFps);
+                    res.put("bitrate", this.streambotBitrate);
+                    res.put("volume", this.streambotVolume);
+                    res.put("message", "StreamBot playing: " + title);
+                }
+            } else if ("streambot_pause".equals(action)) {
+                this.streambotStatus = "paused";
+                this.speakingSim = false;
+                for (Account a : accounts.values()) { a.speaking = false; }
+                log("🎬 [StreamBot] Playback paused");
+                res.put("success", true);
+                res.put("status", this.streambotStatus);
+                res.put("message", "StreamBot playback paused");
+            } else if ("streambot_resume".equals(action)) {
+                if (this.streambotCurrent != null) {
+                    this.streambotStatus = "playing";
+                    this.speakingSim = true;
+                    for (Account a : accounts.values()) { a.speaking = true; }
+                    log("🎬 [StreamBot] Playback resumed");
+                    res.put("success", true);
+                    res.put("status", this.streambotStatus);
+                    res.put("message", "StreamBot playback resumed");
+                } else {
+                    res.put("success", false);
+                    res.put("error", "No media currently loaded");
+                }
+            } else if ("streambot_stop".equals(action)) {
+                this.streambotStatus = "idle";
+                this.streambotCurrent = null;
+                this.realVideoActive = false;
+                this.realVideoMode = "";
+                this.realVideoTitle = "";
+                this.videoSim = false;
+                this.screenShareSim = false;
+                this.speakingSim = false;
+                for (Account a : accounts.values()) {
+                    a.video = false;
+                    a.screenShare = false;
+                    a.speaking = false;
+                    if (a.online && a.voiceChannel != null) {
+                        a.setVoiceState(a.currentGuildId, a.voiceChannel, a.mute, a.deaf, false);
+                        a.stopScreenShare(a.currentGuildId);
+                    }
+                }
+                log("🎬 [StreamBot] Playback stopped");
+                res.put("success", true);
+                res.put("status", this.streambotStatus);
+                res.put("message", "StreamBot playback stopped");
+            } else if ("streambot_skip".equals(action)) {
+                if ("video".equals(this.streambotLoopMode) && this.streambotCurrent != null) {
+                    this.streambotStatus = "playing";
+                    log("🎬 [StreamBot] Looping current video: '" + this.streambotCurrent.optString("title") + "'");
+                    res.put("success", true);
+                    res.put("status", this.streambotStatus);
+                    res.put("current", this.streambotCurrent);
+                    res.put("message", "Looping: " + this.streambotCurrent.optString("title"));
+                } else {
+                    if ("queue".equals(this.streambotLoopMode) && this.streambotCurrent != null) {
+                        this.streambotQueue.add(this.streambotCurrent);
+                    }
+                    if (!this.streambotQueue.isEmpty()) {
+                        JSONObject nextItem = this.streambotQueue.remove(0);
+                        this.streambotCurrent = nextItem;
+                        this.streambotStatus = "playing";
+                        this.realVideoActive = true;
+                        this.realVideoMode = "streambot";
+                        this.realVideoTitle = nextItem.optString("title", "Video");
+                        this.videoSim = true;
+                        this.screenShareSim = true;
+                        this.speakingSim = true;
+                        log("🎬 [StreamBot] Skipped to: '" + nextItem.optString("title") + "'");
+                        res.put("success", true);
+                        res.put("status", this.streambotStatus);
+                        res.put("current", this.streambotCurrent);
+                        res.put("queue_len", this.streambotQueue.size());
+                        res.put("message", "Skipped to: " + nextItem.optString("title"));
+                    } else {
+                        this.streambotCurrent = null;
+                        this.streambotStatus = "idle";
+                        this.realVideoActive = false;
+                        this.videoSim = false;
+                        this.screenShareSim = false;
+                        this.speakingSim = false;
+                        log("🎬 [StreamBot] Queue finished. Playback idle.");
+                        res.put("success", true);
+                        res.put("status", this.streambotStatus);
+                        res.put("current", JSONObject.NULL);
+                        res.put("queue_len", 0);
+                        res.put("message", "Queue finished");
+                    }
+                }
+            } else if ("streambot_queue_add".equals(action)) {
+                String url = payload.optString("url", "").trim();
+                String title = payload.optString("title", "").trim();
+                if (title.isEmpty()) title = url.isEmpty() ? "Queue Item" : url;
+                String source = payload.optString("source", "url");
+                double duration = payload.optDouble("duration", 0.0);
+                if (url.isEmpty()) {
+                    res.put("success", false);
+                    res.put("error", "URL cannot be empty");
+                } else {
+                    JSONObject item = new JSONObject();
+                    item.put("id", String.valueOf(System.currentTimeMillis() % 1000000));
+                    item.put("title", title);
+                    item.put("url", url);
+                    item.put("source", source);
+                    item.put("duration", duration);
+                    item.put("added_at", System.currentTimeMillis() / 1000);
+                    if (this.streambotCurrent == null || "idle".equals(this.streambotStatus)) {
+                        this.streambotCurrent = item;
+                        this.streambotStatus = "playing";
+                        this.realVideoActive = true;
+                        this.realVideoMode = "streambot";
+                        this.realVideoTitle = title;
+                        this.videoSim = true;
+                        this.screenShareSim = true;
+                        this.speakingSim = true;
+                        log("🎬 [StreamBot] Playing: '" + title + "'");
+                        res.put("success", true);
+                        res.put("status", this.streambotStatus);
+                        res.put("current", this.streambotCurrent);
+                        res.put("queue_len", this.streambotQueue.size());
+                        res.put("message", "Playing: " + title);
+                    } else {
+                        this.streambotQueue.add(item);
+                        log("🎬 [StreamBot] Added to queue (#" + this.streambotQueue.size() + "): '" + title + "'");
+                        res.put("success", true);
+                        res.put("status", this.streambotStatus);
+                        res.put("current", this.streambotCurrent);
+                        res.put("queue_len", this.streambotQueue.size());
+                        res.put("message", "Added to queue: " + title);
+                    }
+                }
+            } else if ("streambot_queue_remove".equals(action)) {
+                int idx = payload.optInt("index", -1);
+                if (idx >= 0 && idx < this.streambotQueue.size()) {
+                    JSONObject removed = this.streambotQueue.remove(idx);
+                    res.put("success", true);
+                    res.put("removed", removed);
+                    res.put("queue_len", this.streambotQueue.size());
+                    res.put("message", "Removed from queue: " + removed.optString("title"));
+                } else {
+                    res.put("success", false);
+                    res.put("error", "Invalid queue index");
+                }
+            } else if ("streambot_queue_clear".equals(action)) {
+                int count = this.streambotQueue.size();
+                this.streambotQueue.clear();
+                log("🎬 [StreamBot] Cleared " + count + " item(s) from queue");
+                res.put("success", true);
+                res.put("cleared_count", count);
+                res.put("queue_len", 0);
+                res.put("message", "Cleared " + count + " items from queue");
+            } else if ("streambot_set_volume".equals(action)) {
+                int vol = payload.optInt("volume", 100);
+                this.streambotVolume = Math.max(1, Math.min(200, vol));
+                log("🎬 [StreamBot] Volume set to " + this.streambotVolume + "%");
+                res.put("success", true);
+                res.put("volume", this.streambotVolume);
+                res.put("message", "Stream volume set to " + this.streambotVolume + "%");
+            } else if ("streambot_set_loop".equals(action)) {
+                String mode = payload.optString("mode", "off").toLowerCase();
+                if ("off".equals(mode) || "video".equals(mode) || "queue".equals(mode)) {
+                    this.streambotLoopMode = mode;
+                    log("🎬 [StreamBot] Loop mode: " + this.streambotLoopMode.toUpperCase());
+                    res.put("success", true);
+                    res.put("loop_mode", this.streambotLoopMode);
+                    res.put("message", "Loop mode set to " + this.streambotLoopMode);
+                } else {
+                    res.put("success", false);
+                    res.put("error", "Invalid loop mode (use 'off', 'video', or 'queue')");
+                }
+            } else if ("streambot_set_quality".equals(action)) {
+                this.streambotResolution = payload.optString("resolution", this.streambotResolution);
+                this.streambotFps = payload.optInt("fps", this.streambotFps);
+                this.streambotBitrate = payload.optString("bitrate", this.streambotBitrate);
+                log("🎬 [StreamBot] Quality updated: " + this.streambotResolution + "@" + this.streambotFps + "fps (" + this.streambotBitrate + ")");
+                res.put("success", true);
+                res.put("resolution", this.streambotResolution);
+                res.put("fps", this.streambotFps);
+                res.put("bitrate", this.streambotBitrate);
+                res.put("message", "Quality set to " + this.streambotResolution + "@" + this.streambotFps + "fps (" + this.streambotBitrate + ")");
             } else if ("clear_logs".equals(action)) {
                 logs.clear();
                 log("Live console cleared.");
@@ -1547,6 +1778,18 @@ public class DiscordManager {
             json.put("youtube_title", youtubeTitle);
             json.put("youtube_author", youtubeAuthor);
             json.put("youtube_mode", youtubeMode);
+            json.put("streambot_status", streambotStatus);
+            json.put("streambot_current", streambotCurrent != null ? streambotCurrent : JSONObject.NULL);
+            JSONArray qArr = new JSONArray();
+            synchronized (streambotQueue) {
+                for (JSONObject qItem : streambotQueue) qArr.put(qItem);
+            }
+            json.put("streambot_queue", qArr);
+            json.put("streambot_loop_mode", streambotLoopMode);
+            json.put("streambot_volume", streambotVolume);
+            json.put("streambot_resolution", streambotResolution);
+            json.put("streambot_fps", streambotFps);
+            json.put("streambot_bitrate", streambotBitrate);
             json.put("presets", getPresetsArray());
             json.put("accounts", accArray);
         } catch (Exception e) {
