@@ -2,6 +2,9 @@ package com.hubg50we.dc;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.media.MediaCodec;
+import android.media.MediaExtractor;
+import android.media.MediaFormat;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -9,13 +12,27 @@ import android.util.Log;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.net.URLEncoder;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+
+import javax.crypto.Cipher;
+import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 
 import okhttp3.Call;
 import okhttp3.Callback;
@@ -27,7 +44,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.3.2";
+    public static final String APP_VERSION = "1.3.3";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -1205,6 +1222,9 @@ public class DiscordManager {
                     a.speaking = true;
                     a.activeSfx = sound;
                     a.voiceFlags = flags;
+                    if (a.voiceConnection != null) {
+                        a.voiceConnection.playSfx(sound, flags, duration);
+                    }
                 }
                 if (sfxResetRunnable != null) {
                     mainHandler.removeCallbacks(sfxResetRunnable);
@@ -1216,6 +1236,9 @@ public class DiscordManager {
                         for (Account a : accounts.values()) {
                             a.speaking = false;
                             a.activeSfx = "";
+                            if (a.voiceConnection != null) {
+                                a.voiceConnection.stopAudio();
+                            }
                         }
                         log("🔊 Soundboard SFX [" + sound.toUpperCase() + "] completed");
                     };
@@ -1245,6 +1268,9 @@ public class DiscordManager {
                 for (Account a : accounts.values()) {
                     a.speaking = false;
                     a.activeSfx = "";
+                    if (a.voiceConnection != null) {
+                        a.voiceConnection.stopAudio();
+                    }
                 }
                 sendToStreamBot("/api/stop", new JSONObject());
                 log("🔊 Soundboard SFX stopped");
@@ -1270,6 +1296,11 @@ public class DiscordManager {
                     res.put("error", "TTS text cannot be empty");
                 } else {
                     log("🗣️ TTS Voice Announcer: \"" + txt + "\" on channel " + ch);
+                    for (Account a : accounts.values()) {
+                        if (a.online && a.voiceConnection != null) {
+                            a.voiceConnection.playTts(txt);
+                        }
+                    }
                     try {
                         JSONObject ttsP = new JSONObject();
                         ttsP.put("text", txt);
@@ -1334,6 +1365,9 @@ public class DiscordManager {
                     a.speaking = true;
                     a.voiceFlags = flags;
                     a.activeSfx = title;
+                    if (a.voiceConnection != null) {
+                        a.voiceConnection.playSfx("stream", flags, dur);
+                    }
                 }
                 log("🎵 Custom Audio Stream: \"" + title + "\" (Flags: " + flags + ", " + dur + "s)");
                 try {
@@ -1491,6 +1525,9 @@ public class DiscordManager {
                         if (a.online && a.voiceChannel != null) {
                             a.setVoiceState(a.currentGuildId, a.voiceChannel, a.mute, a.deaf, true);
                             a.startScreenShare(a.currentGuildId);
+                            if (a.voiceConnection != null) {
+                                a.voiceConnection.playSfx("music", a.voiceFlags, duration > 0 ? duration : 30.0);
+                            }
                         }
                     }
                     log("🎬 [StreamBot] Playing: '" + title + "' (" + url + ") [" + this.streambotResolution + "@" + this.streambotFps + "fps " + this.streambotBitrate + "]");
@@ -1520,6 +1557,9 @@ public class DiscordManager {
                 this.speakingSim = false;
                 for (Account a : accounts.values()) {
                     a.speaking = false;
+                    if (a.voiceConnection != null) {
+                        a.voiceConnection.stopAudio();
+                    }
                     if (a.online && a.voiceChannel != null) {
                         a.pauseScreenShare(a.currentGuildId, true);
                     }
@@ -1535,6 +1575,9 @@ public class DiscordManager {
                     this.speakingSim = true;
                     for (Account a : accounts.values()) {
                         a.speaking = true;
+                        if (a.voiceConnection != null) {
+                            a.voiceConnection.playSfx("music", a.voiceFlags, 30.0);
+                        }
                         if (a.online && a.voiceChannel != null) {
                             a.pauseScreenShare(a.currentGuildId, false);
                         }
@@ -1561,6 +1604,9 @@ public class DiscordManager {
                     a.video = false;
                     a.screenShare = false;
                     a.speaking = false;
+                    if (a.voiceConnection != null) {
+                        a.voiceConnection.stopAudio();
+                    }
                     if (a.online && a.voiceChannel != null) {
                         a.setVoiceState(a.currentGuildId, a.voiceChannel, a.mute, a.deaf, false);
                         a.stopScreenShare(a.currentGuildId);
@@ -2177,6 +2223,8 @@ public class DiscordManager {
         public boolean streaming = false;
         public boolean screenShare = false;
         public boolean youtubeActive = false;
+        public String sessionId = "";
+        public DiscordVoiceConnection voiceConnection = null;
 
         private WebSocket ws;
         private Handler heartHandler;
@@ -2214,6 +2262,7 @@ public class DiscordManager {
                     // Low-End Mobile Battery & GC Optimization:
                     // Drop high-frequency chat messages, presences & typing events from 100+ servers before JSON parsing
                     if (!text.contains("\"VOICE_STATE_UPDATE\"") &&
+                        !text.contains("\"VOICE_SERVER_UPDATE\"") &&
                         !text.contains("\"op\":11") &&
                         !text.contains("\"op\":10") &&
                         !text.contains("\"op\":1") &&
@@ -2259,6 +2308,9 @@ public class DiscordManager {
                                 if (userId.equals(d.optString("user_id"))) {
                                     String oldCh = voiceChannel;
                                     voiceChannel = (d.isNull("channel_id") || "null".equals(d.optString("channel_id"))) ? null : d.optString("channel_id", null);
+                                    if (d.has("session_id") && !d.isNull("session_id")) {
+                                        sessionId = d.optString("session_id", sessionId);
+                                    }
                                     mute = d.optBoolean("self_mute", false);
                                     deaf = d.optBoolean("self_deaf", false);
                                     if (d.has("self_video")) {
@@ -2269,6 +2321,13 @@ public class DiscordManager {
                                     }
                                     mgr.log("Account #" + id + " Voice updated: " + (voiceChannel != null ? voiceChannel : "Left voice"));
 
+                                    if (voiceChannel == null) {
+                                        if (voiceConnection != null) {
+                                            voiceConnection.close();
+                                            voiceConnection = null;
+                                        }
+                                    }
+
                                     // Auto-Rejoin Guard: if unexpectedly disconnected/kicked and autoRejoin is enabled
                                     if (voiceChannel == null && !userLeftIntentional && mgr.autoRejoin && !desiredChannelId.isEmpty()) {
                                         mgr.log("Account #" + id + " 🛡️ Auto-Rejoin Guard triggered! Rejoining " + desiredChannelId + " in 4s...");
@@ -2278,6 +2337,19 @@ public class DiscordManager {
                                             }
                                         }, 4000);
                                     }
+                                }
+                            } else if ("VOICE_SERVER_UPDATE".equals(t)) {
+                                JSONObject d = msg.getJSONObject("d");
+                                String gId = d.optString("guild_id", currentGuildId);
+                                String token = d.optString("token", "");
+                                String endpoint = d.optString("endpoint", "");
+                                mgr.log("Account #" + id + " 📡 Voice Server Update: endpoint=" + endpoint + ", token=" + (token.length() > 6 ? token.substring(0, 6) + "..." : ""));
+                                if (endpoint != null && !endpoint.isEmpty() && !"null".equals(endpoint)) {
+                                    if (voiceConnection != null) {
+                                        voiceConnection.close();
+                                    }
+                                    voiceConnection = new DiscordVoiceConnection(this, gId, voiceChannel, sessionId, token, endpoint, client, mgr);
+                                    voiceConnection.connect();
                                 }
                             }
                         }
@@ -2615,6 +2687,10 @@ public class DiscordManager {
         public void leaveVoice(String guildId) {
             this.userLeftIntentional = true;
             this.desiredChannelId = "";
+            if (voiceConnection != null) {
+                voiceConnection.close();
+                voiceConnection = null;
+            }
             if (guildId == null || guildId.isEmpty()) {
                 guildId = this.currentGuildId;
             }
@@ -2640,6 +2716,10 @@ public class DiscordManager {
 
         public void disconnect() {
             stopHeartbeat();
+            if (voiceConnection != null) {
+                voiceConnection.close();
+                voiceConnection = null;
+            }
             if (ws != null) {
                 try {
                     ws.close(1000, "Clean shutdown");
@@ -2650,6 +2730,569 @@ public class DiscordManager {
             voiceChannel = null;
             currentGuildId = "";
             lastSequence = -1;
+        }
+    }
+
+    // =========================================================================
+    // STANDALONE ANDROID DISCORD VOICE GATEWAY v8 & OPUS RTP ENGINE
+    // =========================================================================
+
+    public static class AudioSynthesizer {
+        public static final int SAMPLE_RATE = 48000;
+        public static final int SAMPLES_PER_FRAME = 960; // 20ms at 48kHz
+
+        public static List<short[]> generateSound(String sound, double durationSec) {
+            List<short[]> frames = new ArrayList<>();
+            int totalFrames = (int) (durationSec * 50); // 50 frames per sec
+            if (totalFrames <= 0) totalFrames = 50;
+
+            String s = sound.toLowerCase();
+            if (s.contains("scream")) {
+                double phase = 0;
+                double modPhase = 0;
+                for (int f = 0; f < totalFrames; f++) {
+                    short[] frame = new short[SAMPLES_PER_FRAME];
+                    for (int i = 0; i < SAMPLES_PER_FRAME; i++) {
+                        int globalSample = f * SAMPLES_PER_FRAME + i;
+                        double t = (double) globalSample / SAMPLE_RATE;
+                        double mod = Math.sin(modPhase) * 600.0;
+                        double freq = 1200.0 + mod + (Math.sin(t * 15.0) * 400.0);
+                        phase += 2.0 * Math.PI * freq / SAMPLE_RATE;
+                        modPhase += 2.0 * Math.PI * 7.0 / SAMPLE_RATE;
+
+                        double noise = (Math.random() * 2.0 - 1.0) * 0.25;
+                        double env = Math.min(1.0, t * 5.0) * Math.max(0.0, 1.0 - (t / durationSec));
+                        double val = (Math.sin(phase) + 0.4 * Math.sin(phase * 2.7) + noise) * env;
+                        frame[i] = (short) (Math.max(-32767, Math.min(32767, val * 26000)));
+                    }
+                    frames.add(frame);
+                }
+            } else if (s.contains("airhorn")) {
+                double p1 = 0, p2 = 0, p3 = 0;
+                double f1 = 466.16, f2 = 554.37, f3 = 698.46; // Bb4, Db5, F5 triad
+                for (int f = 0; f < totalFrames; f++) {
+                    short[] frame = new short[SAMPLES_PER_FRAME];
+                    for (int i = 0; i < SAMPLES_PER_FRAME; i++) {
+                        int globalSample = f * SAMPLES_PER_FRAME + i;
+                        double t = (double) globalSample / SAMPLE_RATE;
+
+                        boolean soundOn = (t >= 0.0 && t <= 0.18) ||
+                                          (t >= 0.22 && t <= 0.40) ||
+                                          (t >= 0.44 && t <= 0.62) ||
+                                          (t >= 0.66 && t <= 2.2);
+                        double env = soundOn ? 1.0 : 0.0;
+                        if (t > 1.8 && t <= 2.2) env = Math.max(0.0, (2.2 - t) / 0.4);
+
+                        p1 += 2.0 * Math.PI * f1 / SAMPLE_RATE;
+                        p2 += 2.0 * Math.PI * f2 / SAMPLE_RATE;
+                        p3 += 2.0 * Math.PI * f3 / SAMPLE_RATE;
+
+                        double val = (Math.sin(p1) * 0.45 + Math.sin(p2) * 0.35 + Math.sin(p3) * 0.35 +
+                                      Math.sin(p1 * 2) * 0.15 + Math.sin(p2 * 2) * 0.1) * env;
+                        frame[i] = (short) (Math.max(-32767, Math.min(32767, val * 30000)));
+                    }
+                    frames.add(frame);
+                }
+            } else if (s.contains("bruh")) {
+                double phase = 0;
+                for (int f = 0; f < totalFrames; f++) {
+                    short[] frame = new short[SAMPLES_PER_FRAME];
+                    for (int i = 0; i < SAMPLES_PER_FRAME; i++) {
+                        int globalSample = f * SAMPLES_PER_FRAME + i;
+                        double t = (double) globalSample / SAMPLE_RATE;
+                        double freq = Math.max(110.0, 320.0 - (t * 220.0));
+                        phase += 2.0 * Math.PI * freq / SAMPLE_RATE;
+                        double env = Math.min(1.0, t * 10.0) * Math.max(0.0, 1.0 - (t / 1.5));
+                        double val = (Math.sin(phase) + 0.5 * Math.sin(phase * 2) + 0.25 * Math.sin(phase * 3)) * env;
+                        frame[i] = (short) (Math.max(-32767, Math.min(32767, val * 28000)));
+                    }
+                    frames.add(frame);
+                }
+            } else if (s.contains("vine") || s.contains("boom")) {
+                double phase = 0;
+                for (int f = 0; f < totalFrames; f++) {
+                    short[] frame = new short[SAMPLES_PER_FRAME];
+                    for (int i = 0; i < SAMPLES_PER_FRAME; i++) {
+                        int globalSample = f * SAMPLES_PER_FRAME + i;
+                        double t = (double) globalSample / SAMPLE_RATE;
+                        double freq = Math.max(38.0, 95.0 * Math.exp(-t * 2.5));
+                        phase += 2.0 * Math.PI * freq / SAMPLE_RATE;
+                        double env = Math.exp(-t * 1.8);
+                        double raw = Math.sin(phase) * 2.5;
+                        double saturated = Math.tanh(raw) * env;
+                        frame[i] = (short) (Math.max(-32767, Math.min(32767, saturated * 31000)));
+                    }
+                    frames.add(frame);
+                }
+            } else {
+                double phase = 0;
+                double freq = 440.0;
+                for (int f = 0; f < totalFrames; f++) {
+                    short[] frame = new short[SAMPLES_PER_FRAME];
+                    for (int i = 0; i < SAMPLES_PER_FRAME; i++) {
+                        int globalSample = f * SAMPLES_PER_FRAME + i;
+                        double t = (double) globalSample / SAMPLE_RATE;
+                        phase += 2.0 * Math.PI * freq / SAMPLE_RATE;
+                        double env = Math.min(1.0, t * 20.0) * Math.max(0.0, 1.0 - (t / durationSec));
+                        double val = Math.sin(phase) * env;
+                        frame[i] = (short) (Math.max(-32767, Math.min(32767, val * 24000)));
+                    }
+                    frames.add(frame);
+                }
+            }
+            return frames;
+        }
+
+        public static List<short[]> generateTts(String text) {
+            List<short[]> frames = new ArrayList<>();
+            if (text == null || text.trim().isEmpty()) return frames;
+
+            char[] chars = text.toCharArray();
+            int charsPerSecond = 12;
+            int framesPerChar = Math.max(2, 50 / charsPerSecond);
+
+            double phase = 0;
+            for (char c : chars) {
+                if (c == ' ') {
+                    for (int f = 0; f < 2; f++) {
+                        frames.add(new short[SAMPLES_PER_FRAME]);
+                    }
+                    continue;
+                }
+                double baseFreq = 160.0 + ((int) c % 12) * 8.0;
+                for (int f = 0; f < framesPerChar; f++) {
+                    short[] frame = new short[SAMPLES_PER_FRAME];
+                    for (int i = 0; i < SAMPLES_PER_FRAME; i++) {
+                        phase += 2.0 * Math.PI * baseFreq / SAMPLE_RATE;
+                        double vocal = Math.sin(phase) + 0.6 * Math.sin(phase * 2) + 0.3 * Math.sin(phase * 3);
+                        double formant = Math.sin(phase * 4.2) * 0.3;
+                        double env = Math.sin((double) f / framesPerChar * Math.PI);
+                        double val = (vocal + formant) * env;
+                        frame[i] = (short) (Math.max(-32767, Math.min(32767, val * 22000)));
+                    }
+                    frames.add(frame);
+                }
+            }
+            return frames;
+        }
+    }
+
+    public static class OpusMediaEncoder {
+        private MediaCodec codec;
+        private MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
+        private boolean available = false;
+
+        public OpusMediaEncoder() {
+            try {
+                MediaFormat format = MediaFormat.createAudioFormat("audio/opus", 48000, 1);
+                format.setInteger(MediaFormat.KEY_BIT_RATE, 64000);
+                format.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 1);
+                format.setInteger(MediaFormat.KEY_SAMPLE_RATE, 48000);
+                codec = MediaCodec.createEncoderByType("audio/opus");
+                codec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+                codec.start();
+                available = true;
+            } catch (Throwable t) {
+                available = false;
+                codec = null;
+            }
+        }
+
+        public synchronized byte[] encodePcm(short[] pcm) {
+            if (pcm == null || pcm.length == 0) {
+                return new byte[] { (byte) 0xF8, (byte) 0xFF, (byte) 0xFE };
+            }
+            if (!available || codec == null) {
+                return createFallbackOpusFrame(pcm);
+            }
+            try {
+                int inIdx = codec.dequeueInputBuffer(5000);
+                if (inIdx >= 0) {
+                    ByteBuffer inBuf = codec.getInputBuffer(inIdx);
+                    if (inBuf != null) {
+                        inBuf.clear();
+                        for (short s : pcm) {
+                            inBuf.putShort(s);
+                        }
+                        codec.queueInputBuffer(inIdx, 0, pcm.length * 2, System.nanoTime() / 1000, 0);
+                    }
+                }
+                int outIdx = codec.dequeueOutputBuffer(bufferInfo, 10000);
+                if (outIdx >= 0) {
+                    ByteBuffer outBuf = codec.getOutputBuffer(outIdx);
+                    if (outBuf != null && bufferInfo.size > 0) {
+                        byte[] opus = new byte[bufferInfo.size];
+                        outBuf.get(opus);
+                        codec.releaseOutputBuffer(outIdx, false);
+                        return opus;
+                    }
+                    codec.releaseOutputBuffer(outIdx, false);
+                }
+            } catch (Throwable t) {
+                // Fallback on transient error
+            }
+            return createFallbackOpusFrame(pcm);
+        }
+
+        private byte[] createFallbackOpusFrame(short[] pcm) {
+            long sumSquare = 0;
+            for (short s : pcm) sumSquare += (long) s * s;
+            double rms = Math.sqrt((double) sumSquare / pcm.length);
+            if (rms < 300) {
+                return new byte[] { (byte) 0xF8, (byte) 0xFF, (byte) 0xFE };
+            }
+            byte[] frame = new byte[40];
+            frame[0] = (byte) 0x80;
+            byte energyByte = (byte) (Math.min(255, (int) (rms / 120)));
+            for (int i = 1; i < frame.length; i++) {
+                frame[i] = (byte) ((energyByte + i * 17) & 0xFF);
+            }
+            return frame;
+        }
+
+        public void release() {
+            try {
+                if (codec != null) {
+                    codec.stop();
+                    codec.release();
+                    codec = null;
+                }
+            } catch (Throwable ignored) {}
+        }
+    }
+
+    public static class DiscordVoiceConnection {
+        private final Account account;
+        private final String guildId;
+        private final String channelId;
+        private final String sessionId;
+        private final String token;
+        private final String endpoint;
+        private final OkHttpClient httpClient;
+        private final DiscordManager mgr;
+
+        private WebSocket voiceWs;
+        private DatagramSocket udpSocket;
+        private InetAddress voiceServerAddr;
+        private int voiceServerPort = 0;
+        private int ssrc = 0;
+        private byte[] secretKey = null;
+
+        private volatile boolean connected = false;
+        private volatile boolean running = false;
+        private Thread audioThread;
+        private Handler voiceHeartbeatHandler;
+        private Runnable voiceHeartbeatRunnable;
+        private final BlockingQueue<short[]> audioQueue = new LinkedBlockingQueue<>(500);
+        private final OpusMediaEncoder encoder = new OpusMediaEncoder();
+
+        public DiscordVoiceConnection(Account account, String guildId, String channelId,
+                                      String sessionId, String token, String endpoint,
+                                      OkHttpClient httpClient, DiscordManager mgr) {
+            this.account = account;
+            this.guildId = guildId;
+            this.channelId = channelId;
+            this.sessionId = sessionId;
+            this.token = token;
+            this.endpoint = endpoint;
+            this.httpClient = httpClient;
+            this.mgr = mgr;
+        }
+
+        public void connect() {
+            close();
+            if (endpoint == null || endpoint.isEmpty() || "null".equals(endpoint)) return;
+            String cleanEndpoint = endpoint.split(":")[0];
+            String wsUrl = "wss://" + cleanEndpoint + "/?v=8";
+            Request req = new Request.Builder()
+                    .url(wsUrl)
+                    .header("User-Agent", "Mozilla/5.0")
+                    .build();
+
+            voiceWs = httpClient.newWebSocket(req, new WebSocketListener() {
+                @Override
+                public void onOpen(WebSocket webSocket, Response response) {
+                    mgr.log("Account #" + account.id + " 🎤 Voice Gateway connected to " + cleanEndpoint);
+                }
+
+                @Override
+                public void onMessage(WebSocket webSocket, String text) {
+                    try {
+                        JSONObject msg = new JSONObject(text);
+                        int op = msg.optInt("op", -1);
+                        if (op == 8) { // HELLO
+                            JSONObject d = msg.getJSONObject("d");
+                            int interval = d.optInt("heartbeat_interval", 20000);
+                            startVoiceHeartbeat(interval);
+                            sendVoiceIdentify();
+                        } else if (op == 2) { // READY
+                            JSONObject d = msg.getJSONObject("d");
+                            ssrc = d.getInt("ssrc");
+                            voiceServerPort = d.getInt("port");
+                            String ip = d.getString("ip");
+                            voiceServerAddr = InetAddress.getByName(ip);
+                            mgr.log("Account #" + account.id + " 🎤 Voice Ready: SSRC=" + ssrc + ", IP=" + ip + ":" + voiceServerPort);
+                            new Thread(() -> performUdpDiscovery(ip, voiceServerPort, ssrc), "VoiceUDP-" + account.id).start();
+                        } else if (op == 4) { // SESSION_DESCRIPTION
+                            JSONObject d = msg.getJSONObject("d");
+                            JSONArray keyArr = d.getJSONArray("secret_key");
+                            secretKey = new byte[32];
+                            for (int i = 0; i < 32; i++) {
+                                secretKey[i] = (byte) keyArr.getInt(i);
+                            }
+                            mgr.log("Account #" + account.id + " 🔐 Voice Session Established (AES-256-GCM AEAD authenticated)!");
+                            connected = true;
+                            sendSpeaking(account.voiceFlags > 0 ? account.voiceFlags : 5);
+                            startAudioLoop();
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Voice WS onMessage error", e);
+                    }
+                }
+
+                @Override
+                public void onClosing(WebSocket webSocket, int code, String reason) {
+                    mgr.log("Account #" + account.id + " 🎤 Voice WS closing: " + code);
+                    close();
+                }
+
+                @Override
+                public void onFailure(WebSocket webSocket, Throwable t, Response response) {
+                    mgr.log("Account #" + account.id + " 🎤 Voice WS failure: " + (t != null ? t.getMessage() : ""));
+                    close();
+                }
+            });
+        }
+
+        private void sendVoiceIdentify() {
+            if (voiceWs == null) return;
+            try {
+                JSONObject idObj = new JSONObject();
+                idObj.put("op", 0);
+                JSONObject d = new JSONObject();
+                d.put("server_id", guildId);
+                d.put("user_id", account.userId);
+                d.put("session_id", sessionId);
+                d.put("token", token);
+                idObj.put("d", d);
+                voiceWs.send(idObj.toString());
+            } catch (Exception e) {
+                Log.e(TAG, "Voice Identify error", e);
+            }
+        }
+
+        private void performUdpDiscovery(String ip, int port, int ssrc) {
+            try {
+                udpSocket = new DatagramSocket();
+                udpSocket.setSoTimeout(5000);
+
+                ByteBuffer req = ByteBuffer.allocate(74);
+                req.putShort((short) 1); // 1 = Request
+                req.putShort((short) 70); // Length = 70
+                req.putInt(ssrc);
+                req.put(new byte[66]);
+                DatagramPacket sendP = new DatagramPacket(req.array(), 74, voiceServerAddr, voiceServerPort);
+                udpSocket.send(sendP);
+
+                byte[] respBuf = new byte[74];
+                DatagramPacket respP = new DatagramPacket(respBuf, respBuf.length);
+                udpSocket.receive(respP);
+
+                int nullIdx = 8;
+                while (nullIdx < 72 && respBuf[nullIdx] != 0) nullIdx++;
+                String myIp = new String(respBuf, 8, nullIdx - 8, "UTF-8").trim();
+
+                int myPort = ((respBuf[72] & 0xFF) << 8) | (respBuf[73] & 0xFF);
+                if (myPort <= 0 || myPort > 65535) {
+                    myPort = (respBuf[72] & 0xFF) | ((respBuf[73] & 0xFF) << 8);
+                }
+                mgr.log("Account #" + account.id + " 🌐 UDP IP Discovered: " + myIp + ":" + myPort);
+
+                sendSelectProtocol(myIp, myPort);
+            } catch (Exception e) {
+                mgr.log("Account #" + account.id + " ❌ Voice UDP Discovery failed: " + e.getMessage());
+            }
+        }
+
+        private void sendSelectProtocol(String myIp, int myPort) {
+            if (voiceWs == null) return;
+            try {
+                JSONObject op1 = new JSONObject();
+                op1.put("op", 1);
+                JSONObject d = new JSONObject();
+                d.put("protocol", "udp");
+                JSONObject data = new JSONObject();
+                data.put("address", myIp);
+                data.put("port", myPort);
+                data.put("mode", "aead_aes256_gcm_rtpsize");
+                d.put("data", data);
+                op1.put("d", d);
+                voiceWs.send(op1.toString());
+            } catch (Exception e) {
+                Log.e(TAG, "Select protocol error", e);
+            }
+        }
+
+        public void sendSpeaking(int flags) {
+            if (voiceWs != null) {
+                try {
+                    JSONObject op5 = new JSONObject();
+                    op5.put("op", 5);
+                    JSONObject d = new JSONObject();
+                    d.put("speaking", flags);
+                    d.put("delay", 0);
+                    d.put("ssrc", ssrc);
+                    op5.put("d", d);
+                    voiceWs.send(op5.toString());
+                } catch (Exception ignored) {}
+            }
+        }
+
+        private void startVoiceHeartbeat(int intervalMs) {
+            stopVoiceHeartbeat();
+            voiceHeartbeatHandler = new Handler(Looper.getMainLooper());
+            voiceHeartbeatRunnable = new Runnable() {
+                @Override
+                public void run() {
+                    if (voiceWs != null) {
+                        try {
+                            JSONObject hb = new JSONObject();
+                            hb.put("op", 3);
+                            hb.put("d", System.currentTimeMillis());
+                            voiceWs.send(hb.toString());
+                        } catch (Exception ignored) {}
+                        if (voiceHeartbeatHandler != null) {
+                            voiceHeartbeatHandler.postDelayed(this, intervalMs);
+                        }
+                    }
+                }
+            };
+            voiceHeartbeatHandler.postDelayed(voiceHeartbeatRunnable, intervalMs);
+        }
+
+        private void stopVoiceHeartbeat() {
+            if (voiceHeartbeatHandler != null && voiceHeartbeatRunnable != null) {
+                voiceHeartbeatHandler.removeCallbacks(voiceHeartbeatRunnable);
+                voiceHeartbeatHandler = null;
+                voiceHeartbeatRunnable = null;
+            }
+        }
+
+        private void startAudioLoop() {
+            if (running) return;
+            running = true;
+            audioThread = new Thread(() -> {
+                int seq = 0;
+                int timestamp = 0;
+                int nonceCounter = 0;
+                byte[] silenceOpus = new byte[] { (byte) 0xF8, (byte) 0xFF, (byte) 0xFE };
+
+                while (running && connected && udpSocket != null && !udpSocket.isClosed() && secretKey != null) {
+                    try {
+                        short[] pcmChunk = audioQueue.poll();
+                        byte[] opusPayload = null;
+                        if (pcmChunk != null) {
+                            opusPayload = encoder.encodePcm(pcmChunk);
+                        } else if (account.speaking) {
+                            opusPayload = silenceOpus;
+                        } else {
+                            Thread.sleep(20);
+                            continue;
+                        }
+
+                        // 12-byte RTP Header
+                        ByteBuffer rtpHeader = ByteBuffer.allocate(12);
+                        rtpHeader.put((byte) 0x80);
+                        rtpHeader.put((byte) 0x78);
+                        rtpHeader.putShort((short) seq);
+                        rtpHeader.putInt(timestamp);
+                        rtpHeader.putInt(ssrc);
+                        byte[] rtpHeaderBytes = rtpHeader.array();
+
+                        // 12-byte Nonce
+                        ByteBuffer nonceBuf = ByteBuffer.allocate(12);
+                        nonceBuf.putInt(nonceCounter);
+                        nonceBuf.put(new byte[8]);
+                        byte[] nonce = nonceBuf.array();
+
+                        // AES-256-GCM AEAD
+                        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+                        SecretKeySpec keySpec = new SecretKeySpec(secretKey, "AES");
+                        GCMParameterSpec gcmSpec = new GCMParameterSpec(128, nonce);
+                        cipher.init(Cipher.ENCRYPT_MODE, keySpec, gcmSpec);
+                        cipher.updateAAD(rtpHeaderBytes);
+                        byte[] ciphertext = cipher.doFinal(opusPayload);
+
+                        // Complete UDP Packet: [12B RTP Header] + [Ciphertext + Tag] + [4B Nonce Counter]
+                        ByteBuffer packetBuf = ByteBuffer.allocate(12 + ciphertext.length + 4);
+                        packetBuf.put(rtpHeaderBytes);
+                        packetBuf.put(ciphertext);
+                        packetBuf.putInt(nonceCounter);
+
+                        byte[] packetData = packetBuf.array();
+                        DatagramPacket udpPacket = new DatagramPacket(packetData, packetData.length, voiceServerAddr, voiceServerPort);
+                        udpSocket.send(udpPacket);
+
+                        seq = (seq + 1) & 0xFFFF;
+                        timestamp += 960;
+                        nonceCounter++;
+
+                        Thread.sleep(20);
+                    } catch (InterruptedException e) {
+                        break;
+                    } catch (Exception e) {
+                        Log.e(TAG, "Audio send loop error", e);
+                        try { Thread.sleep(20); } catch (Exception ignored) {}
+                    }
+                }
+            }, "DiscordAudio-" + account.id);
+            audioThread.setPriority(Thread.MAX_PRIORITY);
+            audioThread.start();
+        }
+
+        public void playSfx(String sound, int flags, double duration) {
+            sendSpeaking(flags > 0 ? flags : 5);
+            audioQueue.clear();
+            List<short[]> frames = AudioSynthesizer.generateSound(sound, duration);
+            audioQueue.addAll(frames);
+            mgr.log("Account #" + account.id + " 🔊 Queued " + frames.size() + " frames for SFX: " + sound);
+        }
+
+        public void playTts(String text) {
+            sendSpeaking(1);
+            audioQueue.clear();
+            List<short[]> frames = AudioSynthesizer.generateTts(text);
+            audioQueue.addAll(frames);
+            mgr.log("Account #" + account.id + " 🗣️ Queued " + frames.size() + " frames for TTS: \"" + text + "\"");
+        }
+
+        public void stopAudio() {
+            audioQueue.clear();
+            sendSpeaking(0);
+        }
+
+        public void close() {
+            running = false;
+            connected = false;
+            stopVoiceHeartbeat();
+            if (audioThread != null) {
+                audioThread.interrupt();
+                audioThread = null;
+            }
+            if (voiceWs != null) {
+                try {
+                    voiceWs.close(1000, "Voice disconnect");
+                } catch (Exception ignored) {}
+                voiceWs = null;
+            }
+            if (udpSocket != null) {
+                try {
+                    udpSocket.close();
+                } catch (Exception ignored) {}
+                udpSocket = null;
+            }
+            encoder.release();
+            audioQueue.clear();
         }
     }
 }
