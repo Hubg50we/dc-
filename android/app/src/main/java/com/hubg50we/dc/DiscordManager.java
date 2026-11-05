@@ -27,7 +27,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.1.4";
+    public static final String APP_VERSION = "1.1.5";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -39,6 +39,9 @@ public class DiscordManager {
     private String guildId = "";
     private String defaultChannelId = "";
     private String deviceMode = "mobile"; // "mobile" or "desktop"
+    private boolean autoRejoin = true;
+    private String customActivityName = "";
+    private int customActivityType = 0; // 0=Playing, 1=Streaming, 2=Listening, 3=Watching, 4=Custom
     private final long startTime;
 
     private final Map<Integer, Account> accounts = new ConcurrentHashMap<>();
@@ -62,6 +65,9 @@ public class DiscordManager {
         this.guildId = prefs.getString("guild_id", "");
         this.defaultChannelId = prefs.getString("channel_id", "");
         this.deviceMode = prefs.getString("device_mode", "mobile");
+        this.autoRejoin = prefs.getBoolean("auto_rejoin", true);
+        this.customActivityName = prefs.getString("activity_name", "");
+        this.customActivityType = prefs.getInt("activity_type", 0);
 
         this.httpClient = new OkHttpClient.Builder()
                 .readTimeout(0, TimeUnit.MILLISECONDS)
@@ -577,6 +583,83 @@ public class DiscordManager {
                 res.put("success", true);
                 res.put("status", "ok");
                 res.put("message", "Device appearance updated to " + this.deviceMode);
+            } else if ("set_auto_rejoin".equals(action)) {
+                this.autoRejoin = payload.optBoolean("auto_rejoin", true);
+                prefs.edit().putBoolean("auto_rejoin", this.autoRejoin).apply();
+                log("Auto-Rejoin Guard " + (autoRejoin ? "Enabled" : "Disabled"));
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("auto_rejoin", this.autoRejoin);
+                res.put("message", "Auto-Rejoin Guard " + (autoRejoin ? "Enabled" : "Disabled"));
+            } else if ("set_presence".equals(action) || "set_activity".equals(action)) {
+                this.customActivityName = payload.optString("activity_name", "").trim();
+                this.customActivityType = payload.optInt("activity_type", 0);
+                prefs.edit().putString("activity_name", this.customActivityName).putInt("activity_type", this.customActivityType).apply();
+                for (Account a : accounts.values()) {
+                    if (a.online) a.updatePresence(this.customActivityName, this.customActivityType);
+                }
+                log("Updated Rich Presence: " + (customActivityName.isEmpty() ? "Cleared" : customActivityName + " (Type " + customActivityType + ")"));
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("message", "Rich Presence updated across all accounts!");
+            } else if ("check_tokens".equals(action) || "validate_tokens".equals(action)) {
+                JSONArray results = new JSONArray();
+                int validCount = 0;
+                int invalidCount = 0;
+                for (Account a : accounts.values()) {
+                    JSONObject item = new JSONObject();
+                    item.put("id", a.id);
+                    item.put("name", a.name);
+                    String mask = a.token.length() > 14 ? a.token.substring(0, 8) + "..." + a.token.substring(a.token.length() - 4) : "******";
+                    item.put("token_masked", mask);
+                    try {
+                        Request req = new Request.Builder()
+                                .url("https://discord.com/api/v10/users/@me")
+                                .header("Authorization", a.token)
+                                .header("User-Agent", "Mozilla/5.0")
+                                .build();
+                        try (Response resp = httpClient.newCall(req).execute()) {
+                            if (resp.isSuccessful() && resp.body() != null) {
+                                JSONObject u = new JSONObject(resp.body().string());
+                                item.put("status", "valid");
+                                item.put("username", u.optString("username", a.name));
+                                validCount++;
+                            } else if (resp.code() == 401 && !a.token.startsWith("Bot ")) {
+                                Request botReq = new Request.Builder()
+                                        .url("https://discord.com/api/v10/users/@me")
+                                        .header("Authorization", "Bot " + a.token)
+                                        .header("User-Agent", "Mozilla/5.0")
+                                        .build();
+                                try (Response botResp = httpClient.newCall(botReq).execute()) {
+                                    if (botResp.isSuccessful() && botResp.body() != null) {
+                                        JSONObject u = new JSONObject(botResp.body().string());
+                                        item.put("status", "valid");
+                                        item.put("username", u.optString("username", a.name));
+                                        validCount++;
+                                    } else {
+                                        item.put("status", "invalid");
+                                        item.put("error", "HTTP " + botResp.code());
+                                        invalidCount++;
+                                    }
+                                }
+                            } else {
+                                item.put("status", "invalid");
+                                item.put("error", "HTTP " + resp.code());
+                                invalidCount++;
+                            }
+                        }
+                    } catch (Exception ex) {
+                        item.put("status", "error");
+                        item.put("error", ex.getMessage());
+                    }
+                    results.put(item);
+                }
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("results", results);
+                res.put("valid_count", validCount);
+                res.put("invalid_count", invalidCount);
+                res.put("message", "Checked " + accounts.size() + " tokens: " + validCount + " Valid, " + invalidCount + " Invalid");
             } else if ("detect_guild".equals(action) || "resolve_guild".equals(action)) {
                 String ch = payload.optString("channel_id", this.defaultChannelId).trim();
                 if (ch.isEmpty()) ch = this.defaultChannelId;
@@ -840,6 +923,9 @@ public class DiscordManager {
             json.put("default_guild", guildId);
             json.put("default_channel", defaultChannelId);
             json.put("device_type", deviceMode);
+            json.put("auto_rejoin", autoRejoin);
+            json.put("activity_name", customActivityName);
+            json.put("activity_type", customActivityType);
             json.put("presets", getPresetsArray());
             json.put("accounts", accArray);
         } catch (Exception e) {
@@ -994,6 +1080,9 @@ public class DiscordManager {
         public String currentGuildId = "";
         public boolean mute = false;
         public boolean deaf = false;
+        public String desiredGuildId = "";
+        public String desiredChannelId = "";
+        public boolean userLeftIntentional = false;
 
         private WebSocket ws;
         private Handler heartHandler;
@@ -1060,10 +1149,24 @@ public class DiscordManager {
                             } else if ("VOICE_STATE_UPDATE".equals(t)) {
                                 JSONObject d = msg.getJSONObject("d");
                                 if (userId.equals(d.optString("user_id"))) {
+                                    String oldCh = voiceChannel;
                                     voiceChannel = d.optString("channel_id", null);
                                     mute = d.optBoolean("self_mute", false);
                                     deaf = d.optBoolean("self_deaf", false);
+                                    if (d.has("guild_id") && !d.isNull("guild_id")) {
+                                        currentGuildId = d.optString("guild_id", currentGuildId);
+                                    }
                                     mgr.log("Account #" + id + " Voice updated: " + (voiceChannel != null ? voiceChannel : "Left voice"));
+
+                                    // Auto-Rejoin Guard: if unexpectedly disconnected/kicked and autoRejoin is enabled
+                                    if (voiceChannel == null && !userLeftIntentional && mgr.autoRejoin && !desiredChannelId.isEmpty()) {
+                                        mgr.log("Account #" + id + " 🛡️ Auto-Rejoin Guard triggered! Rejoining " + desiredChannelId + " in 4s...");
+                                        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                                            if (!removed && !userLeftIntentional && voiceChannel == null) {
+                                                setVoiceState(desiredGuildId, desiredChannelId, mute, deaf);
+                                            }
+                                        }, 4000);
+                                    }
                                 }
                             }
                         }
@@ -1117,11 +1220,54 @@ public class DiscordManager {
                     props.put("$device", "Android");
                 }
                 d.put("properties", props);
+
+                // Rich Presence / Custom Activity
+                JSONObject presence = new JSONObject();
+                presence.put("status", "online");
+                presence.put("afk", false);
+                presence.put("since", 0);
+                if (mgr.customActivityName != null && !mgr.customActivityName.trim().isEmpty()) {
+                    JSONArray acts = new JSONArray();
+                    JSONObject act = new JSONObject();
+                    act.put("name", mgr.customActivityName.trim());
+                    act.put("type", mgr.customActivityType);
+                    if (mgr.customActivityType == 4) { // Custom status
+                        act.put("state", mgr.customActivityName.trim());
+                    }
+                    acts.put(act);
+                    presence.put("activities", acts);
+                }
+                d.put("presence", presence);
+
                 identify.put("d", d);
 
                 ws.send(identify.toString());
             } catch (Exception e) {
                 Log.e(TAG, "Identify error", e);
+            }
+        }
+
+        public void updatePresence(String name, int type) {
+            if (ws != null) {
+                try {
+                    JSONObject op3 = new JSONObject();
+                    op3.put("op", 3);
+                    JSONObject d = new JSONObject();
+                    d.put("since", 0);
+                    d.put("status", "online");
+                    d.put("afk", false);
+                    JSONArray acts = new JSONArray();
+                    if (name != null && !name.trim().isEmpty()) {
+                        JSONObject act = new JSONObject();
+                        act.put("name", name.trim());
+                        act.put("type", type);
+                        if (type == 4) act.put("state", name.trim());
+                        acts.put(act);
+                    }
+                    d.put("activities", acts);
+                    op3.put("d", d);
+                    ws.send(op3.toString());
+                } catch (Exception ignored) {}
             }
         }
 
@@ -1167,6 +1313,7 @@ public class DiscordManager {
         }
 
         public void setVoiceState(String guildId, String channelId, boolean mute, boolean deaf) {
+            this.userLeftIntentional = false;
             if (channelId == null || channelId.isEmpty() || "null".equals(channelId)) {
                 leaveVoice(guildId);
                 return;
@@ -1174,6 +1321,8 @@ public class DiscordManager {
             if (guildId == null || guildId.isEmpty()) {
                 guildId = this.currentGuildId;
             }
+            this.desiredGuildId = guildId;
+            this.desiredChannelId = channelId;
             if (ws != null && guildId != null && !guildId.isEmpty()) {
                 try {
                     JSONObject op4 = new JSONObject();
@@ -1196,6 +1345,8 @@ public class DiscordManager {
         }
 
         public void leaveVoice(String guildId) {
+            this.userLeftIntentional = true;
+            this.desiredChannelId = "";
             if (guildId == null || guildId.isEmpty()) {
                 guildId = this.currentGuildId;
             }

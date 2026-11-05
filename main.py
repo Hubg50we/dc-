@@ -72,7 +72,10 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.1.4"
+APP_VERSION = "1.1.5"
+AUTO_REJOIN = True
+CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
+CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
 
 # Account registry: id -> dict
 ACCOUNTS = {}
@@ -199,6 +202,9 @@ def save_env_config():
         guild_found = False
         channel_found = False
         device_found = False
+        auto_rejoin_found = False
+        activity_name_found = False
+        activity_type_found = False
         new_lines = []
         for line in lines:
             if line.startswith("GUILD_ID="):
@@ -210,6 +216,15 @@ def save_env_config():
             elif line.startswith("DEVICE_TYPE="):
                 new_lines.append(f"DEVICE_TYPE={DEVICE_TYPE}\n")
                 device_found = True
+            elif line.startswith("AUTO_REJOIN="):
+                new_lines.append(f"AUTO_REJOIN={AUTO_REJOIN}\n")
+                auto_rejoin_found = True
+            elif line.startswith("ACTIVITY_NAME="):
+                new_lines.append(f"ACTIVITY_NAME={CUSTOM_ACTIVITY_NAME}\n")
+                activity_name_found = True
+            elif line.startswith("ACTIVITY_TYPE="):
+                new_lines.append(f"ACTIVITY_TYPE={CUSTOM_ACTIVITY_TYPE}\n")
+                activity_type_found = True
             else:
                 new_lines.append(line)
 
@@ -219,6 +234,12 @@ def save_env_config():
             new_lines.append(f"CHANNEL_ID={CHANNEL_ID}\n")
         if not device_found:
             new_lines.append(f"DEVICE_TYPE={DEVICE_TYPE}\n")
+        if not auto_rejoin_found:
+            new_lines.append(f"AUTO_REJOIN={AUTO_REJOIN}\n")
+        if not activity_name_found:
+            new_lines.append(f"ACTIVITY_NAME={CUSTOM_ACTIVITY_NAME}\n")
+        if not activity_type_found:
+            new_lines.append(f"ACTIVITY_TYPE={CUSTOM_ACTIVITY_TYPE}\n")
 
         with open(env_path, "w", encoding="utf-8") as f:
             f.writelines(new_lines)
@@ -347,8 +368,15 @@ async def apply(targets, channel="keep", mute="keep", deaf="keep", guild=None):
                 conn["voice_channel"] = new_channel
                 conn["mute"] = new_mute
                 conn["deaf"] = new_deaf
-                if new_channel is not None and act_guild:
-                    conn["guild_id"] = act_guild
+                if new_channel is not None:
+                    conn["user_left_intentional"] = False
+                    conn["desired_channel"] = new_channel
+                    if act_guild:
+                        conn["guild_id"] = act_guild
+                        conn["desired_guild"] = act_guild
+                else:
+                    conn["user_left_intentional"] = True
+                    conn["desired_channel"] = None
                 done += 1
                 await asyncio.sleep(0.1)
                 break
@@ -446,13 +474,20 @@ async def run_account(aid):
                 heartbeat_interval = hello["d"]["heartbeat_interval"]
                 hb = asyncio.create_task(heartbeat(ws, heartbeat_interval))
 
+                presence_obj = {"status": "online", "afk": False, "since": 0}
+                if CUSTOM_ACTIVITY_NAME:
+                    act = {"name": CUSTOM_ACTIVITY_NAME, "type": CUSTOM_ACTIVITY_TYPE}
+                    if CUSTOM_ACTIVITY_TYPE == 4:
+                        act["state"] = CUSTOM_ACTIVITY_NAME
+                    presence_obj["activities"] = [act]
+
                 await ws.send(
                     json.dumps({
                         "op": 2,
                         "d": {
                             "token": token,
                             "properties": GATEWAY_PROPERTIES,
-                            "presence": {"status": "online", "afk": False},
+                            "presence": presence_obj,
                         },
                     })
                 )
@@ -483,11 +518,23 @@ async def run_account(aid):
                         if t == "VOICE_STATE_UPDATE":
                             d = ev.get("d", {})
                             if d.get("user_id") == acc.get("user_id"):
+                                prev_ch = acc.get("voice_channel")
                                 acc["voice_channel"] = d.get("channel_id")
                                 acc["mute"] = d.get("self_mute", False)
                                 acc["deaf"] = d.get("self_deaf", False)
                                 if d.get("guild_id"):
                                     acc["guild_id"] = d.get("guild_id")
+                                
+                                # Auto-Rejoin Guard: if unexpectedly disconnected and auto_rejoin is true
+                                if not acc["voice_channel"] and not acc.get("user_left_intentional", False) and AUTO_REJOIN and acc.get("desired_channel"):
+                                    des_ch = acc["desired_channel"]
+                                    des_g = acc.get("desired_guild") or GUILD_ID
+                                    print(f"[Account {aid}] 🛡️ Auto-Rejoin Guard: Rejoining {des_ch} in 4s...")
+                                    async def _do_rejoin():
+                                        await asyncio.sleep(4)
+                                        if not acc.get("voice_channel") and not acc.get("user_left_intentional", False):
+                                            await apply([acc], channel=des_ch, guild=des_g)
+                                    asyncio.create_task(_do_rejoin())
                     except Exception:
                         pass
 
@@ -1041,6 +1088,9 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             "default_guild": GUILD_ID,
             "default_channel": CHANNEL_ID,
             "device_type": DEVICE_TYPE,
+            "auto_rejoin": AUTO_REJOIN,
+            "activity_name": CUSTOM_ACTIVITY_NAME,
+            "activity_type": CUSTOM_ACTIVITY_TYPE,
             "presets": get_channel_presets(),
             "accounts": [
                 {
@@ -1128,6 +1178,63 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 save_env_config()
                 return {"success": True, "message": f"Device appearance set to {DEVICE_TYPE.upper()} (saved to .env)"}
             return {"success": False, "error": "Invalid device_type (use 'mobile' or 'desktop')"}
+
+        if action == "set_auto_rejoin":
+            global AUTO_REJOIN
+            AUTO_REJOIN = bool(payload.get("auto_rejoin", True))
+            save_env_config()
+            return {"success": True, "message": f"Auto-Rejoin Guard {'Enabled' if AUTO_REJOIN else 'Disabled'}", "auto_rejoin": AUTO_REJOIN}
+
+        if action in ("set_presence", "set_activity"):
+            global CUSTOM_ACTIVITY_NAME, CUSTOM_ACTIVITY_TYPE
+            CUSTOM_ACTIVITY_NAME = str(payload.get("activity_name", "")).strip()
+            CUSTOM_ACTIVITY_TYPE = int(payload.get("activity_type", 0))
+            save_env_config()
+            if MAIN_LOOP and MAIN_LOOP.is_running():
+                async def _broadcast_presence():
+                    acts = []
+                    if CUSTOM_ACTIVITY_NAME:
+                        act = {"name": CUSTOM_ACTIVITY_NAME, "type": CUSTOM_ACTIVITY_TYPE}
+                        if CUSTOM_ACTIVITY_TYPE == 4:
+                            act["state"] = CUSTOM_ACTIVITY_NAME
+                        acts.append(act)
+                    op3 = {"op": 3, "d": {"since": 0, "activities": acts, "status": "online", "afk": False}}
+                    for a in online_accounts():
+                        ws = a.get("ws")
+                        if ws:
+                            try:
+                                await ws.send(json.dumps(op3))
+                            except Exception:
+                                pass
+                asyncio.run_coroutine_threadsafe(_broadcast_presence(), MAIN_LOOP)
+            return {"success": True, "message": f"Rich Presence updated to '{CUSTOM_ACTIVITY_NAME}' across all accounts!"}
+
+        if action in ("check_tokens", "validate_tokens"):
+            if MAIN_LOOP and MAIN_LOOP.is_running():
+                async def _do_check():
+                    results = []
+                    valid_count = 0
+                    invalid_count = 0
+                    for a in sorted(ACCOUNTS.values(), key=lambda x: x["id"]):
+                        tok = a.get("token", "")
+                        mask = (tok[:8] + "..." + tok[-4:]) if len(tok) > 14 else "******"
+                        u, err = await _validate_token(tok)
+                        if u:
+                            valid_count += 1
+                            results.append({"id": a["id"], "name": a.get("name", "Unknown"), "token_masked": mask, "status": "valid", "username": u.get("username")})
+                        else:
+                            invalid_count += 1
+                            st = "locked" if (err and ("403" in str(err) or "locked" in str(err).lower())) else "invalid"
+                            results.append({"id": a["id"], "name": a.get("name", "Unknown"), "token_masked": mask, "status": st, "error": err})
+                    return {"success": True, "results": results, "valid_count": valid_count, "invalid_count": invalid_count, "total": len(ACCOUNTS)}
+
+                fut = asyncio.run_coroutine_threadsafe(_do_check(), MAIN_LOOP)
+                try:
+                    res = fut.result(timeout=20)
+                    return res
+                except Exception as e:
+                    return {"success": False, "error": str(e)}
+            return {"success": False, "error": "Bot engine not running"}
 
         if action == "save_preset":
             name = payload.get("name", "").strip()

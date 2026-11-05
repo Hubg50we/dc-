@@ -975,10 +975,14 @@
         <div class="card-title">
           <span>🔑 Token Management</span>
           <div style="display:flex; gap:6px;">
+            <button class="btn btn-primary btn-sm" id="btn-validate-tokens" onclick="validateAllTokens()">🛡️ Test Tokens</button>
             <button class="btn btn-secondary btn-sm" onclick="copyAllTokens()">📋 Copy</button>
             <button class="btn btn-secondary btn-sm" onclick="exportTokensToFile()">💾 Backup</button>
           </div>
         </div>
+
+        <!-- Token Health Status Banner -->
+        <div id="token-health-summary" style="display:none; margin-bottom:12px; padding:10px 14px; border-radius:var(--radius-sm); font-size:0.82rem; background:rgba(88,101,242,0.12); border:1px solid rgba(88,101,242,0.3);"></div>
 
         <div class="field-group">
           <label class="field-label">Single Token Add</label>
@@ -1009,7 +1013,7 @@
       <div class="card" style="border-color: rgba(88, 101, 242, 0.45);">
         <div class="card-title" style="color:var(--accent);">
           <span>🔄 App Updates & Version</span>
-          <span class="badge badge-voice" id="settings-app-version">v1.1.1</span>
+          <span class="badge badge-voice" id="settings-app-version">v1.1.5</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Automatically check for new releases, bug fixes, and feature updates.
@@ -1049,6 +1053,57 @@
           <button class="btn btn-secondary" style="flex:1;" id="btn-dev-desktop" onclick="setDeviceType('desktop')">
             💻 Desktop (Dot)
           </button>
+        </div>
+      </div>
+
+      <!-- Rich Presence & Activity Card -->
+      <div class="card">
+        <div class="card-title">
+          <span>🎮 Rich Presence & Activity</span>
+          <span class="badge badge-voice" id="current-activity-badge">None</span>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
+          Display custom activity text and status on all connected bot accounts (e.g. Spotify, GTA VI, Lo-Fi Radio, Custom status).
+        </p>
+        <div class="field-group">
+          <label class="field-label">Activity Status Text</label>
+          <input type="text" id="rich-presence-name" placeholder="e.g. Spotify / GTA VI / Lo-Fi Beats">
+        </div>
+        <div class="field-group" style="margin-top:6px;">
+          <label class="field-label">Activity Type</label>
+          <select id="rich-presence-type" style="width:100%; padding:10px 12px; border-radius:var(--radius-sm); background:var(--bg-dark); border:1px solid var(--border-color); color:var(--text); font-size:0.86rem;">
+            <option value="0">Playing 🎮</option>
+            <option value="1">Streaming 🟣</option>
+            <option value="2">Listening 🎧</option>
+            <option value="3">Watching 📺</option>
+            <option value="4">Custom Status 💬</option>
+          </select>
+        </div>
+        <div class="input-row" style="margin-top:8px;">
+          <button class="btn btn-primary" style="flex:2;" onclick="saveRichPresence()">
+            ✨ Apply Activity to All Bots
+          </button>
+          <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="clearRichPresence()">
+            Clear
+          </button>
+        </div>
+      </div>
+
+      <!-- Auto-Rejoin Guard Card -->
+      <div class="card" style="border-color: rgba(35, 165, 90, 0.45);">
+        <div class="card-title" style="color:var(--success);">
+          <span>🛡️ Auto-Rejoin Guard</span>
+          <span class="badge badge-online" id="auto-rejoin-badge">Active</span>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
+          Automatically re-connect bots to their designated voice channel within 4 seconds if they get unexpectedly disconnected or kicked by a server moderator.
+        </p>
+        <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-dark); padding:10px 12px; border-radius:var(--radius-sm);">
+          <div>
+            <strong style="font-size:0.84rem; color:var(--text-heading);">Auto-Rejoin Protection</strong>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Rejoins automatically when disconnected unexpectedly</div>
+          </div>
+          <input type="checkbox" id="auto-rejoin-toggle" checked onchange="toggleAutoRejoin(this.checked)" style="width:20px; height:20px; accent-color:var(--success);">
         </div>
       </div>
 
@@ -1241,6 +1296,7 @@
     let accountsData = [];
     let savedPresets = [];
     let selectedAccountIds = new Set();
+    let tokenHealthMap = {};
     let isAmoled = false;
 
     function vibrate(ms = 15) {
@@ -1433,6 +1489,35 @@
       } else {
         document.getElementById('btn-dev-mobile').style.borderColor = 'var(--accent)';
         document.getElementById('btn-dev-desktop').style.borderColor = 'var(--border)';
+      }
+
+      // Auto-Rejoin Guard state sync
+      if (data.auto_rejoin !== undefined) {
+        const arToggle = document.getElementById('auto-rejoin-toggle');
+        if (arToggle && document.activeElement !== arToggle) {
+          arToggle.checked = !!data.auto_rejoin;
+        }
+        const arBadge = document.getElementById('auto-rejoin-badge');
+        if (arBadge) {
+          arBadge.innerText = data.auto_rejoin ? 'Active' : 'Disabled';
+          arBadge.className = data.auto_rejoin ? 'badge badge-online' : 'badge badge-mute';
+        }
+      }
+
+      // Rich Presence / Activity sync
+      if (data.activity_name !== undefined) {
+        const rpInput = document.getElementById('rich-presence-name');
+        if (rpInput && document.activeElement !== rpInput && !rpInput.value) {
+          rpInput.value = data.activity_name;
+        }
+        const rpType = document.getElementById('rich-presence-type');
+        if (rpType && document.activeElement !== rpType && data.activity_type !== undefined) {
+          rpType.value = String(data.activity_type);
+        }
+        const actBadge = document.getElementById('current-activity-badge');
+        if (actBadge) {
+          actBadge.innerText = data.activity_name ? data.activity_name : 'None';
+        }
       }
 
       if (!document.getElementById('target-channel-id').value && data.default_channel) {
@@ -1671,6 +1756,9 @@
 
             <div class="acc-pills">
               ${inVoice ? `<span class="badge badge-voice">🔊 ${escapeHtml(acc.voice_channel)}${acc.guild_id ? ' <span style="font-size:0.72rem; opacity:0.8;">(Svr: ' + escapeHtml(acc.guild_id) + ')</span>' : ''}</span>` : `<span class="badge" style="background:#202225; color:#888;">Idle</span>`}
+              ${(tokenHealthMap[acc.id] && tokenHealthMap[acc.id].status === 'valid') ? `<span class="badge badge-online">🛡️ Valid</span>` : ''}
+              ${(tokenHealthMap[acc.id] && tokenHealthMap[acc.id].status === 'locked') ? `<span class="badge badge-mute">🔒 Locked</span>` : ''}
+              ${(tokenHealthMap[acc.id] && tokenHealthMap[acc.id].status === 'invalid') ? `<span class="badge" style="background:rgba(242,63,67,0.25); color:var(--danger);">⚠️ Invalid</span>` : ''}
               ${acc.mute ? `<span class="badge badge-mute">Muted</span>` : ''}
               ${acc.deaf ? `<span class="badge badge-deaf">Deafened</span>` : ''}
               ${acc.error ? `<span class="badge" style="background:rgba(242,63,67,0.2); color:var(--danger);">${escapeHtml(acc.error)}</span>` : ''}
@@ -2209,6 +2297,95 @@
         showToast(json.message);
       } catch (e) {
         showToast("Stopped.");
+      }
+    }
+
+    async function toggleAutoRejoin(enabled) {
+      vibrate(15);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set_auto_rejoin', auto_rejoin: enabled })
+        });
+        const json = await res.json();
+        showToast(json.message || `Auto-Rejoin ${enabled ? 'Enabled' : 'Disabled'}`);
+        const badge = document.getElementById('auto-rejoin-badge');
+        if (badge) {
+          badge.innerText = enabled ? 'Active' : 'Disabled';
+          badge.className = enabled ? 'badge badge-online' : 'badge badge-mute';
+        }
+      } catch (e) {
+        showToast("Error updating Auto-Rejoin: " + e.message, true);
+      }
+    }
+
+    async function saveRichPresence() {
+      vibrate(15);
+      const name = document.getElementById('rich-presence-name').value.trim();
+      const type = parseInt(document.getElementById('rich-presence-type').value) || 0;
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set_presence', activity_name: name, activity_type: type })
+        });
+        const json = await res.json();
+        showToast(json.message || "Rich Presence updated!");
+        const badge = document.getElementById('current-activity-badge');
+        if (badge) badge.innerText = name ? name : 'None';
+      } catch (e) {
+        showToast("Error setting presence: " + e.message, true);
+      }
+    }
+
+    function clearRichPresence() {
+      document.getElementById('rich-presence-name').value = '';
+      saveRichPresence();
+    }
+
+    async function validateAllTokens() {
+      vibrate(25);
+      const btn = document.getElementById('btn-validate-tokens');
+      const banner = document.getElementById('token-health-summary');
+      if (btn) btn.innerText = "⏳ Testing...";
+      if (banner) {
+        banner.style.display = 'block';
+        banner.innerHTML = `<span style="color:var(--accent);">🔍 Testing all account tokens against Discord API...</span>`;
+      }
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'check_tokens' })
+        });
+        const json = await res.json();
+        if (json.results) {
+          json.results.forEach(r => {
+            tokenHealthMap[r.id] = r;
+          });
+          const v = json.valid_count || 0;
+          const inv = json.invalid_count || 0;
+          const tot = json.total || accountsData.length;
+          if (banner) {
+            banner.innerHTML = `
+              <div style="font-weight:700; color:var(--text-heading); margin-bottom:4px;">🛡️ Token Health Validation Complete</div>
+              <div style="display:flex; gap:12px; font-size:0.8rem;">
+                <span style="color:var(--success);">✅ ${v} Valid</span>
+                <span style="color:var(--danger);">❌ ${inv} Invalid</span>
+                <span style="color:var(--text-muted);">📊 Total: ${tot}</span>
+              </div>
+            `;
+          }
+          renderAccountsList(accountsData);
+          showToast(`Validation: ${v} valid, ${inv} invalid`);
+        } else {
+          showToast(json.error || "Token check failed", true);
+        }
+      } catch (e) {
+        showToast("Error testing tokens: " + e.message, true);
+      } finally {
+        if (btn) btn.innerText = "🛡️ Test Tokens";
       }
     }
 
