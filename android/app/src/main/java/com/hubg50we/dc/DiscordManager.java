@@ -27,7 +27,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.2.2";
+    public static final String APP_VERSION = "1.2.3";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -57,6 +57,7 @@ public class DiscordManager {
     private Runnable sfxResetRunnable;
     private boolean realVideoActive = false;
     private String realVideoMode = "";
+    private String webShareUrl = "";
     private boolean videoSim = false;
     private boolean screenShareSim = false;
     private String musicTitle = "";
@@ -1222,6 +1223,51 @@ public class DiscordManager {
                 res.put("status", "ok");
                 res.put("active", false);
                 res.put("message", "Real video stream stopped");
+            } else if ("stream_web".equals(action)) {
+                String url = payload.optString("url", "https://wikipedia.org").trim();
+                String title = payload.optString("title", "Web Stream (" + url + ")").trim();
+                this.webShareUrl = url;
+                this.realVideoActive = true;
+                this.realVideoMode = "web";
+                this.videoSim = true;
+                this.screenShareSim = true;
+                this.speakingSim = true;
+                for (Account a : accounts.values()) {
+                    a.video = true;
+                    a.screenShare = true;
+                    a.speaking = true;
+                    if (a.online && a.voiceChannel != null) {
+                        a.setVoiceState(a.currentGuildId, a.voiceChannel, a.mute, a.deaf, true);
+                        a.startScreenShare(a.currentGuildId);
+                    }
+                }
+                log("🌐 Real Web Stream activated: [url=" + url + "] on Discord Voice");
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("active", true);
+                res.put("mode", "web");
+                res.put("url", url);
+                res.put("title", title);
+                res.put("message", "Streaming web page: " + url);
+            } else if ("stop_web".equals(action)) {
+                this.webShareUrl = "";
+                this.realVideoActive = false;
+                this.realVideoMode = "";
+                this.videoSim = false;
+                this.screenShareSim = false;
+                for (Account a : accounts.values()) {
+                    a.video = false;
+                    a.screenShare = false;
+                    if (a.online && a.voiceChannel != null) {
+                        a.setVoiceState(a.currentGuildId, a.voiceChannel, a.mute, a.deaf, false);
+                        a.stopScreenShare(a.currentGuildId);
+                    }
+                }
+                log("🌐 Real Web Stream stopped");
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("active", false);
+                res.put("message", "Web streaming stopped");
             } else if ("clear_logs".equals(action)) {
                 logs.clear();
                 log("Live console cleared.");
@@ -1492,6 +1538,7 @@ public class DiscordManager {
             json.put("human_chatter", humanChatter);
             json.put("real_video_active", realVideoActive);
             json.put("real_video_mode", realVideoMode);
+            json.put("web_share_url", webShareUrl);
             json.put("video_sim", videoSim);
             json.put("screenshare_sim", screenShareSim);
             json.put("music_title", musicTitle);

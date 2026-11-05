@@ -1021,7 +1021,7 @@
       <div class="card" style="border-color: rgba(88, 101, 242, 0.45);">
         <div class="card-title" style="color:var(--accent);">
           <span>🔄 App Updates & Version</span>
-          <span class="badge badge-voice" id="settings-app-version">v1.2.2</span>
+          <span class="badge badge-voice" id="settings-app-version">v1.2.3</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Automatically check for new releases, bug fixes, and feature updates.
@@ -1462,6 +1462,83 @@
               <input type="checkbox" id="human-chatter-toggle" onchange="toggleHumanChatter(this.checked)" style="width:16px; height:16px; accent-color:#10b981;">
               <span>👥 Human Chatter Simulator (Random conversational speaking turns)</span>
             </label>
+          </div>
+        </div>
+
+        <!-- 8. Real Web Sharing & Browser Streamer -->
+        <div style="background:var(--bg-dark); padding:10px 12px; border-radius:var(--radius-sm); margin-top:10px; border:1px solid rgba(16, 185, 129, 0.4);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:1.1rem; color:#10b981;">🌐</span>
+              <div>
+                <strong style="font-size:0.84rem; color:var(--text-heading);">Real Web Sharing & Browser Streamer</strong>
+                <div style="font-size:0.72rem; color:var(--text-muted);">Stream live interactive web pages & Wi-Fi co-browsing to Discord</div>
+              </div>
+            </div>
+            <span class="badge badge-voice" id="web-share-badge">Idle</span>
+          </div>
+
+          <!-- Web URL Input Bar with Quick Bookmarks -->
+          <div class="field-group" style="margin-bottom:6px;">
+            <div class="input-row">
+              <input type="text" id="web-share-url-input" placeholder="Enter webpage URL (e.g. https://en.wikipedia.org)..." value="https://en.wikipedia.org" style="flex:1;">
+              <button class="btn btn-secondary btn-sm" style="color:#10b981; font-weight:600;" onclick="loadWebPage()">🌐 Go</button>
+            </div>
+          </div>
+
+          <!-- Quick Bookmarks -->
+          <div style="display:flex; gap:4px; flex-wrap:wrap; margin-bottom:8px;">
+            <div class="preset-chip" style="font-size:0.72rem; padding:3px 8px;" onclick="loadWebBookmark('https://en.wikipedia.org')">
+              📖 Wikipedia
+            </div>
+            <div class="preset-chip" style="font-size:0.72rem; padding:3px 8px;" onclick="loadWebBookmark('https://news.ycombinator.com')">
+              ⚡ Hacker News
+            </div>
+            <div class="preset-chip" style="font-size:0.72rem; padding:3px 8px;" onclick="loadWebBookmark('https://fast.com')">
+              🚀 Fast.com
+            </div>
+            <div class="preset-chip" style="font-size:0.72rem; padding:3px 8px;" onclick="loadWebBookmark('https://discordstatus.com')">
+              🟢 Discord Status
+            </div>
+            <div class="preset-chip" style="font-size:0.72rem; padding:3px 8px;" onclick="loadWebBookmark('https://www.openstreetmap.org')">
+              🗺️ OpenStreetMap
+            </div>
+          </div>
+
+          <!-- Web Viewport / Live Co-Browse Box -->
+          <div style="position:relative; width:100%; height:220px; background:#0b0c10; border-radius:var(--radius-sm); overflow:hidden; border:1px solid rgba(16,185,129,0.3); margin-bottom:8px;">
+            <iframe id="web-share-iframe" src="https://en.wikipedia.org" style="width:100%; height:100%; border:none; background:#fff;" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
+            <div id="web-share-overlay" style="position:absolute; top:6px; right:6px; display:flex; gap:4px;">
+              <button class="btn btn-secondary btn-sm" style="font-size:0.68rem; padding:2px 6px; background:rgba(0,0,0,0.75); color:#fff; border:1px solid rgba(255,255,255,0.2);" onclick="reloadWebIframe()">🔄 Reload</button>
+              <button class="btn btn-secondary btn-sm" style="font-size:0.68rem; padding:2px 6px; background:rgba(0,0,0,0.75); color:#fff; border:1px solid rgba(255,255,255,0.2);" onclick="openWebExternal()">↗️ Open</button>
+            </div>
+          </div>
+
+          <!-- Stream Controls -->
+          <div style="display:flex; gap:8px; margin-bottom:10px;">
+            <button class="btn btn-sm" style="flex:1; background:#10b981; color:#fff; font-weight:600;" onclick="streamWebPage()">📡 Stream Web to Voice</button>
+            <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="stopWebStream()">⏹️ Stop Stream</button>
+          </div>
+
+          <!-- Wi-Fi Network Sharing & QR Code -->
+          <div style="background:rgba(0,0,0,0.25); border:1px dashed rgba(16,185,129,0.4); border-radius:var(--radius-sm); padding:8px 10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <span style="font-size:0.75rem; color:var(--text-heading); font-weight:600;">📱 Local Wi-Fi Co-Browse & Remote</span>
+              <button class="btn btn-secondary btn-sm" style="font-size:0.68rem; padding:2px 6px;" onclick="toggleQrCode()">📲 Toggle QR</button>
+            </div>
+            <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:6px;">
+              Share this control panel & stream link to other phones or PCs on the same Wi-Fi.
+            </div>
+            <div style="display:flex; gap:6px; align-items:center; margin-bottom:6px;">
+              <input type="text" id="wifi-share-url" readonly style="flex:1; font-size:0.73rem; padding:5px 8px; background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-sm); color:var(--text);">
+              <button class="btn btn-secondary btn-sm" style="font-size:0.72rem; padding:4px 8px;" onclick="copyWifiShareUrl()">📋 Copy</button>
+              <button class="btn btn-primary btn-sm" style="font-size:0.72rem; padding:4px 8px; background:var(--accent);" onclick="nativeShareWifiUrl()">🔗 Share</button>
+            </div>
+            <!-- Canvas QR Code Container -->
+            <div id="wifi-qr-container" style="display:none; text-align:center; padding:10px; background:#fff; border-radius:var(--radius-sm); margin-top:6px;">
+              <img id="wifi-qr-image" width="160" height="160" style="margin:0 auto; display:block;" alt="Wi-Fi QR Code">
+              <div style="font-size:0.7rem; color:#333; margin-top:4px; font-weight:600;">Scan with Phone Camera to Open Control Panel</div>
+            </div>
           </div>
         </div>
       </div>
@@ -2048,6 +2125,18 @@
         const hcToggle = document.getElementById('human-chatter-toggle');
         if (hcToggle && document.activeElement !== hcToggle) {
           hcToggle.checked = Boolean(data.human_chatter);
+        }
+      }
+
+      if (data.web_share_url !== undefined) {
+        const wsBadge = document.getElementById('web-share-badge');
+        if (wsBadge) {
+          wsBadge.innerText = data.web_share_url ? 'STREAMING' : 'Idle';
+          wsBadge.className = data.web_share_url ? 'badge badge-online' : 'badge badge-voice';
+        }
+        const wsInput = document.getElementById('web-share-url-input');
+        if (wsInput && document.activeElement !== wsInput && data.web_share_url && !wsInput.value) {
+          wsInput.value = data.web_share_url;
         }
       }
 
@@ -3455,6 +3544,152 @@
       }
     }
 
+    // --- Real Web Sharing & Browser Streamer ---
+    function loadWebPage() {
+      vibrate(15);
+      const input = document.getElementById('web-share-url-input');
+      let url = input ? input.value.trim() : '';
+      if (!url) return showToast("Please enter a valid website URL", true);
+      if (!/^https?:\/\//i.test(url)) {
+        url = 'https://' + url;
+        if (input) input.value = url;
+      }
+      const iframe = document.getElementById('web-share-iframe');
+      if (iframe) iframe.src = url;
+      showToast(`Loading: ${url}`);
+    }
+
+    function loadWebBookmark(url) {
+      vibrate(15);
+      const input = document.getElementById('web-share-url-input');
+      if (input) input.value = url;
+      const iframe = document.getElementById('web-share-iframe');
+      if (iframe) iframe.src = url;
+      showToast(`Loaded: ${url}`);
+    }
+
+    function reloadWebIframe() {
+      vibrate(15);
+      const iframe = document.getElementById('web-share-iframe');
+      if (iframe) iframe.src = iframe.src;
+      showToast("Webpage reloaded");
+    }
+
+    function openWebExternal() {
+      vibrate(15);
+      const input = document.getElementById('web-share-url-input');
+      const url = input ? input.value.trim() : '';
+      if (url) window.open(url, '_blank');
+    }
+
+    async function streamWebPage() {
+      vibrate(25);
+      const input = document.getElementById('web-share-url-input');
+      let url = input ? input.value.trim() : '';
+      if (!url) return showToast("Please specify a webpage URL to stream", true);
+      if (!/^https?:\/\//i.test(url)) {
+        url = 'https://' + url;
+        if (input) input.value = url;
+      }
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'stream_web', url: url, percent: currentPercent })
+        });
+        const json = await res.json();
+        if (json.success) {
+          showToast(json.message || `Streaming ${url} to Discord`);
+          const badge = document.getElementById('web-share-badge');
+          if (badge) {
+            badge.innerText = 'STREAMING';
+            badge.className = 'badge badge-online';
+          }
+          fetchStatus();
+        } else {
+          showToast(json.error || "Failed to start web stream", true);
+        }
+      } catch (e) {
+        showToast("Error starting web stream: " + e.message, true);
+      }
+    }
+
+    async function stopWebStream() {
+      vibrate(20);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'stop_web', percent: currentPercent })
+        });
+        const json = await res.json();
+        showToast(json.message || "Web stream stopped");
+        const badge = document.getElementById('web-share-badge');
+        if (badge) {
+          badge.innerText = 'Idle';
+          badge.className = 'badge badge-voice';
+        }
+        fetchStatus();
+      } catch (e) {
+        showToast("Error stopping web stream: " + e.message, true);
+      }
+    }
+
+    function initWifiShare() {
+      const shareUrlInput = document.getElementById('wifi-share-url');
+      const currentUrl = window.location.origin || (window.location.protocol + '//' + window.location.host);
+      if (shareUrlInput) {
+        shareUrlInput.value = currentUrl;
+      }
+      const qrImg = document.getElementById('wifi-qr-image');
+      if (qrImg) {
+        qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=' + encodeURIComponent(currentUrl);
+      }
+    }
+
+    function toggleQrCode() {
+      vibrate(15);
+      const container = document.getElementById('wifi-qr-container');
+      if (!container) return;
+      const isHidden = container.style.display === 'none';
+      container.style.display = isHidden ? 'block' : 'none';
+      if (isHidden) initWifiShare();
+    }
+
+    function copyWifiShareUrl() {
+      vibrate(15);
+      const input = document.getElementById('wifi-share-url');
+      const url = input ? input.value : window.location.origin;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(() => {
+          showToast("📋 Local Wi-Fi URL copied!");
+        }).catch(() => {
+          showToast("URL: " + url);
+        });
+      } else {
+        if (input) {
+          input.select();
+          document.execCommand('copy');
+          showToast("📋 Copied URL!");
+        }
+      }
+    }
+
+    function nativeShareWifiUrl() {
+      vibrate(20);
+      const input = document.getElementById('wifi-share-url');
+      const url = input ? input.value : window.location.origin;
+      if (navigator.share) {
+        navigator.share({
+          title: 'Discord Bot Voice & Media Remote',
+          text: 'Control and stream Discord voice & media on the local network:',
+          url: url
+        }).catch(e => console.log('Share dismissed', e));
+      } else {
+        copyWifiShareUrl();
+      }
+    }
+
     // --- Web Audio SFX Synthesizer, Spectrum & Studio ---
     let webAudioCtx = null;
     let audioAnalyser = null;
@@ -3969,7 +4204,7 @@
       return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    let currentAppVersion = '1.2.2';
+    let currentAppVersion = '1.2.3';
     let latestUpdateData = null;
 
     function toggleAutoCheckUpdate(enabled) {
@@ -4149,6 +4384,7 @@
     fetchStatus();
     fetchLogs();
     checkAndroidFeatures();
+    initWifiShare();
 
     // Auto-check for updates on launch
     const autoCheckPref = localStorage.getItem('dc_auto_check_update');

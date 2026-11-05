@@ -267,7 +267,15 @@ def run_tests():
     except Exception as e:
         check("POST action: stream_real_video / stop_real_video", False, str(e))
 
-    # 30. Test Account Remove
+    # 30. Test Real Web Sharing & Browser Streamer
+    try:
+        st_ws1, data_ws1 = http_post("/api/action", {"action": "stream_web", "url": "https://en.wikipedia.org"})
+        st_ws2, data_ws2 = http_post("/api/action", {"action": "stop_web"})
+        check("POST action: stream_web / stop_web (Real Web Sharing & Live Co-Browsing)", data_ws1.get("success") and data_ws2.get("success") and data_ws1.get("url") == "https://en.wikipedia.org" and main.WEB_SHARE_URL == "")
+    except Exception as e:
+        check("POST action: stream_web / stop_web", False, str(e))
+
+    # 31. Test Account Remove
     try:
         st, data_rem = http_post("/api/action", {"action": "token_remove", "id": 1})
         check("POST action: token_remove", data_rem.get("success") is True)
