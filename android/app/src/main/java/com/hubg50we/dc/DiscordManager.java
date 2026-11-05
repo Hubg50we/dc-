@@ -27,7 +27,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.1.9";
+    public static final String APP_VERSION = "1.2.0";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -49,6 +49,9 @@ public class DiscordManager {
     private int rotatorIndex = 0;
     private Runnable rotatorRunnable;
     private boolean speakingSim = false;
+    private int voiceFlags = 5; // 1=Voice, 2=Soundshare/Music, 4=Priority, 5=Dual Voice+Soundshare
+    private String activeSfx = "";
+    private Runnable sfxResetRunnable;
     private boolean videoSim = false;
     private boolean screenShareSim = false;
     private String musicTitle = "";
@@ -87,6 +90,7 @@ public class DiscordManager {
         this.rotatorEnabled = prefs.getBoolean("rotator_enabled", false);
         this.rotatorIntervalSec = prefs.getInt("rotator_interval", 300);
         this.speakingSim = prefs.getBoolean("speaking_sim", false);
+        this.voiceFlags = prefs.getInt("voice_flags", 5);
         this.videoSim = prefs.getBoolean("video_sim", false);
         this.screenShareSim = prefs.getBoolean("screenshare_sim", false);
         this.musicTitle = prefs.getString("music_title", "");
@@ -1022,6 +1026,66 @@ public class DiscordManager {
                 res.put("status", "ok");
                 res.put("speaking_sim", this.speakingSim);
                 res.put("message", "Speaking Indicator " + (this.speakingSim ? "Active" : "Off"));
+            } else if ("set_voice_flags".equals(action)) {
+                this.voiceFlags = payload.optInt("flags", 5);
+                prefs.edit().putInt("voice_flags", this.voiceFlags).apply();
+                for (Account a : accounts.values()) {
+                    a.voiceFlags = this.voiceFlags;
+                }
+                log("Voice Flags updated to " + this.voiceFlags + " (1=Voice, 2=Soundshare, 4=Priority, 5=Dual)");
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("voice_flags", this.voiceFlags);
+                res.put("message", "Voice flags updated to " + this.voiceFlags);
+            } else if ("play_sfx".equals(action)) {
+                String sound = payload.optString("sound", "scream").toLowerCase();
+                int flags = payload.optInt("flags", this.voiceFlags);
+                double duration = payload.optDouble("duration", 4.0);
+                this.activeSfx = sound;
+                this.speakingSim = true;
+                for (Account a : accounts.values()) {
+                    a.speaking = true;
+                    a.activeSfx = sound;
+                    a.voiceFlags = flags;
+                }
+                if (sfxResetRunnable != null) {
+                    mainHandler.removeCallbacks(sfxResetRunnable);
+                }
+                if (duration > 0) {
+                    sfxResetRunnable = () -> {
+                        this.activeSfx = "";
+                        this.speakingSim = false;
+                        for (Account a : accounts.values()) {
+                            a.speaking = false;
+                            a.activeSfx = "";
+                        }
+                        log("🔊 Soundboard SFX [" + sound.toUpperCase() + "] completed");
+                    };
+                    mainHandler.postDelayed(sfxResetRunnable, (long) (duration * 1000));
+                }
+                log("🔊 Soundboard SFX: [" + sound.toUpperCase() + "] triggered on all voice bots! (Flags: " + flags + ")");
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("active_sfx", this.activeSfx);
+                res.put("voice_flags", flags);
+                res.put("duration", duration);
+                res.put("message", "SFX " + sound.toUpperCase() + " playing on voice");
+            } else if ("stop_sfx".equals(action)) {
+                if (sfxResetRunnable != null) {
+                    mainHandler.removeCallbacks(sfxResetRunnable);
+                    sfxResetRunnable = null;
+                }
+                this.activeSfx = "";
+                this.speakingSim = false;
+                for (Account a : accounts.values()) {
+                    a.speaking = false;
+                    a.activeSfx = "";
+                }
+                log("🔊 Soundboard SFX stopped");
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("active_sfx", "");
+                res.put("message", "SFX stopped");
             } else if ("clear_logs".equals(action)) {
                 logs.clear();
                 log("Live console cleared.");
@@ -1260,6 +1324,8 @@ public class DiscordManager {
                 o.put("deaf", a.deaf);
                 o.put("ping", a.pingMs);
                 o.put("speaking", a.speaking);
+                o.put("voice_flags", a.voiceFlags);
+                o.put("active_sfx", a.activeSfx);
                 o.put("video", a.video);
                 o.put("streaming", a.streaming);
                 o.put("screenshare", a.screenShare);
@@ -1284,6 +1350,8 @@ public class DiscordManager {
             json.put("rotator_enabled", rotatorEnabled);
             json.put("rotator_interval", rotatorIntervalSec);
             json.put("speaking_sim", speakingSim);
+            json.put("voice_flags", voiceFlags);
+            json.put("active_sfx", activeSfx);
             json.put("video_sim", videoSim);
             json.put("screenshare_sim", screenShareSim);
             json.put("music_title", musicTitle);
@@ -1452,6 +1520,8 @@ public class DiscordManager {
         public int pingMs = 0;
         public long lastHeartbeatSent = 0;
         public boolean speaking = false;
+        public int voiceFlags = 5;
+        public String activeSfx = "";
         public boolean video = false;
         public boolean streaming = false;
         public boolean screenShare = false;

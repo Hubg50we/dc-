@@ -221,7 +221,16 @@ def run_tests():
     except Exception as e:
         check("POST action: screenshare / unscreenshare", False, str(e))
 
-    # 24. Test Account Remove
+    # 24. Test Voice Channel Soundboard / Scream / Audio FX & Voice Flags
+    try:
+        st_vf, data_vf = http_post("/api/action", {"action": "set_voice_flags", "flags": 5})
+        st_sfx, data_sfx = http_post("/api/action", {"action": "play_sfx", "sound": "scream", "flags": 5, "duration": 4.0})
+        st_stp, data_stp = http_post("/api/action", {"action": "stop_sfx"})
+        check("POST action: play_sfx / stop_sfx / set_voice_flags (Voice Soundboard & Scream FX)", data_vf.get("success") and data_sfx.get("success") and data_stp.get("success") and data_sfx.get("active_sfx") == "scream" and main.ACTIVE_SFX == "")
+    except Exception as e:
+        check("POST action: play_sfx / stop_sfx / set_voice_flags", False, str(e))
+
+    # 25. Test Account Remove
     try:
         st, data_rem = http_post("/api/action", {"action": "token_remove", "id": 1})
         check("POST action: token_remove", data_rem.get("success") is True)

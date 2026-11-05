@@ -72,7 +72,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.1.9"
+APP_VERSION = "1.2.0"
 AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
@@ -83,6 +83,8 @@ ROTATOR_CHANNELS = []
 ROTATOR_INDEX = 0
 ROTATOR_TASK = None
 SPEAKING_SIM = False
+VOICE_FLAGS = 5
+ACTIVE_SFX = ""
 VIDEO_SIM = False
 SCREEN_SHARE_SIM = False
 MUSIC_TITLE = ""
@@ -1151,6 +1153,8 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             "rotator_enabled": ROTATOR_ENABLED,
             "rotator_interval": ROTATOR_INTERVAL,
             "speaking_sim": SPEAKING_SIM,
+            "voice_flags": VOICE_FLAGS,
+            "active_sfx": ACTIVE_SFX,
             "video_sim": VIDEO_SIM,
             "screenshare_sim": SCREEN_SHARE_SIM,
             "music_title": MUSIC_TITLE,
@@ -1234,7 +1238,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(404, "Not Found")
 
     def execute_action(self, payload):
-        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE
+        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VOICE_FLAGS, ACTIVE_SFX, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE
         action = payload.get("action", "")
 
         if action == "clear_logs":
@@ -1332,6 +1336,32 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             for a in ACCOUNTS.values():
                 a["speaking"] = SPEAKING_SIM
             return {"success": True, "speaking_sim": SPEAKING_SIM, "message": f"Speaking indicator {'Active' if SPEAKING_SIM else 'Off'}"}
+
+        if action == "set_voice_flags":
+            VOICE_FLAGS = int(payload.get("flags", 5))
+            return {"success": True, "voice_flags": VOICE_FLAGS, "message": f"Voice flags updated to {VOICE_FLAGS}"}
+
+        if action == "play_sfx":
+            sound = str(payload.get("sound", "scream")).lower()
+            flags = int(payload.get("flags", VOICE_FLAGS))
+            duration = float(payload.get("duration", 4.0))
+            ACTIVE_SFX = sound
+            SPEAKING_SIM = True
+            for a in ACCOUNTS.values():
+                a["speaking"] = True
+                a["voice_flags"] = flags
+                a["active_sfx"] = sound
+            log(f"🔊 Soundboard SFX activated: [{sound.upper()}] with flags={flags} duration={duration}s")
+            return {"success": True, "active_sfx": ACTIVE_SFX, "voice_flags": flags, "duration": duration, "message": f"Playing {sound.upper()} on voice"}
+
+        if action == "stop_sfx":
+            ACTIVE_SFX = ""
+            SPEAKING_SIM = False
+            for a in ACCOUNTS.values():
+                a["speaking"] = False
+                a["active_sfx"] = ""
+            log("🔊 Soundboard SFX stopped")
+            return {"success": True, "active_sfx": "", "message": "SFX stopped"}
 
         if action == "set_rotator":
             global ROTATOR_ENABLED, ROTATOR_INTERVAL, ROTATOR_CHANNELS, ROTATOR_TASK

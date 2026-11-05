@@ -1021,7 +1021,7 @@
       <div class="card" style="border-color: rgba(88, 101, 242, 0.45);">
         <div class="card-title" style="color:var(--accent);">
           <span>🔄 App Updates & Version</span>
-          <span class="badge badge-voice" id="settings-app-version">v1.1.9</span>
+          <span class="badge badge-voice" id="settings-app-version">v1.2.0</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Automatically check for new releases, bug fixes, and feature updates.
@@ -1286,6 +1286,60 @@
           <div style="display:flex; gap:8px;">
             <button class="btn btn-primary btn-sm" style="flex:1;" onclick="toggleScreenShare(true)">🖥️ Start Screen Share</button>
             <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="toggleScreenShare(false)">⏹️ Stop Screen Share</button>
+          </div>
+        </div>
+
+        <!-- 6. Voice Channel Soundboard, Screamer & Audio FX -->
+        <div style="background:var(--bg-dark); padding:10px 12px; border-radius:var(--radius-sm); margin-top:10px; border:1px solid rgba(244, 63, 94, 0.35);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:1.1rem; color:#f43f5e;">🔊</span>
+              <div>
+                <strong style="font-size:0.84rem; color:var(--text-heading);">Voice Channel Soundboard & Audio FX Studio</strong>
+                <div style="font-size:0.72rem; color:var(--text-muted);">Scream / Jump Scare, DJ Airhorn, Siren, 808 Bass, & Music with Discord Speaking rings</div>
+              </div>
+            </div>
+            <span class="badge badge-voice" id="sfx-status-badge">Idle</span>
+          </div>
+
+          <!-- Soundboard FX Trigger Buttons -->
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap:6px; margin-bottom:8px;">
+            <button class="btn btn-secondary btn-sm" style="display:flex; align-items:center; justify-content:center; gap:4px; font-weight:600; border-color:rgba(239,68,68,0.5); color:#fca5a5;" onclick="triggerSfx('scream')">
+              <span>😱 Scream</span>
+            </button>
+            <button class="btn btn-secondary btn-sm" style="display:flex; align-items:center; justify-content:center; gap:4px; font-weight:600; border-color:rgba(245,158,11,0.5); color:#fcd34d;" onclick="triggerSfx('airhorn')">
+              <span>📢 Airhorn</span>
+            </button>
+            <button class="btn btn-secondary btn-sm" style="display:flex; align-items:center; justify-content:center; gap:4px; font-weight:600; border-color:rgba(236,72,153,0.5); color:#f472b6;" onclick="triggerSfx('siren')">
+              <span>🚨 Siren</span>
+            </button>
+            <button class="btn btn-secondary btn-sm" style="display:flex; align-items:center; justify-content:center; gap:4px; font-weight:600; border-color:rgba(168,85,247,0.5); color:#c084fc;" onclick="triggerSfx('bassdrop')">
+              <span>💥 808 Bass</span>
+            </button>
+            <button class="btn btn-secondary btn-sm" style="display:flex; align-items:center; justify-content:center; gap:4px; font-weight:600; border-color:rgba(59,130,246,0.5); color:#93c5fd;" onclick="triggerSfx('lofi')">
+              <span>🎵 Lofi Chords</span>
+            </button>
+            <button class="btn btn-secondary btn-sm" style="display:flex; align-items:center; justify-content:center; gap:4px; font-weight:600; border-color:rgba(239,68,68,0.4); color:#ef4444;" onclick="stopSfx()">
+              <span>⏹️ Stop SFX</span>
+            </button>
+          </div>
+
+          <!-- Voice Transmission Flags & Phone Speaker Preview Switch -->
+          <div style="display:flex; gap:6px; align-items:center; justify-content:space-between; flex-wrap:wrap; font-size:0.75rem;">
+            <div style="display:flex; align-items:center; gap:6px; flex:1; min-width:180px;">
+              <span style="color:var(--text-muted); font-size:0.75rem;">Voice Mode:</span>
+              <select id="voice-flags-select" style="flex:1; padding:5px 8px; border-radius:var(--radius-sm); background:var(--bg-card); border:1px solid var(--border-color); color:var(--text); font-size:0.75rem;" onchange="updateVoiceFlags()">
+                <option value="5" selected>🎙️+🎵 Dual Voice & Soundshare (5)</option>
+                <option value="1">🎙️ Microphone Voice (1)</option>
+                <option value="2">🎵 Soundshare / Music (2)</option>
+                <option value="4">👑 Priority Speaker (4)</option>
+                <option value="7">⚡ Full (Voice+Music+Priority) (7)</option>
+              </select>
+            </div>
+            <label style="display:flex; align-items:center; gap:4px; color:var(--text-muted); cursor:pointer;">
+              <input type="checkbox" id="sfx-speaker-preview-toggle" checked style="width:14px; height:14px; accent-color:var(--accent);">
+              <span>🔊 Speaker Preview</span>
+            </label>
           </div>
         </div>
       </div>
@@ -1838,6 +1892,20 @@
         const dockShare = document.getElementById('dock-share-btn');
         if (dockShare) {
           dockShare.innerText = data.screenshare_sim ? '⏹️ Stop' : '🖥️ Share';
+        }
+      }
+
+      if (data.active_sfx) {
+        const sfxBadge = document.getElementById('sfx-status-badge');
+        if (sfxBadge && !sfxCountdownTimer) {
+          sfxBadge.innerText = `🔊 ${data.active_sfx.toUpperCase()}`;
+          sfxBadge.className = 'badge badge-online';
+        }
+      }
+      if (data.voice_flags !== undefined) {
+        const vfSelect = document.getElementById('voice-flags-select');
+        if (vfSelect && document.activeElement !== vfSelect) {
+          vfSelect.value = String(data.voice_flags);
         }
       }
 
@@ -3050,6 +3118,249 @@
       }
     }
 
+    // --- Web Audio SFX Synthesizer & Voice Soundboard ---
+    let webAudioCtx = null;
+    let activeAudioNodes = [];
+    let sfxCountdownTimer = null;
+
+    function getAudioContext() {
+      if (!webAudioCtx) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) webAudioCtx = new AudioCtx();
+      }
+      if (webAudioCtx && webAudioCtx.state === 'suspended') {
+        webAudioCtx.resume();
+      }
+      return webAudioCtx;
+    }
+
+    function stopLocalSfxAudio() {
+      activeAudioNodes.forEach(n => {
+        try { n.stop(); n.disconnect(); } catch (e) {}
+      });
+      activeAudioNodes = [];
+    }
+
+    function playLocalSfx(type) {
+      const previewOn = document.getElementById('sfx-speaker-preview-toggle')?.checked ?? true;
+      if (!previewOn) return;
+      try {
+        const ctx = getAudioContext();
+        if (!ctx) return;
+        const now = ctx.currentTime;
+        stopLocalSfxAudio();
+
+        if (type === 'scream') {
+          // Horror Screamer FX: Dual FM-swept high oscillators with LFO screech vibrato
+          const osc1 = ctx.createOscillator();
+          const osc2 = ctx.createOscillator();
+          const gain = ctx.createGain();
+          const filter = ctx.createBiquadFilter();
+
+          osc1.type = 'sawtooth';
+          osc2.type = 'square';
+          filter.type = 'bandpass';
+          filter.frequency.setValueAtTime(2400, now);
+          filter.Q.setValueAtTime(3.5, now);
+
+          osc1.frequency.setValueAtTime(750, now);
+          osc1.frequency.exponentialRampToValueAtTime(1950, now + 0.35);
+          osc1.frequency.exponentialRampToValueAtTime(800, now + 1.4);
+
+          osc2.frequency.setValueAtTime(820, now);
+          osc2.frequency.exponentialRampToValueAtTime(2200, now + 0.4);
+          osc2.frequency.exponentialRampToValueAtTime(600, now + 1.4);
+
+          const lfo = ctx.createOscillator();
+          const lfoGain = ctx.createGain();
+          lfo.frequency.setValueAtTime(45, now);
+          lfoGain.gain.setValueAtTime(280, now);
+          lfo.connect(osc1.frequency);
+          lfo.connect(osc2.frequency);
+          lfo.start(now);
+          lfo.stop(now + 1.4);
+          activeAudioNodes.push(lfo);
+
+          gain.gain.setValueAtTime(0.01, now);
+          gain.gain.linearRampToValueAtTime(0.7, now + 0.08);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 1.4);
+
+          osc1.connect(filter);
+          osc2.connect(filter);
+          filter.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc1.start(now);
+          osc2.start(now);
+          osc1.stop(now + 1.4);
+          osc2.stop(now + 1.4);
+          activeAudioNodes.push(osc1, osc2);
+
+        } else if (type === 'airhorn') {
+          // DJ Airhorn: 3 bursts of brass fanfare tones
+          const burstDur = 0.22;
+          const bursts = [0, 0.28, 0.56];
+          const freqs = [466.16, 587.33, 700.0, 932.33];
+          bursts.forEach(offset => {
+            const bNow = now + offset;
+            freqs.forEach(f => {
+              const osc = ctx.createOscillator();
+              const g = ctx.createGain();
+              osc.type = 'sawtooth';
+              osc.frequency.setValueAtTime(f, bNow);
+              osc.frequency.exponentialRampToValueAtTime(f * 0.96, bNow + burstDur);
+              g.gain.setValueAtTime(0.18, bNow);
+              g.gain.exponentialRampToValueAtTime(0.001, bNow + burstDur);
+              osc.connect(g);
+              g.connect(ctx.destination);
+              osc.start(bNow);
+              osc.stop(bNow + burstDur);
+              activeAudioNodes.push(osc);
+            });
+          });
+
+        } else if (type === 'siren') {
+          // Emergency Police Siren: triangle wave sweeping 650Hz <-> 1100Hz
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'triangle';
+          gain.gain.setValueAtTime(0.35, now);
+          gain.gain.linearRampToValueAtTime(0.001, now + 3.0);
+          for (let i = 0; i < 6; i++) {
+            const t = now + i * 0.5;
+            osc.frequency.setValueAtTime(650, t);
+            osc.frequency.linearRampToValueAtTime(1150, t + 0.25);
+            osc.frequency.linearRampToValueAtTime(650, t + 0.5);
+          }
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 3.0);
+          activeAudioNodes.push(osc);
+
+        } else if (type === 'bassdrop') {
+          // 808 Sub-Bass Drop: 130Hz down to 32Hz
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(130, now);
+          osc.frequency.exponentialRampToValueAtTime(32, now + 1.8);
+          gain.gain.setValueAtTime(0.8, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 2.0);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 2.0);
+          activeAudioNodes.push(osc);
+
+        } else if (type === 'lofi') {
+          // Lofi Chords: warm electric piano chords
+          const chords = [
+            [293.66, 349.23, 440.0, 523.25], // Dm7
+            [261.63, 329.63, 392.0, 493.88]  // Cmaj7
+          ];
+          chords.forEach((chord, idx) => {
+            const cNow = now + idx * 1.5;
+            chord.forEach(f => {
+              const osc = ctx.createOscillator();
+              const filter = ctx.createBiquadFilter();
+              const g = ctx.createGain();
+              osc.type = 'triangle';
+              osc.frequency.setValueAtTime(f, cNow);
+              filter.type = 'lowpass';
+              filter.frequency.setValueAtTime(1200, cNow);
+              g.gain.setValueAtTime(0.12, cNow);
+              g.gain.exponentialRampToValueAtTime(0.001, cNow + 1.4);
+              osc.connect(filter);
+              filter.connect(g);
+              g.connect(ctx.destination);
+              osc.start(cNow);
+              osc.stop(cNow + 1.4);
+              activeAudioNodes.push(osc);
+            });
+          });
+        }
+      } catch (e) {
+        console.warn("Web Audio preview error:", e);
+      }
+    }
+
+    async function triggerSfx(sound) {
+      vibrate(30);
+      const flags = parseInt(document.getElementById('voice-flags-select')?.value) || 5;
+      const durationMap = { scream: 4, airhorn: 3, siren: 5, bassdrop: 4, lofi: 6 };
+      const duration = durationMap[sound] || 4;
+
+      playLocalSfx(sound);
+
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'play_sfx', sound: sound, flags: flags, duration: duration })
+        });
+        const json = await res.json();
+        showToast(json.message || `Playing ${sound.toUpperCase()} on voice`);
+
+        const badge = document.getElementById('sfx-status-badge');
+        if (badge) {
+          badge.innerText = `🔊 ${sound.toUpperCase()} (${duration}s)`;
+          badge.className = 'badge badge-online';
+        }
+        if (sfxCountdownTimer) clearInterval(sfxCountdownTimer);
+        let rem = duration;
+        sfxCountdownTimer = setInterval(() => {
+          rem--;
+          if (rem <= 0) {
+            clearInterval(sfxCountdownTimer);
+            if (badge) {
+              badge.innerText = 'Idle';
+              badge.className = 'badge badge-voice';
+            }
+          } else {
+            if (badge) badge.innerText = `🔊 ${sound.toUpperCase()} (${rem}s)`;
+          }
+        }, 1000);
+      } catch (e) {
+        showToast("Error triggering SFX: " + e.message, true);
+      }
+    }
+
+    async function stopSfx() {
+      vibrate(20);
+      stopLocalSfxAudio();
+      if (sfxCountdownTimer) clearInterval(sfxCountdownTimer);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'stop_sfx' })
+        });
+        const json = await res.json();
+        showToast(json.message || "SFX stopped");
+        const badge = document.getElementById('sfx-status-badge');
+        if (badge) {
+          badge.innerText = 'Idle';
+          badge.className = 'badge badge-voice';
+        }
+      } catch (e) {
+        showToast("Error stopping SFX: " + e.message, true);
+      }
+    }
+
+    async function updateVoiceFlags() {
+      const flags = parseInt(document.getElementById('voice-flags-select')?.value) || 5;
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set_voice_flags', flags: flags })
+        });
+        const json = await res.json();
+        showToast(json.message || `Voice mode set to ${flags}`);
+      } catch (e) {}
+    }
+
     async function toggleRotator(enabled) {
       vibrate(20);
       const rawChannels = document.getElementById('rotator-channels-input').value;
@@ -3122,7 +3433,7 @@
       return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    let currentAppVersion = '1.1.9';
+    let currentAppVersion = '1.2.0';
     let latestUpdateData = null;
 
     function toggleAutoCheckUpdate(enabled) {
