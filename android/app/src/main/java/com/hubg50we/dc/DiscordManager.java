@@ -44,7 +44,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.3.4";
+    public static final String APP_VERSION = "1.3.5";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -793,6 +793,9 @@ public class DiscordManager {
                 prefs.edit().putString("music_title", this.musicTitle).putString("music_artist", this.musicArtist).apply();
                 for (Account a : accounts.values()) {
                     if (a.online) a.setSpotify(true, this.musicTitle, this.musicArtist);
+                    if (a.voiceConnection != null) {
+                        a.voiceConnection.playSfx("music", 5, 0);
+                    }
                 }
                 try {
                     JSONObject mP = new JSONObject();
@@ -809,6 +812,9 @@ public class DiscordManager {
                 prefs.edit().putString("music_title", "").putString("music_artist", "").apply();
                 for (Account a : accounts.values()) {
                     if (a.online) a.setSpotify(false, "", "");
+                    if (a.voiceConnection != null) {
+                        a.voiceConnection.stopAudio();
+                    }
                 }
                 sendToStreamBot("/api/stop", new JSONObject());
                 res.put("success", true);
@@ -860,6 +866,9 @@ public class DiscordManager {
                     if (a.online) {
                         a.setYouTube(true, this.youtubeTitle, this.youtubeAuthor, this.youtubeMode, this.youtubeUrl);
                         if (simVoice) a.speaking = true;
+                        if (a.voiceConnection != null) {
+                            a.voiceConnection.playSfx("music", 5, 0);
+                        }
                     }
                 }
                 if (simVoice) {
@@ -892,6 +901,9 @@ public class DiscordManager {
                     if (a.online) {
                         a.setYouTube(false, "", "", "", "");
                         a.speaking = false;
+                    }
+                    if (a.voiceConnection != null) {
+                        a.voiceConnection.stopAudio();
                     }
                 }
                 this.speakingSim = false;
@@ -1404,6 +1416,9 @@ public class DiscordManager {
                         a.setVoiceState(a.currentGuildId, a.voiceChannel, a.mute, a.deaf, true);
                         a.startScreenShare(a.currentGuildId);
                     }
+                    if (a.voiceConnection != null) {
+                        a.voiceConnection.playSfx("stream", a.voiceFlags, 0);
+                    }
                 }
                 log("🎥 Real Video Stream activated [mode=" + mode.toUpperCase() + ", " + resStr + "@" + fps + "fps, title=" + title + "] on all bots");
                 try {
@@ -1428,12 +1443,17 @@ public class DiscordManager {
                 this.realVideoTitle = "";
                 this.videoSim = false;
                 this.screenShareSim = false;
+                this.speakingSim = false;
                 for (Account a : accounts.values()) {
                     a.video = false;
                     a.screenShare = false;
+                    a.speaking = false;
                     if (a.online && a.voiceChannel != null) {
                         a.setVoiceState(a.currentGuildId, a.voiceChannel, a.mute, a.deaf, false);
                         a.stopScreenShare(a.currentGuildId);
+                    }
+                    if (a.voiceConnection != null) {
+                        a.voiceConnection.stopAudio();
                     }
                 }
                 sendToStreamBot("/api/stop", new JSONObject());
@@ -1459,8 +1479,11 @@ public class DiscordManager {
                         a.setVoiceState(a.currentGuildId, a.voiceChannel, a.mute, a.deaf, true);
                         a.startScreenShare(a.currentGuildId);
                     }
+                    if (a.voiceConnection != null) {
+                        a.voiceConnection.playSfx("stream", a.voiceFlags, 0);
+                    }
                 }
-                log("🌐 Real Web Stream activated: [url=" + url + "] on Discord Voice");
+                log("🌐 Real Web Stream activated (Lite Chrome Sandbox): [url=" + url + "] on Discord Voice");
                 try {
                     JSONObject webP = new JSONObject();
                     webP.put("url", url);
@@ -1480,12 +1503,17 @@ public class DiscordManager {
                 this.realVideoMode = "";
                 this.videoSim = false;
                 this.screenShareSim = false;
+                this.speakingSim = false;
                 for (Account a : accounts.values()) {
                     a.video = false;
                     a.screenShare = false;
+                    a.speaking = false;
                     if (a.online && a.voiceChannel != null) {
                         a.setVoiceState(a.currentGuildId, a.voiceChannel, a.mute, a.deaf, false);
                         a.stopScreenShare(a.currentGuildId);
+                    }
+                    if (a.voiceConnection != null) {
+                        a.voiceConnection.stopAudio();
                     }
                 }
                 sendToStreamBot("/api/stop", new JSONObject());
@@ -2985,6 +3013,8 @@ public class DiscordManager {
         private Runnable voiceHeartbeatRunnable;
         private final BlockingQueue<short[]> audioQueue = new LinkedBlockingQueue<>(500);
         private final OpusMediaEncoder encoder = new OpusMediaEncoder();
+        private volatile boolean isLooping = false;
+        private String activeSound = "stream";
 
         public DiscordVoiceConnection(Account account, String guildId, String channelId,
                                       String sessionId, String token, String endpoint,
@@ -3190,6 +3220,11 @@ public class DiscordManager {
                 while (running && connected && udpSocket != null && !udpSocket.isClosed() && secretKey != null) {
                     try {
                         short[] pcmChunk = audioQueue.poll();
+                        if (pcmChunk == null && isLooping && running && connected) {
+                            List<short[]> refill = AudioSynthesizer.generateSound(activeSound, 8.0);
+                            audioQueue.addAll(refill);
+                            pcmChunk = audioQueue.poll();
+                        }
                         byte[] opusPayload = null;
                         if (pcmChunk != null) {
                             opusPayload = encoder.encodePcm(pcmChunk);
@@ -3253,25 +3288,30 @@ public class DiscordManager {
         public void playSfx(String sound, int flags, double duration) {
             sendSpeaking(flags > 0 ? flags : 5);
             audioQueue.clear();
-            List<short[]> frames = AudioSynthesizer.generateSound(sound, duration);
+            this.activeSound = sound;
+            this.isLooping = (duration <= 0);
+            List<short[]> frames = AudioSynthesizer.generateSound(sound, duration > 0 ? duration : 8.0);
             audioQueue.addAll(frames);
-            mgr.log("Account #" + account.id + " 🔊 Queued " + frames.size() + " frames for SFX: " + sound);
+            mgr.log("Account #" + account.id + " 🔊 Queued " + frames.size() + " frames for SFX: " + sound + (isLooping ? " (Continuous Loop)" : ""));
         }
 
         public void playTts(String text) {
             sendSpeaking(1);
             audioQueue.clear();
+            this.isLooping = false;
             List<short[]> frames = AudioSynthesizer.generateTts(text);
             audioQueue.addAll(frames);
             mgr.log("Account #" + account.id + " 🗣️ Queued " + frames.size() + " frames for TTS: \"" + text + "\"");
         }
 
         public void stopAudio() {
+            this.isLooping = false;
             audioQueue.clear();
             sendSpeaking(0);
         }
 
         public void close() {
+            this.isLooping = false;
             running = false;
             connected = false;
             stopVoiceHeartbeat();

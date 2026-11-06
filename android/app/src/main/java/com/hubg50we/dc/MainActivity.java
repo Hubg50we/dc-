@@ -48,6 +48,7 @@ import rikka.shizuku.Shizuku;
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
     private WebView webView;
+    private WebView liteBrowserWebView;
     private DiscordManager discordManager;
     private ValueCallback<Uri[]> filePathCallback;
 
@@ -158,6 +159,22 @@ public class MainActivity extends AppCompatActivity {
         });
 
         webView.loadUrl("file:///android_asset/web/index.html");
+
+        // Initialize Lite Chrome Sandbox for in-app web streaming & screensharing
+        liteBrowserWebView = new WebView(this);
+        WebSettings bs = liteBrowserWebView.getSettings();
+        bs.setJavaScriptEnabled(true);
+        bs.setDomStorageEnabled(true);
+        bs.setMediaPlaybackRequiresUserGesture(false);
+        bs.setAllowFileAccess(true);
+        bs.setDatabaseEnabled(true);
+        bs.setCacheMode(WebSettings.LOAD_DEFAULT);
+        liteBrowserWebView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                discordManager.log("🌐 Lite Chrome Sandbox loaded: " + url + " (" + (view.getTitle() != null ? view.getTitle() : "Web Page") + ")");
+            }
+        });
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
@@ -336,6 +353,30 @@ public class MainActivity extends AppCompatActivity {
                     startActivity(browserIntent);
                 } catch (Exception ignored) {}
             });
+        }
+
+        @JavascriptInterface
+        public void loadInSandbox(String url) {
+            runOnUiThread(() -> {
+                try {
+                    if (liteBrowserWebView != null && url != null && !url.isEmpty()) {
+                        liteBrowserWebView.loadUrl(url);
+                        discordManager.log("🌐 Lite Chrome Sandbox navigating to: " + url);
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "loadInSandbox error", e);
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public String getSandboxTitle() {
+            try {
+                if (liteBrowserWebView != null) {
+                    return liteBrowserWebView.getTitle();
+                }
+            } catch (Exception ignored) {}
+            return "";
         }
 
         @JavascriptInterface
