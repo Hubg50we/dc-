@@ -44,7 +44,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.3.5";
+    public static final String APP_VERSION = "1.3.6";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -1554,7 +1554,7 @@ public class DiscordManager {
                             a.setVoiceState(a.currentGuildId, a.voiceChannel, a.mute, a.deaf, true);
                             a.startScreenShare(a.currentGuildId);
                             if (a.voiceConnection != null) {
-                                a.voiceConnection.playSfx("music", a.voiceFlags, duration > 0 ? duration : 30.0);
+                                a.voiceConnection.playSfx("music", a.voiceFlags, duration > 0 ? duration : 0.0);
                             }
                         }
                     }
@@ -1604,7 +1604,7 @@ public class DiscordManager {
                     for (Account a : accounts.values()) {
                         a.speaking = true;
                         if (a.voiceConnection != null) {
-                            a.voiceConnection.playSfx("music", a.voiceFlags, 30.0);
+                            a.voiceConnection.playSfx("music", a.voiceFlags, 0.0);
                         }
                         if (a.online && a.voiceChannel != null) {
                             a.pauseScreenShare(a.currentGuildId, false);

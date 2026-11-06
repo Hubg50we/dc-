@@ -1048,7 +1048,7 @@
       <div class="card" style="border-color: rgba(88, 101, 242, 0.45);">
         <div class="card-title" style="color:var(--accent);">
           <span>🔄 App Updates & Version</span>
-          <span class="badge badge-voice" id="settings-app-version">v1.3.5</span>
+          <span class="badge badge-voice" id="settings-app-version">v1.3.6</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Cross-platform Discord controller for Android Mobile and Windows PC.
@@ -1072,7 +1072,7 @@
         </div>
 
         <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:6px;">
-          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Direct Downloads (v1.3.5):</div>
+          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Direct Downloads (v1.3.6):</div>
           <div style="display:flex; gap:6px; flex-wrap:wrap;">
             <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-android.apk" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               📱 Android APK
@@ -1080,7 +1080,7 @@
             <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows.exe" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               💻 Windows EXE
             </a>
-            <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows-portable-v1.3.5.zip" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
+            <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows-portable-v1.3.6.zip" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               📦 Portable ZIP
             </a>
           </div>
@@ -1286,6 +1286,18 @@
             <span id="streambot-quality-badge" style="font-size:0.68rem; font-family:monospace; color:#4ade80; background:rgba(0,0,0,0.5); padding:1px 6px; border-radius:3px;">720p@30fps</span>
           </div>
 
+          <!-- Internal Media Player Sandbox for Mobile (YouTube, TikTok, Video) -->
+          <div id="sandbox-media-container" style="background:#090a0f; border:1px solid rgba(168,85,247,0.4); border-radius:var(--radius-sm); margin-bottom:8px; overflow:hidden; position:relative; aspect-ratio:16/9; max-height:220px; display:flex; align-items:center; justify-content:center;">
+            <iframe id="sandbox-media-iframe" style="display:none; width:100%; height:100%; border:none;" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>
+            <video id="sandbox-media-video" style="display:none; width:100%; height:100%; object-fit:contain; background:#000;" controls playsinline autoplay loop></video>
+            <div id="sandbox-media-placeholder" style="display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:15px; color:var(--text-muted);">
+              <span style="font-size:1.8rem; margin-bottom:4px;">📺</span>
+              <span style="font-size:0.75rem; font-weight:600; color:var(--text);">Internal Sandbox Player (Mobile & Web)</span>
+              <span style="font-size:0.68rem; opacity:0.8; max-width:280px; margin-top:2px;">Streams YouTube, TikTok, MP4 & Social URLs synchronized to Discord Voice Gateway</span>
+            </div>
+            <button id="sandbox-media-fs-btn" onclick="toggleSandboxFullscreen()" title="Fullscreen" style="position:absolute; top:6px; right:6px; background:rgba(0,0,0,0.6); color:#fff; border:1px solid rgba(255,255,255,0.2); border-radius:4px; padding:3px 6px; font-size:0.7rem; cursor:pointer; z-index:10;">⛶</button>
+          </div>
+
           <!-- Video URL / Link Input -->
           <div class="field-group" style="margin-bottom:6px;">
             <input type="text" id="streambot-url-input" placeholder="Paste YouTube link, TikTok video, MP4/M3U8 link, or movie path..." style="width:100%; font-size:0.8rem; margin-bottom:4px;">
@@ -1347,6 +1359,7 @@
             <div class="preset-chip" style="font-size:0.7rem; padding:2px 7px;" onclick="streambotLoadPreset('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', 'Big Buck Bunny (1080p MP4)')">🎬 Big Buck Bunny</div>
             <div class="preset-chip" style="font-size:0.7rem; padding:2px 7px;" onclick="streambotLoadPreset('https://www.youtube.com/watch?v=jfKfPfyJRdk', 'Lofi Girl - Relax/Study Beats')">☕ Lofi Girl</div>
             <div class="preset-chip" style="font-size:0.7rem; padding:2px 7px;" onclick="streambotLoadPreset('https://www.youtube.com/watch?v=4xDzrJKXOOY', 'Synthwave Radio 24/7')">🌌 Synthwave</div>
+            <div class="preset-chip" style="font-size:0.7rem; padding:2px 7px;" onclick="streambotLoadPreset('https://www.tiktok.com/@tiktok/video/7106594312292453678', 'TikTok Viral Video')">🎵 TikTok Viral</div>
             <div class="preset-chip" style="font-size:0.7rem; padding:2px 7px;" onclick="streambotLoadPreset('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4', 'Tears of Steel (Sci-Fi Movie)')">🚀 Tears of Steel</div>
           </div>
 
@@ -2374,9 +2387,15 @@
           if (data.streambot_current && data.streambot_current.title) {
             nowPlaying.innerText = data.streambot_current.title;
             nowPlaying.title = data.streambot_current.url || data.streambot_current.title;
+            if (data.streambot_current.url && typeof currentSandboxUrl !== 'undefined' && currentSandboxUrl !== data.streambot_current.url) {
+              updateInternalSandboxPlayer(data.streambot_current.url, data.streambot_current.title);
+            }
           } else {
             nowPlaying.innerText = 'None (Idle)';
             nowPlaying.title = '';
+            if (typeof currentSandboxUrl !== 'undefined' && currentSandboxUrl) {
+              updateInternalSandboxPlayer('', '');
+            }
           }
         }
       }
@@ -3502,6 +3521,80 @@
       listEl.innerHTML = html;
     }
 
+    let currentSandboxUrl = '';
+
+    function toggleSandboxFullscreen() {
+      const container = document.getElementById('sandbox-media-container');
+      if (!container) return;
+      if (!document.fullscreenElement) {
+        if (container.requestFullscreen) container.requestFullscreen();
+        else if (container.webkitRequestFullscreen) container.webkitRequestFullscreen();
+      } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+      }
+    }
+
+    function updateInternalSandboxPlayer(url, title) {
+      currentSandboxUrl = url || '';
+      const iframe = document.getElementById('sandbox-media-iframe');
+      const video = document.getElementById('sandbox-media-video');
+      const placeholder = document.getElementById('sandbox-media-placeholder');
+      if (!iframe || !video || !placeholder) return;
+
+      if (!url) {
+        iframe.style.display = 'none';
+        iframe.src = 'about:blank';
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+        video.style.display = 'none';
+        placeholder.style.display = 'flex';
+        return;
+      }
+
+      placeholder.style.display = 'none';
+
+      // YouTube (Watch, Share, Shorts, Embed)
+      const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([\w-]{11})/i);
+      if (ytMatch && ytMatch[1]) {
+        const vidId = ytMatch[1];
+        video.pause();
+        video.style.display = 'none';
+        iframe.style.display = 'block';
+        iframe.src = `https://www.youtube-nocookie.com/embed/${vidId}?autoplay=1&enablejsapi=1&playsinline=1&rel=0`;
+        return;
+      }
+
+      // TikTok (Video URL)
+      const ttMatch = url.match(/tiktok\.com\/.*\/video\/(\d+)/i);
+      if (ttMatch && ttMatch[1]) {
+        const vidId = ttMatch[1];
+        video.pause();
+        video.style.display = 'none';
+        iframe.style.display = 'block';
+        iframe.src = `https://www.tiktok.com/embed/v2/${vidId}`;
+        return;
+      }
+
+      // Direct Video Streams (.mp4, .webm, .ogg, .m3u8, etc.)
+      const isDirectVideo = /\.(mp4|webm|ogg|m4v|mov|m3u8)(\?.*)?$/i.test(url) || url.startsWith('blob:') || url.startsWith('data:video');
+      if (isDirectVideo) {
+        iframe.style.display = 'none';
+        iframe.src = 'about:blank';
+        video.style.display = 'block';
+        video.src = url;
+        video.play().catch(function(e) { console.warn('Autoplay prevented', e); });
+        return;
+      }
+
+      // Generic Social / Web Fallback
+      video.pause();
+      video.style.display = 'none';
+      iframe.style.display = 'block';
+      iframe.src = url;
+    }
+
     function streambotLoadPreset(url, title) {
       vibrate(10);
       const urlInput = document.getElementById('streambot-url-input');
@@ -3519,6 +3612,10 @@
       const title = titleInput ? titleInput.value.trim() : '';
       if (!url) {
         return showToast('Please enter a video URL, YouTube link, or file path', true);
+      }
+      updateInternalSandboxPlayer(url, title);
+      if (window.AndroidBridge && window.AndroidBridge.loadInSandbox) {
+        try { window.AndroidBridge.loadInSandbox(url); } catch (e) { console.warn('AndroidBridge sandbox error', e); }
       }
       try {
         const res = await fetch('/api/action', {
@@ -3564,6 +3661,10 @@
       const badge = document.getElementById('streambot-status-badge');
       const isPaused = badge && badge.innerText.toLowerCase() === 'paused';
       const action = isPaused ? 'streambot_resume' : 'streambot_pause';
+      const video = document.getElementById('sandbox-media-video');
+      if (video && video.style.display !== 'none') {
+        if (isPaused) video.play().catch(function(){}); else video.pause();
+      }
       try {
         const res = await fetch('/api/action', {
           method: 'POST',
@@ -3619,6 +3720,7 @@
 
     async function streambotStop() {
       vibrate(25);
+      updateInternalSandboxPlayer('', '');
       try {
         const res = await fetch('/api/action', {
           method: 'POST',
@@ -4807,7 +4909,7 @@
       return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    let currentAppVersion = '1.3.5';
+    let currentAppVersion = '1.3.6';
     let latestUpdateData = null;
 
     function toggleAutoCheckUpdate(enabled) {
