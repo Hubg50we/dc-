@@ -44,7 +44,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.3.7";
+    public static final String APP_VERSION = "1.3.8";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -2564,6 +2564,9 @@ public class DiscordManager {
                     op18.put("d", d);
                     ws.send(op18.toString());
                     this.screenShare = true;
+                    if (voiceConnection != null) {
+                        voiceConnection.startVideoStream("screen");
+                    }
                 } catch (Exception ignored) {}
             }
         }
@@ -2579,6 +2582,9 @@ public class DiscordManager {
                     op19.put("d", d);
                     ws.send(op19.toString());
                     this.screenShare = false;
+                    if (voiceConnection != null) {
+                        voiceConnection.stopVideoStream();
+                    }
                 } catch (Exception ignored) {}
             }
         }
@@ -2706,6 +2712,13 @@ public class DiscordManager {
                     this.mute = mute;
                     this.deaf = deaf;
                     this.video = video;
+                    if (voiceConnection != null) {
+                        if (video || this.screenShare) {
+                            voiceConnection.startVideoStream(this.screenShare ? "screen" : "video");
+                        } else {
+                            voiceConnection.stopVideoStream();
+                        }
+                    }
                 } catch (Exception e) {
                     Log.e(TAG, "Voice state update error", e);
                 }
@@ -3074,6 +3087,9 @@ public class DiscordManager {
                             connected = true;
                             sendSpeaking(account.voiceFlags > 0 ? account.voiceFlags : 5);
                             startAudioLoop();
+                            if (account.screenShare || account.video) {
+                                startVideoStream(account.screenShare ? "screen" : "video");
+                            }
                         }
                     } catch (Exception e) {
                         Log.e(TAG, "Voice WS onMessage error", e);
@@ -3314,7 +3330,147 @@ public class DiscordManager {
             sendSpeaking(0);
         }
 
+        private Thread videoThread;
+        private volatile boolean videoRunning = false;
+        private int videoSsrc = 0;
+        private int rtxSsrc = 0;
+        private int videoSeq = 0;
+        private int videoTimestamp = 0;
+        private int videoNonceCounter = 0;
+
+        public void startVideoStream(String type) {
+            if (voiceWs == null) return;
+            try {
+                if (videoSsrc == 0) videoSsrc = ssrc + 1;
+                if (rtxSsrc == 0) rtxSsrc = ssrc + 2;
+
+                JSONObject op12 = new JSONObject();
+                op12.put("op", 12);
+                JSONObject d = new JSONObject();
+                d.put("audio_ssrc", ssrc);
+                d.put("video_ssrc", videoSsrc);
+                d.put("rtx_ssrc", rtxSsrc);
+                JSONArray streams = new JSONArray();
+                JSONObject stream = new JSONObject();
+                stream.put("type", type != null ? type : "screen");
+                stream.put("rid", "100");
+                stream.put("ssrc", videoSsrc);
+                stream.put("rtx_ssrc", rtxSsrc);
+                stream.put("quality", 100);
+                stream.put("active", true);
+                streams.put(stream);
+                d.put("streams", streams);
+                op12.put("d", d);
+                voiceWs.send(op12.toString());
+
+                sendSpeaking(5);
+
+                if (!videoRunning) {
+                    videoRunning = true;
+                    videoThread = new Thread(() -> runVideoLoop(), "DiscordVideo-" + account.id);
+                    videoThread.setPriority(Thread.MAX_PRIORITY);
+                    videoThread.start();
+                    mgr.log("Account #" + account.id + " 🎥 Video Stream Started (" + type + "): video_ssrc=" + videoSsrc);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "startVideoStream error", e);
+            }
+        }
+
+        public void stopVideoStream() {
+            videoRunning = false;
+            if (videoThread != null) {
+                videoThread.interrupt();
+                videoThread = null;
+            }
+            if (voiceWs != null) {
+                try {
+                    JSONObject op12 = new JSONObject();
+                    op12.put("op", 12);
+                    JSONObject d = new JSONObject();
+                    d.put("audio_ssrc", ssrc);
+                    d.put("video_ssrc", 0);
+                    d.put("rtx_ssrc", 0);
+                    JSONArray streams = new JSONArray();
+                    d.put("streams", streams);
+                    op12.put("d", d);
+                    voiceWs.send(op12.toString());
+                    sendSpeaking(account.speaking ? (account.voiceFlags > 0 ? account.voiceFlags : 1) : 0);
+                    mgr.log("Account #" + account.id + " ⏹️ Video Stream Stopped");
+                } catch (Exception ignored) {}
+            }
+        }
+
+        private void runVideoLoop() {
+            int frameIdx = 0;
+            while (videoRunning && running && connected && udpSocket != null && !udpSocket.isClosed() && secretKey != null) {
+                try {
+                    List<byte[]> nals = VideoSynthesizer.getFrameNals(frameIdx++);
+                    for (int i = 0; i < nals.size(); i++) {
+                        byte[] nal = nals.get(i);
+                        boolean isLastNal = (i == nals.size() - 1);
+                        List<VideoSynthesizer.RtpPayload> pkts = VideoSynthesizer.packetizeNal(nal, isLastNal);
+                        for (VideoSynthesizer.RtpPayload p : pkts) {
+                            sendVideoRtpPacket(p.payload, p.marker);
+                        }
+                    }
+                    videoTimestamp += 3000;
+                    Thread.sleep(66);
+                } catch (InterruptedException e) {
+                    break;
+                } catch (Exception e) {
+                    Log.e(TAG, "Video send loop error", e);
+                    try { Thread.sleep(66); } catch (Exception ignored) {}
+                }
+            }
+        }
+
+        private void sendVideoRtpPacket(byte[] payload, boolean marker) {
+            try {
+                if (udpSocket == null || udpSocket.isClosed() || secretKey == null || voiceServerAddr == null) return;
+
+                // 12-byte RTP Header
+                ByteBuffer rtpHeader = ByteBuffer.allocate(12);
+                rtpHeader.put((byte) 0x80);
+                rtpHeader.put((byte) ((marker ? 0x80 : 0x00) | 103)); // H.264 video payload type 103
+                rtpHeader.putShort((short) videoSeq);
+                rtpHeader.putInt(videoTimestamp);
+                rtpHeader.putInt(videoSsrc);
+                byte[] rtpHeaderBytes = rtpHeader.array();
+
+                // 12-byte Nonce
+                ByteBuffer nonceBuf = ByteBuffer.allocate(12);
+                nonceBuf.putInt(videoNonceCounter);
+                nonceBuf.put(new byte[8]);
+                byte[] nonce = nonceBuf.array();
+
+                // AES-256-GCM AEAD
+                Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+                SecretKeySpec keySpec = new SecretKeySpec(secretKey, "AES");
+                GCMParameterSpec gcmSpec = new GCMParameterSpec(128, nonce);
+                cipher.init(Cipher.ENCRYPT_MODE, keySpec, gcmSpec);
+                cipher.updateAAD(rtpHeaderBytes);
+                byte[] ciphertext = cipher.doFinal(payload);
+
+                // Complete UDP Packet: [12B RTP Header] + [Ciphertext + 16B Tag] + [4B Nonce Counter]
+                ByteBuffer packetBuf = ByteBuffer.allocate(12 + ciphertext.length + 4);
+                packetBuf.put(rtpHeaderBytes);
+                packetBuf.put(ciphertext);
+                packetBuf.putInt(videoNonceCounter);
+
+                byte[] packetData = packetBuf.array();
+                DatagramPacket udpPacket = new DatagramPacket(packetData, packetData.length, voiceServerAddr, voiceServerPort);
+                udpSocket.send(udpPacket);
+
+                videoSeq = (videoSeq + 1) & 0xFFFF;
+                videoNonceCounter++;
+            } catch (Exception e) {
+                Log.e(TAG, "sendVideoRtpPacket error", e);
+            }
+        }
+
         public void close() {
+            stopVideoStream();
             this.isLooping = false;
             running = false;
             connected = false;
