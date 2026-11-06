@@ -44,7 +44,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.3.6";
+    public static final String APP_VERSION = "1.3.7";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -1554,7 +1554,7 @@ public class DiscordManager {
                             a.setVoiceState(a.currentGuildId, a.voiceChannel, a.mute, a.deaf, true);
                             a.startScreenShare(a.currentGuildId);
                             if (a.voiceConnection != null) {
-                                a.voiceConnection.playSfx("music", a.voiceFlags, duration > 0 ? duration : 0.0);
+                                a.voiceConnection.playSfx("music", a.voiceFlags, duration > 0 ? duration : 30.0, "video".equals(this.streambotLoopMode));
                             }
                         }
                     }
@@ -1604,7 +1604,7 @@ public class DiscordManager {
                     for (Account a : accounts.values()) {
                         a.speaking = true;
                         if (a.voiceConnection != null) {
-                            a.voiceConnection.playSfx("music", a.voiceFlags, 0.0);
+                            a.voiceConnection.playSfx("music", a.voiceFlags, 30.0, "video".equals(this.streambotLoopMode));
                         }
                         if (a.online && a.voiceChannel != null) {
                             a.pauseScreenShare(a.currentGuildId, false);
@@ -3286,13 +3286,17 @@ public class DiscordManager {
         }
 
         public void playSfx(String sound, int flags, double duration) {
+            playSfx(sound, flags, duration, false);
+        }
+
+        public void playSfx(String sound, int flags, double duration, boolean loop) {
             sendSpeaking(flags > 0 ? flags : 5);
             audioQueue.clear();
             this.activeSound = sound;
-            this.isLooping = (duration <= 0);
-            List<short[]> frames = AudioSynthesizer.generateSound(sound, duration > 0 ? duration : 8.0);
+            this.isLooping = loop;
+            List<short[]> frames = AudioSynthesizer.generateSound(sound, duration > 0 ? duration : 30.0);
             audioQueue.addAll(frames);
-            mgr.log("Account #" + account.id + " 🔊 Queued " + frames.size() + " frames for SFX: " + sound + (isLooping ? " (Continuous Loop)" : ""));
+            mgr.log("Account #" + account.id + " 🔊 Queued " + frames.size() + " frames for SFX: " + sound + (isLooping ? " (Loop Mode)" : " (No Loop)"));
         }
 
         public void playTts(String text) {
