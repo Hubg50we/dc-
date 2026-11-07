@@ -15,6 +15,7 @@ import time
 import urllib.request
 import urllib.error
 import websockets
+from media_streamer import DiscordMediaConnection
 
 # Log buffer for live console streaming
 LOG_BUFFER = collections.deque(maxlen=300)
@@ -73,7 +74,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.3.9"
+APP_VERSION = "1.4.0"
 AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
@@ -574,6 +575,12 @@ async def apply(targets, channel="keep", mute="keep", deaf="keep", video="keep",
                 else:
                     conn["user_left_intentional"] = True
                     conn["desired_channel"] = None
+                    if conn.get("stream_conn"):
+                        asyncio.create_task(conn["stream_conn"].stop())
+                        conn["stream_conn"] = None
+                    if conn.get("voice_conn"):
+                        asyncio.create_task(conn["voice_conn"].stop())
+                        conn["voice_conn"] = None
                 done += 1
                 if STEALTH_DELAY > 0.05:
                     jitter = (random.random() * 0.4 - 0.2) * STEALTH_DELAY
@@ -645,6 +652,12 @@ async def remove_account(identifier):
             )
         except Exception:
             pass
+    if acc.get("stream_conn"):
+        asyncio.create_task(acc["stream_conn"].stop())
+        acc["stream_conn"] = None
+    if acc.get("voice_conn"):
+        asyncio.create_task(acc["voice_conn"].stop())
+        acc["voice_conn"] = None
     task = acc.get("task")
     if task is not None:
         task.cancel()
@@ -718,7 +731,15 @@ async def run_account(aid):
                     # Low-End Mobile Battery & GC Optimization:
                     # Drop high-frequency chat messages, presences & typing events from 100+ servers before JSON parsing
                     if isinstance(raw_msg, str):
-                        if '"VOICE_STATE_UPDATE"' not in raw_msg and '"op":11' not in raw_msg and '"op":7' not in raw_msg and '"op":9' not in raw_msg:
+                        if (
+                            '"VOICE_STATE_UPDATE"' not in raw_msg
+                            and '"VOICE_SERVER_UPDATE"' not in raw_msg
+                            and '"STREAM_CREATE"' not in raw_msg
+                            and '"STREAM_SERVER_UPDATE"' not in raw_msg
+                            and '"op":11' not in raw_msg
+                            and '"op":7' not in raw_msg
+                            and '"op":9' not in raw_msg
+                        ):
                             continue
                     try:
                         ev = json.loads(raw_msg)
@@ -729,12 +750,21 @@ async def run_account(aid):
                             d = ev.get("d", {})
                             if d.get("user_id") == acc.get("user_id"):
                                 prev_ch = acc.get("voice_channel")
+                                acc["session_id"] = d.get("session_id", acc.get("session_id", ""))
                                 acc["voice_channel"] = d.get("channel_id")
                                 acc["mute"] = d.get("self_mute", False)
                                 acc["deaf"] = d.get("self_deaf", False)
                                 acc["video"] = d.get("self_video", False)
                                 if d.get("guild_id"):
                                     acc["guild_id"] = d.get("guild_id")
+
+                                if not acc["voice_channel"]:
+                                    if acc.get("stream_conn"):
+                                        asyncio.create_task(acc["stream_conn"].stop())
+                                        acc["stream_conn"] = None
+                                    if acc.get("voice_conn"):
+                                        asyncio.create_task(acc["voice_conn"].stop())
+                                        acc["voice_conn"] = None
                                 
                                 # Auto-Rejoin Guard: if unexpectedly disconnected and auto_rejoin is true
                                 if not acc["voice_channel"] and not acc.get("user_left_intentional", False) and AUTO_REJOIN and acc.get("desired_channel"):
@@ -746,6 +776,46 @@ async def run_account(aid):
                                         if not acc.get("voice_channel") and not acc.get("user_left_intentional", False):
                                             await apply([acc], channel=des_ch, guild=des_g)
                                     asyncio.create_task(_do_rejoin())
+
+                        elif t == "VOICE_SERVER_UPDATE":
+                            d = ev.get("d", {})
+                            g_id = d.get("guild_id") or acc.get("guild_id")
+                            token = d.get("token")
+                            endpoint = d.get("endpoint")
+                            acc["voice_token"] = token
+                            acc["voice_endpoint"] = endpoint
+                            if endpoint and token and acc.get("voice_channel"):
+                                if acc.get("voice_conn"):
+                                    asyncio.create_task(acc["voice_conn"].stop())
+                                log(f"[Account {aid}] 🎤 Connecting Voice Gateway to {endpoint}...")
+                                v_conn = DiscordMediaConnection(aid, acc.get("user_id"), acc.get("session_id"), token, endpoint, g_id, is_stream=False, logger=log)
+                                acc["voice_conn"] = v_conn
+                                v_conn.start()
+
+                        elif t == "STREAM_CREATE":
+                            d = ev.get("d", {})
+                            stream_key = d.get("stream_key", "")
+                            rtc_server_id = d.get("rtc_server_id", "")
+                            acc["stream_key"] = stream_key
+                            if rtc_server_id:
+                                acc["stream_rtc_server_id"] = str(rtc_server_id)
+                            log(f"[Account {aid}] 🎥 Stream Session Initialized: {stream_key} (rtc_server_id={rtc_server_id})")
+
+                        elif t == "STREAM_SERVER_UPDATE":
+                            d = ev.get("d", {})
+                            stream_key = d.get("stream_key", "")
+                            token = d.get("token")
+                            endpoint = d.get("endpoint")
+                            acc["stream_token"] = token
+                            acc["stream_endpoint"] = endpoint
+                            if endpoint and token:
+                                if acc.get("stream_conn"):
+                                    asyncio.create_task(acc["stream_conn"].stop())
+                                srv_id = acc.get("stream_rtc_server_id") or stream_key
+                                log(f"[Account {aid}] 📡 Stream Server Update: {endpoint} (server_id={srv_id})")
+                                s_conn = DiscordMediaConnection(aid, acc.get("user_id"), acc.get("session_id"), token, endpoint, srv_id, is_stream=True, logger=log)
+                                acc["stream_conn"] = s_conn
+                                s_conn.start()
                     except Exception:
                         pass
 
@@ -778,6 +848,12 @@ async def restart_account(identifier):
         print("Account not found.")
         return
     aid = acc["id"]
+    if acc.get("stream_conn"):
+        asyncio.create_task(acc["stream_conn"].stop())
+        acc["stream_conn"] = None
+    if acc.get("voice_conn"):
+        asyncio.create_task(acc["voice_conn"].stop())
+        acc["voice_conn"] = None
     task = acc.get("task")
     if task is not None:
         task.cancel()
@@ -1230,6 +1306,12 @@ async def shutdown():
                 )
             except Exception:
                 pass
+        if acc.get("stream_conn"):
+            asyncio.create_task(acc["stream_conn"].stop())
+            acc["stream_conn"] = None
+        if acc.get("voice_conn"):
+            asyncio.create_task(acc["voice_conn"].stop())
+            acc["voice_conn"] = None
         task = acc.get("task")
         if task is not None:
             task.cancel()
@@ -2513,6 +2595,9 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                     try:
                         await ws.send(json.dumps(op19))
                         a["screenshare"] = False
+                        if a.get("stream_conn"):
+                            asyncio.create_task(a["stream_conn"].stop())
+                            a["stream_conn"] = None
                     except Exception:
                         pass
         return f"{len(targets)} account(s) screenshare={state}"
@@ -2565,6 +2650,9 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 op19 = {"op": 19, "d": {"stream_key": f"guild:{gid}:{ch}:{uid}"}}
                 await ws.send(json.dumps(op19))
                 acc["screenshare"] = False
+                if acc.get("stream_conn"):
+                    asyncio.create_task(acc["stream_conn"].stop())
+                    acc["stream_conn"] = None
                 return "Screen Share Stopped"
             return "Account not in voice"
         raise ValueError(f"Unknown subaction: {sub}")

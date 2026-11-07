@@ -44,7 +44,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.3.9";
+    public static final String APP_VERSION = "1.4.0";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -2252,6 +2252,7 @@ public class DiscordManager {
         public boolean screenShare = false;
         public boolean youtubeActive = false;
         public String sessionId = "";
+        public String streamRtcServerId = "";
         public DiscordVoiceConnection voiceConnection = null;
         public DiscordVoiceConnection streamConnection = null;
 
@@ -2392,13 +2393,18 @@ public class DiscordManager {
                                     if (streamConnection != null) {
                                         streamConnection.close();
                                     }
-                                    streamConnection = new DiscordVoiceConnection(Account.this, streamKey, voiceChannel, sessionId, token, endpoint, client, mgr, true);
+                                    String srvId = (this.streamRtcServerId != null && !this.streamRtcServerId.isEmpty()) ? this.streamRtcServerId : streamKey;
+                                    streamConnection = new DiscordVoiceConnection(Account.this, srvId, voiceChannel, sessionId, token, endpoint, client, mgr, true);
                                     streamConnection.connect();
                                 }
                             } else if ("STREAM_CREATE".equals(t)) {
                                 JSONObject d = msg.getJSONObject("d");
                                 String streamKey = d.optString("stream_key", "");
-                                mgr.log("Account #" + id + " 🎥 Stream Session Initialized: " + streamKey);
+                                String rtcServerId = d.optString("rtc_server_id", "");
+                                if (rtcServerId != null && !rtcServerId.isEmpty()) {
+                                    this.streamRtcServerId = rtcServerId;
+                                }
+                                mgr.log("Account #" + id + " 🎥 Stream Session Initialized: stream_key=" + streamKey + ", rtc_server_id=" + rtcServerId);
                             }
                         }
                     } catch (Exception e) {
@@ -3115,7 +3121,18 @@ public class DiscordManager {
                             voiceServerPort = d.getInt("port");
                             String ip = d.getString("ip");
                             voiceServerAddr = InetAddress.getByName(ip);
-                            mgr.log("Account #" + account.id + (isStream ? " 🎥 Stream Ready: SSRC=" : " 🎤 Voice Ready: SSRC=") + ssrc + ", IP=" + ip + ":" + voiceServerPort);
+                            if (d.has("streams")) {
+                                JSONArray st = d.getJSONArray("streams");
+                                if (st.length() > 0) {
+                                    JSONObject s0 = st.getJSONObject(0);
+                                    videoSsrc = s0.optInt("ssrc", ssrc + 1);
+                                    rtxSsrc = s0.optInt("rtx_ssrc", ssrc + 2);
+                                }
+                            } else {
+                                videoSsrc = ssrc + 1;
+                                rtxSsrc = ssrc + 2;
+                            }
+                            mgr.log("Account #" + account.id + (isStream ? " 🎥 Stream Ready: SSRC=" : " 🎤 Voice Ready: SSRC=") + ssrc + ", VideoSSRC=" + videoSsrc + ", IP=" + ip + ":" + voiceServerPort);
                             new Thread(() -> performUdpDiscovery(ip, voiceServerPort, ssrc), "VoiceUDP-" + account.id).start();
                         } else if (op == 4) { // SESSION_DESCRIPTION
                             JSONObject d = msg.getJSONObject("d");
@@ -3126,6 +3143,7 @@ public class DiscordManager {
                             }
                             mgr.log("Account #" + account.id + (isStream ? " 🔐 Stream Session Established (AES-256-GCM AEAD authenticated)!" : " 🔐 Voice Session Established (AES-256-GCM AEAD authenticated)!"));
                             connected = true;
+                            running = true;
                             sendSpeaking(account.voiceFlags > 0 ? account.voiceFlags : 5);
                             if (!isStream) {
                                 startAudioLoop();
@@ -3164,6 +3182,7 @@ public class DiscordManager {
                 d.put("session_id", sessionId);
                 d.put("token", token);
                 d.put("video", true);
+                d.put("max_dave_protocol_version", 0);
                 if (isStream) {
                     JSONArray streams = new JSONArray();
                     JSONObject s = new JSONObject();
