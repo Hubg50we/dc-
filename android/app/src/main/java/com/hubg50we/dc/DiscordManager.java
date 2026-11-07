@@ -44,7 +44,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.4.0";
+    public static final String APP_VERSION = "1.4.1";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -3145,9 +3145,7 @@ public class DiscordManager {
                             connected = true;
                             running = true;
                             sendSpeaking(account.voiceFlags > 0 ? account.voiceFlags : 5);
-                            if (!isStream) {
-                                startAudioLoop();
-                            }
+                            startAudioLoop();
                             if (isStream || account.screenShare || account.video) {
                                 startVideoStream(isStream ? "screen" : (account.screenShare ? "screen" : "video"));
                             }
@@ -3477,22 +3475,17 @@ public class DiscordManager {
             int frameIdx = 0;
             while (videoRunning && running && connected && udpSocket != null && !udpSocket.isClosed() && secretKey != null) {
                 try {
-                    List<byte[]> nals = VideoSynthesizer.getFrameNals(frameIdx++);
-                    for (int i = 0; i < nals.size(); i++) {
-                        byte[] nal = nals.get(i);
-                        boolean isLastNal = (i == nals.size() - 1);
-                        List<VideoSynthesizer.RtpPayload> pkts = VideoSynthesizer.packetizeNal(nal, isLastNal);
-                        for (VideoSynthesizer.RtpPayload p : pkts) {
-                            sendVideoRtpPacket(p.payload, p.marker);
-                        }
+                    List<VideoSynthesizer.RtpPayload> pkts = VideoSynthesizer.getFramePackets(frameIdx++);
+                    for (VideoSynthesizer.RtpPayload p : pkts) {
+                        sendVideoRtpPacket(p.payload, p.marker);
                     }
                     videoTimestamp += 3000;
-                    Thread.sleep(66);
+                    Thread.sleep(33);
                 } catch (InterruptedException e) {
                     break;
                 } catch (Exception e) {
                     Log.e(TAG, "Video send loop error", e);
-                    try { Thread.sleep(66); } catch (Exception ignored) {}
+                    try { Thread.sleep(33); } catch (Exception ignored) {}
                 }
             }
         }

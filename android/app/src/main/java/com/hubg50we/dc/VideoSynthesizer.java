@@ -110,6 +110,8 @@ public class VideoSynthesizer {
     private static byte[] ppsBytes;
     private static byte[] smpteIdrBytes;
     private static byte[] testsrcIdrBytes;
+    private static final List<RtpPayload> preSmptePackets = new ArrayList<>();
+    private static final List<RtpPayload> preTestsrcPackets = new ArrayList<>();
 
     static {
         try {
@@ -117,6 +119,14 @@ public class VideoSynthesizer {
             ppsBytes = Base64.decode(PPS_B64, Base64.DEFAULT);
             smpteIdrBytes = Base64.decode(SMPTE_IDR_B64, Base64.DEFAULT);
             testsrcIdrBytes = Base64.decode(TESTSRC_IDR_B64, Base64.DEFAULT);
+
+            preSmptePackets.addAll(packetizeNal(spsBytes, false));
+            preSmptePackets.addAll(packetizeNal(ppsBytes, false));
+            preSmptePackets.addAll(packetizeNal(smpteIdrBytes, true));
+
+            preTestsrcPackets.addAll(packetizeNal(spsBytes, false));
+            preTestsrcPackets.addAll(packetizeNal(ppsBytes, false));
+            preTestsrcPackets.addAll(packetizeNal(testsrcIdrBytes, true));
         } catch (Exception e) {
             Log.e(TAG, "Failed to decode static NAL units", e);
         }
@@ -194,6 +204,14 @@ public class VideoSynthesizer {
             list.add(idr);
         }
         return list;
+    }
+
+    /**
+     * High-performance zero-allocation RTP payload provider.
+     * Returns pre-packetized RFC 6184 H.264 payloads for maximum 30 FPS efficiency.
+     */
+    public static List<RtpPayload> getFramePackets(int frameIndex) {
+        return ((frameIndex / 30) % 2 == 0) ? preSmptePackets : preTestsrcPackets;
     }
 
     /**
