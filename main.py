@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import collections
 import http.server
 import json
@@ -74,7 +75,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.4.1"
+APP_VERSION = "1.4.2"
 AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
@@ -104,6 +105,47 @@ YOUTUBE_URL = ""
 YOUTUBE_TITLE = ""
 YOUTUBE_AUTHOR = ""
 YOUTUBE_MODE = "watch"
+
+STREAM_PROFILE = "balanced"  # "eco", "balanced", "ultra"
+SPOTIFY_SONG = ""
+SPOTIFY_ARTIST = ""
+SPOTIFY_ALBUM = ""
+SPOTIFY_DURATION = 180
+VOICE_HUD_MEMBERS = {}
+
+UPLOADS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
+if not os.path.exists(UPLOADS_DIR):
+    try:
+        os.makedirs(UPLOADS_DIR, exist_ok=True)
+    except Exception:
+        pass
+
+def list_uploaded_media():
+    files = []
+    dirs_to_check = [UPLOADS_DIR, os.path.join(os.getcwd(), "uploads"), os.path.join(os.getcwd(), "streambot", "videos")]
+    seen = set()
+    for d in dirs_to_check:
+        if os.path.exists(d):
+            try:
+                for f in os.listdir(d):
+                    if f.startswith(".") or f in seen:
+                        continue
+                    seen.add(f)
+                    fpath = os.path.join(d, f)
+                    if os.path.isfile(fpath):
+                        ext = os.path.splitext(f)[1].lower()
+                        is_vid = ext in (".mp4", ".mkv", ".webm", ".avi", ".mov", ".flv")
+                        is_aud = ext in (".mp3", ".wav", ".ogg", ".opus", ".m4a", ".flac")
+                        if is_vid or is_aud:
+                            files.append({
+                                "filename": f,
+                                "path": fpath,
+                                "size": os.path.getsize(fpath),
+                                "type": "video" if is_vid else "audio"
+                            })
+            except Exception:
+                pass
+    return files
 
 # StreamBot (ysdragon/StreamBot) Core Engine Globals
 STREAMBOT_QUEUE = []
@@ -748,6 +790,31 @@ async def run_account(aid):
                         t = ev.get("t")
                         if t == "VOICE_STATE_UPDATE":
                             d = ev.get("d", {})
+                            ch_id = d.get("channel_id")
+                            u_id = d.get("user_id")
+                            member = d.get("member", {})
+                            u_obj = member.get("user", {})
+                            uname = member.get("nick") or u_obj.get("global_name") or u_obj.get("username") or f"User {u_id}"
+                            avatar = u_obj.get("avatar")
+
+                            # Track in Real-Time Voice Channel HUD
+                            if ch_id and u_id:
+                                if ch_id not in VOICE_HUD_MEMBERS:
+                                    VOICE_HUD_MEMBERS[ch_id] = {}
+                                prev_spk = VOICE_HUD_MEMBERS[ch_id].get(u_id, {}).get("speaking", False)
+                                VOICE_HUD_MEMBERS[ch_id][u_id] = {
+                                    "user_id": u_id,
+                                    "username": uname,
+                                    "avatar": avatar,
+                                    "mute": d.get("self_mute", False) or d.get("mute", False),
+                                    "deaf": d.get("self_deaf", False) or d.get("deaf", False),
+                                    "video": d.get("self_video", False),
+                                    "speaking": prev_spk
+                                }
+                            elif not ch_id and u_id:
+                                for cid in list(VOICE_HUD_MEMBERS.keys()):
+                                    VOICE_HUD_MEMBERS[cid].pop(u_id, None)
+
                             if d.get("user_id") == acc.get("user_id"):
                                 prev_ch = acc.get("voice_channel")
                                 acc["session_id"] = d.get("session_id", acc.get("session_id", ""))
@@ -789,6 +856,14 @@ async def run_account(aid):
                                     asyncio.create_task(acc["voice_conn"].stop())
                                 log(f"[Account {aid}] 🎤 Connecting Voice Gateway to {endpoint}...")
                                 v_conn = DiscordMediaConnection(aid, acc.get("user_id"), acc.get("session_id"), token, endpoint, g_id, is_stream=False, logger=log)
+                                v_conn.set_profile(STREAM_PROFILE)
+                                cur_ch = acc.get("voice_channel")
+                                def _make_speaker_cb(ch):
+                                    def _on_spk(uid, spk):
+                                        if ch in VOICE_HUD_MEMBERS and uid in VOICE_HUD_MEMBERS[ch]:
+                                            VOICE_HUD_MEMBERS[ch][uid]["speaking"] = spk
+                                    return _on_spk
+                                v_conn.speaker_callback = _make_speaker_cb(cur_ch)
                                 acc["voice_conn"] = v_conn
                                 v_conn.start()
 
@@ -814,6 +889,14 @@ async def run_account(aid):
                                 srv_id = acc.get("stream_rtc_server_id") or stream_key
                                 log(f"[Account {aid}] 📡 Stream Server Update: {endpoint} (server_id={srv_id})")
                                 s_conn = DiscordMediaConnection(aid, acc.get("user_id"), acc.get("session_id"), token, endpoint, srv_id, is_stream=True, logger=log)
+                                s_conn.set_profile(STREAM_PROFILE)
+                                cur_ch = acc.get("voice_channel")
+                                def _make_stream_spk_cb(ch):
+                                    def _on_spk(uid, spk):
+                                        if ch in VOICE_HUD_MEMBERS and uid in VOICE_HUD_MEMBERS[ch]:
+                                            VOICE_HUD_MEMBERS[ch][uid]["speaking"] = spk
+                                    return _on_spk
+                                s_conn.speaker_callback = _make_stream_spk_cb(cur_ch)
                                 acc["stream_conn"] = s_conn
                                 s_conn.start()
                     except Exception:
@@ -1536,6 +1619,13 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             "streambot_fps": STREAMBOT_FPS,
             "streambot_bitrate": STREAMBOT_BITRATE,
             "streambot_host": STREAMBOT_HOST,
+            "stream_profile": STREAM_PROFILE,
+            "spotify_song": SPOTIFY_SONG,
+            "spotify_artist": SPOTIFY_ARTIST,
+            "spotify_album": SPOTIFY_ALBUM,
+            "spotify_duration": SPOTIFY_DURATION,
+            "voice_hud": VOICE_HUD_MEMBERS,
+            "uploaded_media": list_uploaded_media(),
             "presets": get_channel_presets(),
             "accounts": [
                 {
@@ -1586,12 +1676,22 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(resp)
 
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
     def do_POST(self):
-        if self.path == "/api/action":
+        if self.path in ("/api/action", "/api/upload_media"):
             content_length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(content_length).decode("utf-8")
             try:
                 payload = json.loads(body)
+                if self.path == "/api/upload_media":
+                    payload["action"] = "upload_media"
                 result = self.execute_action(payload)
                 resp = json.dumps(result).encode("utf-8")
                 self.send_response(200)
@@ -1611,7 +1711,134 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(404, "Not Found")
 
     def execute_action(self, payload):
-        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VOICE_FLAGS, ACTIVE_SFX, VOICE_STATUS, HUMAN_CHATTER_ENABLED, HUMAN_CHATTER_TASK, REAL_VIDEO_ACTIVE, REAL_VIDEO_MODE, REAL_VIDEO_TITLE, WEB_SHARE_URL, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE, STREAMBOT_QUEUE, STREAMBOT_CURRENT, STREAMBOT_STATUS, STREAMBOT_LOOP_MODE, STREAMBOT_VOLUME, STREAMBOT_RESOLUTION, STREAMBOT_FPS, STREAMBOT_BITRATE
+        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VOICE_FLAGS, ACTIVE_SFX, VOICE_STATUS, HUMAN_CHATTER_ENABLED, HUMAN_CHATTER_TASK, REAL_VIDEO_ACTIVE, REAL_VIDEO_MODE, REAL_VIDEO_TITLE, WEB_SHARE_URL, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE, STREAMBOT_QUEUE, STREAMBOT_CURRENT, STREAMBOT_STATUS, STREAMBOT_LOOP_MODE, STREAMBOT_VOLUME, STREAMBOT_RESOLUTION, STREAMBOT_FPS, STREAMBOT_BITRATE, STREAM_PROFILE, SPOTIFY_SONG, SPOTIFY_ARTIST, SPOTIFY_ALBUM, SPOTIFY_DURATION
+        action = payload.get("action", "")
+
+        if action == "get_uploaded_media":
+            return {"success": True, "files": list_uploaded_media()}
+
+        if action == "delete_uploaded_media":
+            fname = os.path.basename(payload.get("filename", ""))
+            if not fname:
+                return {"success": False, "error": "No filename provided"}
+            fpath = os.path.join(UPLOADS_DIR, fname)
+            if os.path.exists(fpath):
+                try:
+                    os.remove(fpath)
+                    log(f"🗑️ Deleted uploaded media: {fname}")
+                    return {"success": True, "message": f"Deleted {fname}", "files": list_uploaded_media()}
+                except Exception as e:
+                    return {"success": False, "error": str(e)}
+            return {"success": False, "error": f"File '{fname}' not found"}
+
+        if action == "upload_media":
+            fname = os.path.basename(payload.get("filename", "media_file"))
+            b64_data = payload.get("data", "")
+            if not b64_data:
+                return {"success": False, "error": "No file data received"}
+            try:
+                if "," in b64_data:
+                    b64_data = b64_data.split(",", 1)[1]
+                raw = base64.b64decode(b64_data)
+                dest = os.path.join(UPLOADS_DIR, fname)
+                with open(dest, "wb") as f:
+                    f.write(raw)
+                log(f"📥 Saved uploaded media: {fname} ({len(raw)} bytes)")
+                return {"success": True, "filename": fname, "size": len(raw), "path": dest, "files": list_uploaded_media()}
+            except Exception as e:
+                return {"success": False, "error": f"Failed to save upload: {e}"}
+
+        if action == "set_stream_profile":
+            prof = str(payload.get("profile", "balanced")).lower()
+            if prof not in ("eco", "balanced", "ultra"):
+                prof = "balanced"
+            STREAM_PROFILE = prof
+            for a in ACCOUNTS.values():
+                vc = a.get("voice_conn")
+                if vc:
+                    vc.set_profile(STREAM_PROFILE)
+                sc = a.get("stream_conn")
+                if sc:
+                    sc.set_profile(STREAM_PROFILE)
+            log(f"⚡ Stream Quality Profile set to {STREAM_PROFILE.upper()}")
+            return {"success": True, "profile": STREAM_PROFILE, "message": f"Stream Profile set to {STREAM_PROFILE.upper()}"}
+
+        if action == "set_spotify_presence":
+            SPOTIFY_SONG = str(payload.get("song", "")).strip()
+            SPOTIFY_ARTIST = str(payload.get("artist", "")).strip()
+            SPOTIFY_ALBUM = str(payload.get("album", "")).strip()
+            try:
+                SPOTIFY_DURATION = int(payload.get("duration", 180))
+            except Exception:
+                SPOTIFY_DURATION = 180
+
+            if MAIN_LOOP and MAIN_LOOP.is_running():
+                async def _broadcast_spotify():
+                    start_ms = int(time.time() * 1000)
+                    end_ms = start_ms + (SPOTIFY_DURATION * 1000)
+                    act = {
+                        "name": "Spotify",
+                        "type": 2,  # Listening
+                        "details": SPOTIFY_SONG or "Listening to Music",
+                        "state": SPOTIFY_ARTIST or "Spotify",
+                        "timestamps": {
+                            "start": start_ms,
+                            "end": end_ms
+                        },
+                        "assets": {
+                            "large_image": "spotify:ab67616d0000b273b41e9766d3a9547d287bb122",
+                            "large_text": SPOTIFY_ALBUM or SPOTIFY_SONG or "Spotify"
+                        },
+                        "party": {
+                            "id": f"spotify:{random.randint(100000, 999999)}"
+                        },
+                        "flags": 48
+                    }
+                    op3 = {"op": 3, "d": {"since": 0, "activities": [act], "status": "online", "afk": False}}
+                    for a in online_accounts():
+                        ws = a.get("ws")
+                        if ws:
+                            try:
+                                await ws.send(json.dumps(op3))
+                            except Exception:
+                                pass
+                asyncio.run_coroutine_threadsafe(_broadcast_spotify(), MAIN_LOOP)
+            log(f"🎧 Broadcast Spotify presence: '{SPOTIFY_SONG}' by '{SPOTIFY_ARTIST}' ({SPOTIFY_DURATION}s)")
+            return {
+                "success": True,
+                "message": f"Spotify presence active: '{SPOTIFY_SONG}' by '{SPOTIFY_ARTIST}'",
+                "song": SPOTIFY_SONG,
+                "artist": SPOTIFY_ARTIST,
+                "album": SPOTIFY_ALBUM,
+                "duration": SPOTIFY_DURATION
+            }
+
+        if action == "stream_uploaded_file":
+            fname = os.path.basename(payload.get("filename", ""))
+            fpath = os.path.join(UPLOADS_DIR, fname)
+            if not os.path.exists(fpath):
+                fpath_alt = os.path.join(os.getcwd(), "streambot", "videos", fname)
+                if os.path.exists(fpath_alt):
+                    fpath = fpath_alt
+                else:
+                    return {"success": False, "error": f"Media file '{fname}' not found"}
+
+            ext = os.path.splitext(fname)[1].lower()
+            if ext in (".mp3", ".wav", ".ogg", ".opus", ".m4a", ".flac"):
+                ACTIVE_SFX = fname
+                SPEAKING_SIM = True
+                for a in ACCOUNTS.values():
+                    a["speaking"] = True
+                    a["active_sfx"] = fname
+                sb_res = send_to_streambot("/api/play", {"url": fpath, "title": fname})
+                log(f"🎵 [Local Media] Streaming audio file '{fname}'")
+                return {"success": True, "message": f"Streaming audio file '{fname}'", "filename": fname, "streambot": sb_res}
+            else:
+                STREAMBOT_CURRENT = {"title": fname, "url": fpath}
+                STREAMBOT_STATUS = "playing"
+                sb_res = send_to_streambot("/api/play", {"url": fpath, "title": fname})
+                log(f"🎬 [Local Media] Streaming uploaded video '{fname}' to Discord Go Live!")
+                return {"success": True, "message": f"Streaming local media '{fname}'", "filename": fname, "path": fpath, "streambot": sb_res}
         action = payload.get("action", "")
 
         if action == "clear_logs":

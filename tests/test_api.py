@@ -59,7 +59,7 @@ def run_tests():
     # 2. Test GET /api/status
     try:
         st, data = http_get("/api/status")
-        check("GET /api/status Schema", st == 200 and "total_accounts" in data and "version" in data and "stealth_delay" in data and "youtube_url" in data)
+        check("GET /api/status Schema", st == 200 and "total_accounts" in data and "version" in data and "stream_profile" in data and "spotify_song" in data and "voice_hud" in data and "uploaded_media" in data)
     except Exception as e:
         check("GET /api/status Schema", False, str(e))
 
@@ -344,6 +344,63 @@ def run_tests():
         check("POST action: token_remove", data_rem.get("success") is True)
     except Exception as e:
         check("POST action: token_remove", False, str(e))
+
+    # 37. Test Dynamic Stream Quality & Eco Battery Profiles
+    try:
+        st_p1, d_p1 = http_post("/api/action", {"action": "set_stream_profile", "profile": "eco"})
+        st_p2, d_p2 = http_post("/api/action", {"action": "set_stream_profile", "profile": "ultra"})
+        st_p3, d_p3 = http_post("/api/action", {"action": "set_stream_profile", "profile": "balanced"})
+        check("POST action: set_stream_profile (Eco/Ultra/Balanced Quality Scaling)",
+              d_p1.get("profile") == "eco" and d_p2.get("profile") == "ultra" and d_p3.get("profile") == "balanced")
+    except Exception as e:
+        check("POST action: set_stream_profile", False, str(e))
+
+    # 38. Test Spotify & Rich Presence Simulator
+    try:
+        st_sp, d_sp = http_post("/api/action", {
+            "action": "set_spotify_presence",
+            "song": "Blinding Lights",
+            "artist": "The Weeknd",
+            "album": "After Hours",
+            "duration": 200
+        })
+        check("POST action: set_spotify_presence (Listening to Spotify & Progress)",
+              d_sp.get("success") is True and d_sp.get("song") == "Blinding Lights" and d_sp.get("duration") == 200)
+    except Exception as e:
+        check("POST action: set_spotify_presence", False, str(e))
+
+    # 39. Test Direct Media Upload (/api/upload_media)
+    test_fname = "test_upload_sample.mp3"
+    import base64
+    sample_b64 = base64.b64encode(b"ID3\x03\x00\x00\x00\x00\x00\x00FAKE_AUDIO_SAMPLE_DATA").decode("ascii")
+    try:
+        st_up, d_up = http_post("/api/upload_media", {
+            "filename": test_fname,
+            "data": sample_b64
+        })
+        check("POST /api/upload_media (Direct File Upload & Base64 Decoder)",
+              d_up.get("success") is True and d_up.get("filename") == test_fname and d_up.get("size") > 0)
+    except Exception as e:
+        check("POST /api/upload_media", False, str(e))
+
+    # 40. Test Get & Stream Uploaded Media
+    try:
+        st_get, d_get = http_post("/api/action", {"action": "get_uploaded_media"})
+        files = d_get.get("files", [])
+        has_file = any(f.get("filename") == test_fname for f in files)
+        st_play, d_play = http_post("/api/action", {"action": "stream_uploaded_file", "filename": test_fname})
+        check("POST action: get_uploaded_media / stream_uploaded_file (Local Media Player)",
+              st_get == 200 and has_file and d_play.get("success") is True)
+    except Exception as e:
+        check("POST action: get_uploaded_media / stream_uploaded_file", False, str(e))
+
+    # 41. Test Delete Uploaded Media
+    try:
+        st_del, d_del = http_post("/api/action", {"action": "delete_uploaded_media", "filename": test_fname})
+        check("POST action: delete_uploaded_media",
+              d_del.get("success") is True)
+    except Exception as e:
+        check("POST action: delete_uploaded_media", False, str(e))
 
     # Summary
     passed = sum(1 for _, ok, _ in results if ok)

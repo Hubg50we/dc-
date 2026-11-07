@@ -756,6 +756,47 @@
       transition: width 0.2s ease;
     }
 
+    /* Voice HUD Member Cards & Avatar Speaking Ring */
+    .hud-member-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      position: relative;
+      transition: transform 0.15s ease, border-color 0.15s ease;
+    }
+    .hud-avatar-ring {
+      position: relative;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-dark);
+      border: 2px solid transparent;
+      margin-bottom: 6px;
+      transition: all 0.2s ease;
+    }
+    .hud-avatar-ring.speaking {
+      border-color: #23a55a;
+      box-shadow: 0 0 0 2px #23a55a, 0 0 10px rgba(35, 165, 90, 0.7);
+      animation: hudSpeakPulse 1s infinite alternate ease-in-out;
+    }
+    @keyframes hudSpeakPulse {
+      0% { box-shadow: 0 0 0 2px #23a55a, 0 0 4px rgba(35, 165, 90, 0.4); }
+      100% { box-shadow: 0 0 0 4px #23a55a, 0 0 12px rgba(35, 165, 90, 0.9); }
+    }
+    .profile-chip-active {
+      border-color: var(--accent) !important;
+      background: rgba(88, 101, 242, 0.2) !important;
+      color: #fff !important;
+    }
+
     /* Desktop View */
     @media (min-width: 900px) {
       body { padding-bottom: 24px; }
@@ -919,6 +960,30 @@
         </div>
       </div>
 
+      <!-- Real-Time Voice Channel HUD & Active Speakers Card -->
+      <div class="card" id="voice-hud-card" style="border-color: rgba(35, 165, 90, 0.45); background: linear-gradient(180deg, rgba(35, 165, 90, 0.05) 0%, var(--bg-card) 100%);">
+        <div class="card-title" style="color:var(--success);">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.15rem;">👥</span>
+            <span>Voice Channel HUD</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span class="badge badge-voice" id="hud-member-count">0 in Channel</span>
+            <span class="badge badge-online" id="hud-live-tag" style="display:none;">LIVE</span>
+          </div>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">
+          Live participant roster with real-time speaking indicators, glowing green rings, mute/deafen states, and camera feeds.
+        </p>
+
+        <!-- Voice Members Grid -->
+        <div id="voice-hud-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(130px, 1fr)); gap:8px; min-height:48px;">
+          <div style="grid-column: 1 / -1; text-align:center; padding:12px; color:var(--text-muted); font-size:0.78rem;">
+            No voice channel joined. Connect accounts to see live members!
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <!-- TAB 2: ACCOUNTS LIST -->
@@ -1048,7 +1113,7 @@
       <div class="card" style="border-color: rgba(88, 101, 242, 0.45);">
         <div class="card-title" style="color:var(--accent);">
           <span>🔄 App Updates & Version</span>
-          <span class="badge badge-voice" id="settings-app-version">v1.4.1</span>
+          <span class="badge badge-voice" id="settings-app-version">v1.4.2</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Cross-platform Discord controller for Android Mobile and Windows PC.
@@ -1072,7 +1137,7 @@
         </div>
 
         <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:6px;">
-          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Direct Downloads (v1.4.1):</div>
+          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Direct Downloads (v1.4.2):</div>
           <div style="display:flex; gap:6px; flex-wrap:wrap;">
             <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-android.apk" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               📱 Android APK
@@ -1080,7 +1145,7 @@
             <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows.exe" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               💻 Windows EXE
             </a>
-            <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows-portable-v1.4.1.zip" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
+            <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows-portable-v1.4.2.zip" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               📦 Portable ZIP
             </a>
           </div>
@@ -1254,14 +1319,78 @@
 
         <!-- Mobile Quick-Nav Ribbon -->
         <div style="display:flex; gap:6px; overflow-x:auto; padding-bottom:8px; margin-bottom:12px; -webkit-overflow-scrolling:touch;">
-          <button class="preset-chip active" style="white-space:nowrap; padding:4px 9px; font-size:0.75rem; font-weight:600;" onclick="scrollToMediaSec('sec-streambot')">🎬 StreamBot Queue</button>
+          <button class="preset-chip active" style="white-space:nowrap; padding:4px 9px; font-size:0.75rem; font-weight:600;" onclick="scrollToMediaSec('sec-stream-profiles')">⚡ Profiles</button>
+          <button class="preset-chip" style="white-space:nowrap; padding:4px 9px; font-size:0.75rem; font-weight:600;" onclick="scrollToMediaSec('sec-local-media')">📁 Local Media</button>
+          <button class="preset-chip" style="white-space:nowrap; padding:4px 9px; font-size:0.75rem; font-weight:600;" onclick="scrollToMediaSec('sec-streambot')">🎬 StreamBot Queue</button>
           <button class="preset-chip" style="white-space:nowrap; padding:4px 9px; font-size:0.75rem; font-weight:600;" onclick="scrollToMediaSec('sec-real-video')">🎥 Video & Cam</button>
+          <button class="preset-chip" style="white-space:nowrap; padding:4px 9px; font-size:0.75rem; font-weight:600;" onclick="scrollToMediaSec('sec-spotify')">🎧 Spotify Studio</button>
           <button class="preset-chip" style="white-space:nowrap; padding:4px 9px; font-size:0.75rem; font-weight:600;" onclick="scrollToMediaSec('sec-go-live')">🟣 Go Live</button>
           <button class="preset-chip" style="white-space:nowrap; padding:4px 9px; font-size:0.75rem; font-weight:600;" onclick="scrollToMediaSec('sec-soundboard')">🔊 Soundboard</button>
           <button class="preset-chip" style="white-space:nowrap; padding:4px 9px; font-size:0.75rem; font-weight:600;" onclick="scrollToMediaSec('sec-youtube')">▶️ YouTube</button>
           <button class="preset-chip" style="white-space:nowrap; padding:4px 9px; font-size:0.75rem; font-weight:600;" onclick="scrollToMediaSec('sec-tts-chatter')">🗣️ TTS & Chatter</button>
           <button class="preset-chip" style="white-space:nowrap; padding:4px 9px; font-size:0.75rem; font-weight:600;" onclick="scrollToMediaSec('sec-voice-banner')">📢 Channel Banner</button>
           <button class="preset-chip" style="white-space:nowrap; padding:4px 9px; font-size:0.75rem; font-weight:600;" onclick="scrollToMediaSec('sec-web-sharing')">🌐 Web Sharing</button>
+        </div>
+
+        <!-- Dynamic Stream Quality & Eco Battery Profiles -->
+        <div id="sec-stream-profiles" style="background:var(--bg-dark); padding:10px 12px; border-radius:var(--radius-sm); margin-bottom:10px; border:1px solid rgba(59, 130, 246, 0.45);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:1.1rem; color:#60a5fa;">⚡</span>
+              <div>
+                <strong style="font-size:0.84rem; color:var(--text-heading);">Stream Quality & Eco Battery Profiles</strong>
+                <div style="font-size:0.72rem; color:var(--text-muted);">Hardware profile scaling for Android phone battery & PC FPS</div>
+              </div>
+            </div>
+            <span class="badge" id="current-stream-profile-badge" style="background:rgba(59, 130, 246, 0.25); color:#93c5fd; text-transform:uppercase; font-weight:700;">BALANCED</span>
+          </div>
+          <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:6px; margin-top:8px;">
+            <button id="prof-btn-eco" class="btn btn-secondary btn-sm" style="display:flex; flex-direction:column; align-items:center; padding:8px 4px; text-align:center;" onclick="changeStreamProfile('eco')">
+              <span style="font-size:1.1rem;">🌿</span>
+              <span style="font-size:0.78rem; font-weight:700;">Eco Saver</span>
+              <span style="font-size:0.65rem; color:var(--text-muted);">360p @ 15fps</span>
+            </button>
+            <button id="prof-btn-balanced" class="btn btn-secondary btn-sm profile-chip-active" style="display:flex; flex-direction:column; align-items:center; padding:8px 4px; text-align:center;" onclick="changeStreamProfile('balanced')">
+              <span style="font-size:1.1rem;">⚖️</span>
+              <span style="font-size:0.78rem; font-weight:700;">Balanced</span>
+              <span style="font-size:0.65rem; color:var(--text-muted);">720p @ 30fps</span>
+            </button>
+            <button id="prof-btn-ultra" class="btn btn-secondary btn-sm" style="display:flex; flex-direction:column; align-items:center; padding:8px 4px; text-align:center;" onclick="changeStreamProfile('ultra')">
+              <span style="font-size:1.1rem;">🚀</span>
+              <span style="font-size:0.78rem; font-weight:700;">Ultra HD</span>
+              <span style="font-size:0.65rem; color:var(--text-muted);">1080p @ 60fps</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Direct File Upload & Local Media Player -->
+        <div id="sec-local-media" style="background:var(--bg-dark); padding:10px 12px; border-radius:var(--radius-sm); margin-bottom:10px; border:1px solid rgba(245, 158, 11, 0.45);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:1.1rem; color:#f59e0b;">📁</span>
+              <div>
+                <strong style="font-size:0.84rem; color:var(--text-heading);">Local Media Player & File Uploader</strong>
+                <div style="font-size:0.72rem; color:var(--text-muted);">Direct phone & PC video/audio streaming to Discord Go Live</div>
+              </div>
+            </div>
+            <span class="badge" id="uploaded-files-count-badge" style="background:rgba(245,158,11,0.25); color:#fbbf24; font-weight:700;">0 Files</span>
+          </div>
+
+          <!-- Drag & Drop Upload Zone -->
+          <div id="media-drop-zone" style="border: 2px dashed rgba(245,158,11,0.5); border-radius:var(--radius-sm); padding:12px; text-align:center; background:rgba(0,0,0,0.25); cursor:pointer; margin-bottom:8px;" onclick="document.getElementById('media-file-input').click()">
+            <input type="file" id="media-file-input" style="display:none;" accept="video/*,audio/*" onchange="handleMediaFileUpload(event)">
+            <div style="font-size:1.3rem; margin-bottom:2px;">📤</div>
+            <div style="font-size:0.8rem; font-weight:600; color:var(--text);">Tap to Choose File or Drop Media Here</div>
+            <div style="font-size:0.68rem; color:var(--text-muted);">MP4, MKV, WebM, MP3, WAV, Opus, OGG</div>
+            <div id="upload-progress-text" style="font-size:0.72rem; color:#f59e0b; margin-top:4px; display:none; font-weight:600;">Uploading...</div>
+          </div>
+
+          <!-- Uploaded Media List -->
+          <div id="uploaded-media-list" style="display:flex; flex-direction:column; gap:6px; max-height:160px; overflow-y:auto;">
+            <div style="text-align:center; padding:10px; font-size:0.75rem; color:var(--text-muted);">
+              No local media files yet. Upload one above!
+            </div>
+          </div>
         </div>
 
         <!-- 0. StreamBot (ysdragon/StreamBot) Video & Queue Studio -->
@@ -1450,22 +1579,48 @@
           </div>
         </div>
 
-        <!-- 3. Spotify Music Player Simulation -->
-        <div style="background:var(--bg-dark); padding:10px 12px; border-radius:var(--radius-sm);">
+        <!-- 3. Advanced Spotify & Rich Presence Simulator -->
+        <div id="sec-spotify" style="background:var(--bg-dark); padding:10px 12px; border-radius:var(--radius-sm); border:1px solid rgba(29, 185, 84, 0.45);">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-            <div>
-              <strong style="font-size:0.84rem; color:var(--text-heading);">🎵 Spotify Music Player</strong>
-              <div style="font-size:0.72rem; color:var(--text-muted);">Broadcasts official green listening card</div>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:1.1rem; color:#1db954;">🎧</span>
+              <div>
+                <strong style="font-size:0.84rem; color:var(--text-heading);">Spotify Rich Presence Simulator</strong>
+                <div style="font-size:0.72rem; color:var(--text-muted);">Authentic Spotify listening card with live elapsed progress</div>
+              </div>
             </div>
             <span class="badge badge-voice" id="music-status-badge">Stopped</span>
           </div>
-          <div style="display:flex; gap:6px; margin-bottom:6px;">
-            <input type="text" id="music-title-input" placeholder="Track Title (e.g. Starboy)" style="flex:1;">
-            <input type="text" id="music-artist-input" placeholder="Artist (e.g. The Weeknd)" style="flex:1;">
+
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; margin-bottom:6px;">
+            <input type="text" id="music-title-input" placeholder="Song Title (e.g. Starboy)" style="font-size:0.78rem;">
+            <input type="text" id="music-artist-input" placeholder="Artist (e.g. The Weeknd)" style="font-size:0.78rem;">
+            <input type="text" id="music-album-input" placeholder="Album (e.g. Starboy Deluxe)" style="font-size:0.78rem;">
+            <input type="number" id="music-duration-input" placeholder="Duration in seconds (e.g. 230)" value="230" style="font-size:0.78rem;">
           </div>
+
+          <!-- Live Interactive Spotify Preview Card -->
+          <div id="spotify-live-card" style="background:#0f1115; border:1px solid rgba(29,185,84,0.4); border-radius:8px; padding:8px 10px; margin-bottom:8px; display:flex; gap:10px; align-items:center;">
+            <div style="width:44px; height:44px; border-radius:6px; background:#181818; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="#1db954"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.58 14.42c-.18.3-.57.39-.87.21-2.39-1.46-5.4-1.79-8.95-.98-.34.08-.68-.14-.76-.48-.08-.34.14-.68.48-.76 3.91-.89 7.27-.51 9.9 1.11.3.18.39.57.2.9zm1.22-2.73c-.23.38-.72.5-1.1.27-2.73-1.68-6.9-2.17-10.13-1.18-.42.13-.86-.11-.99-.53-.13-.42.11-.86.53-.99 3.69-1.12 8.32-.58 11.42 1.33.38.23.5.72.27 1.1zm.11-2.84C14.64 8.78 9.25 8.6 6.13 9.55c-.5.15-1.03-.13-1.18-.63-.15-.5.13-1.03.63-1.18 3.59-1.09 9.53-.88 13.34 1.38.45.27.6.86.33 1.31-.27.45-.86.6-1.34.33z"/></svg>
+            </div>
+            <div style="flex:1; min-width:0;">
+              <div style="font-size:0.65rem; color:#1db954; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">LISTENING TO SPOTIFY</div>
+              <div id="spotify-card-title" style="font-size:0.82rem; font-weight:700; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Starboy</div>
+              <div id="spotify-card-artist" style="font-size:0.72rem; color:#b3b3b3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">by The Weeknd</div>
+              <div style="margin-top:4px; display:flex; align-items:center; gap:6px;">
+                <span id="spotify-time-elapsed" style="font-size:0.62rem; color:#888; font-family:monospace;">0:00</span>
+                <div style="flex:1; height:3px; background:#333; border-radius:2px; overflow:hidden;">
+                  <div id="spotify-progress-bar" style="height:100%; width:0%; background:#1db954; border-radius:2px; transition:width 0.5s ease;"></div>
+                </div>
+                <span id="spotify-time-total" style="font-size:0.62rem; color:#888; font-family:monospace;">3:50</span>
+              </div>
+            </div>
+          </div>
+
           <div style="display:flex; gap:8px;">
-            <button class="btn btn-sm" style="flex:1; background:#1db954; color:#fff;" onclick="playSpotify()">▶️ Play Music</button>
-            <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="stopSpotify()">⏹️ Stop Music</button>
+            <button class="btn btn-sm" style="flex:1; background:#1db954; color:#fff;" onclick="playSpotify()">▶️ Broadcast Presence</button>
+            <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="stopSpotify()">⏹️ Clear Spotify</button>
           </div>
         </div>
 
@@ -2451,6 +2606,10 @@
 
       accountsData = data.accounts || [];
       renderAccountsList(accountsData);
+      renderVoiceHUD(data.voice_hud, accountsData);
+      renderStreamProfile(data.stream_profile);
+      renderUploadedMedia(data.uploaded_media);
+      renderSpotifyState(data);
       updateActiveBadges();
     }
 
@@ -4102,26 +4261,278 @@
       }
     }
 
-    async function playSpotify() {
+    // ==========================================
+    // 👥 REAL-TIME VOICE CHANNEL HUD
+    // ==========================================
+    function renderVoiceHUD(voiceHudData, accounts) {
+      const grid = document.getElementById('voice-hud-grid');
+      const countBadge = document.getElementById('hud-member-count');
+      const liveTag = document.getElementById('hud-live-tag');
+      if (!grid) return;
+
+      let members = [];
+      if (voiceHudData && typeof voiceHudData === 'object') {
+        for (const [chId, chMembers] of Object.entries(voiceHudData)) {
+          if (chMembers && typeof chMembers === 'object') {
+            for (const [uid, m] of Object.entries(chMembers)) {
+              members.push({ ...m, channel_id: chId });
+            }
+          }
+        }
+      }
+
+      if (accounts && Array.isArray(accounts)) {
+        for (const a of accounts) {
+          if (a.voice_channel) {
+            const exists = members.find(m => String(m.user_id) === String(a.user_id));
+            if (!exists) {
+              members.push({
+                user_id: a.user_id || a.id,
+                username: a.name || `Bot #${a.id}`,
+                speaking: !!a.speaking,
+                mute: !!a.mute,
+                deaf: !!a.deaf,
+                video: !!a.video || !!a.streaming,
+                is_bot: true
+              });
+            } else if (a.speaking) {
+              exists.speaking = true;
+            }
+          }
+        }
+      }
+
+      if (countBadge) countBadge.innerText = `${members.length} in Channel`;
+      if (liveTag) liveTag.style.display = members.length > 0 ? 'inline-block' : 'none';
+
+      if (members.length === 0) {
+        grid.innerHTML = `
+          <div style="grid-column: 1 / -1; text-align:center; padding:12px; color:var(--text-muted); font-size:0.78rem;">
+            No voice channel active. Connect accounts to see live member cards & speaking indicators!
+          </div>
+        `;
+        return;
+      }
+
+      let html = '';
+      for (const m of members) {
+        const isSpeaking = !!m.speaking;
+        const initial = (m.username || 'U').charAt(0).toUpperCase();
+        const avatarUrl = m.avatar && m.user_id ? `https://cdn.discordapp.com/avatars/${m.user_id}/${m.avatar}.png?size=64` : null;
+
+        html += `
+          <div class="hud-member-card" style="${isSpeaking ? 'border-color:#23a55a; background:rgba(35,165,90,0.08);' : ''}">
+            <div class="hud-avatar-ring ${isSpeaking ? 'speaking' : ''}">
+              ${avatarUrl ?
+                `<img src="${escapeHtml(avatarUrl)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">
+                 <div style="display:none; width:100%; height:100%; border-radius:50%; background:#5865f2; color:#fff; align-items:center; justify-content:center; font-weight:700; font-size:0.9rem;">${initial}</div>` :
+                `<div style="width:100%; height:100%; border-radius:50%; background:#5865f2; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.9rem;">${initial}</div>`
+              }
+            </div>
+            <div style="font-size:0.75rem; font-weight:700; color:var(--text-heading); max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+              ${escapeHtml(m.username || 'User')}
+            </div>
+            <div style="display:flex; gap:4px; align-items:center; margin-top:3px; font-size:0.65rem;">
+              ${isSpeaking ? '<span style="color:#23a55a; font-weight:700;">🔊 Speaking</span>' : '<span style="color:var(--text-muted);">Quiet</span>'}
+              ${m.mute ? '<span>🔇</span>' : ''}
+              ${m.deaf ? '<span>🎧</span>' : ''}
+              ${m.video ? '<span>📹</span>' : ''}
+            </div>
+          </div>
+        `;
+      }
+      grid.innerHTML = html;
+    }
+
+    // ==========================================
+    // ⚡ STREAM QUALITY & ECO BATTERY PROFILES
+    // ==========================================
+    async function changeStreamProfile(prof) {
       vibrate(25);
-      const title = document.getElementById('music-title-input').value.trim() || 'Starboy';
-      const artist = document.getElementById('music-artist-input').value.trim() || 'The Weeknd';
       try {
         const res = await fetch('/api/action', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'play_music', title: title, artist: artist })
+          body: JSON.stringify({ action: 'set_stream_profile', profile: prof })
         });
         const json = await res.json();
-        showToast(json.message || `Playing ${title}`);
-        const mBadge = document.getElementById('music-status-badge');
-        if (mBadge) {
-          mBadge.innerText = 'Playing';
-          mBadge.className = 'badge badge-online';
-        }
+        showToast(json.message || `Stream Profile set to ${prof.toUpperCase()}`);
+        renderStreamProfile(prof);
         fetchStatus();
       } catch (e) {
-        showToast("Error playing music: " + e.message, true);
+        showToast('Error setting profile: ' + e.message, true);
+      }
+    }
+
+    function renderStreamProfile(prof) {
+      prof = (prof || 'balanced').toLowerCase();
+      const badge = document.getElementById('current-stream-profile-badge');
+      if (badge) badge.innerText = prof.toUpperCase();
+
+      const btnEco = document.getElementById('prof-btn-eco');
+      const btnBal = document.getElementById('prof-btn-balanced');
+      const btnUlt = document.getElementById('prof-btn-ultra');
+
+      if (btnEco) btnEco.classList.toggle('profile-chip-active', prof === 'eco');
+      if (btnBal) btnBal.classList.toggle('profile-chip-active', prof === 'balanced');
+      if (btnUlt) btnUlt.classList.toggle('profile-chip-active', prof === 'ultra');
+    }
+
+    // ==========================================
+    // 📁 DIRECT FILE UPLOAD & LOCAL MEDIA PLAYER
+    // ==========================================
+    async function handleMediaFileUpload(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      vibrate(25);
+
+      const prog = document.getElementById('upload-progress-text');
+      if (prog) {
+        prog.style.display = 'block';
+        prog.innerText = `Uploading ${file.name} (${Math.round(file.size / 1024)} KB)...`;
+      }
+
+      const reader = new FileReader();
+      reader.onload = async function(e) {
+        try {
+          const b64 = e.target.result;
+          const res = await fetch('/api/upload_media', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: file.name, data: b64 })
+          });
+          const json = await res.json();
+          if (prog) prog.style.display = 'none';
+          if (json.success) {
+            showToast(`Uploaded ${file.name} successfully!`);
+            renderUploadedMedia(json.files);
+            fetchStatus();
+          } else {
+            showToast('Upload failed: ' + (json.error || 'Unknown error'), true);
+          }
+        } catch (err) {
+          if (prog) prog.style.display = 'none';
+          showToast('Upload error: ' + err.message, true);
+        }
+      };
+      reader.onerror = function() {
+        if (prog) prog.style.display = 'none';
+        showToast('Failed to read file from disk', true);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function streamUploadedFile(filename) {
+      vibrate(25);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'stream_uploaded_file', filename: filename })
+        });
+        const json = await res.json();
+        showToast(json.message || `Streaming ${filename}`);
+        fetchStatus();
+      } catch (e) {
+        showToast('Error streaming file: ' + e.message, true);
+      }
+    }
+
+    async function deleteUploadedMedia(filename) {
+      if (!confirm(`Delete '${filename}' from uploads?`)) return;
+      vibrate(20);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'delete_uploaded_media', filename: filename })
+        });
+        const json = await res.json();
+        if (json.success) {
+          showToast(`Deleted ${filename}`);
+          renderUploadedMedia(json.files);
+          fetchStatus();
+        } else {
+          showToast('Delete failed: ' + (json.error || 'Unknown error'), true);
+        }
+      } catch (e) {
+        showToast('Error deleting file: ' + e.message, true);
+      }
+    }
+
+    function renderUploadedMedia(files) {
+      const list = document.getElementById('uploaded-media-list');
+      const badge = document.getElementById('uploaded-files-count-badge');
+      if (!list) return;
+
+      if (!files || !Array.isArray(files) || files.length === 0) {
+        if (badge) badge.innerText = '0 Files';
+        list.innerHTML = `
+          <div style="text-align:center; padding:10px; font-size:0.75rem; color:var(--text-muted);">
+            No local media files yet. Upload one above!
+          </div>
+        `;
+        return;
+      }
+
+      if (badge) badge.innerText = `${files.length} File${files.length > 1 ? 's' : ''}`;
+
+      let html = '';
+      for (const f of files) {
+        const isVid = f.type === 'video';
+        const sizeStr = f.size > 1048576 ? (f.size / 1048576).toFixed(1) + ' MB' : Math.round(f.size / 1024) + ' KB';
+        html += `
+          <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.25); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:6px 10px;">
+            <div style="display:flex; align-items:center; gap:6px; overflow:hidden; flex:1; min-width:0;">
+              <span>${isVid ? '🎬' : '🎵'}</span>
+              <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                <div style="font-size:0.78rem; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(f.filename)}</div>
+                <div style="font-size:0.65rem; color:var(--text-muted);">${sizeStr} • ${f.type.toUpperCase()}</div>
+              </div>
+            </div>
+            <div style="display:flex; gap:4px; margin-left:6px;">
+              <button class="btn btn-primary btn-sm" style="padding:3px 8px; font-size:0.7rem; background:${isVid ? '#a855f7' : '#1db954'};" onclick="streamUploadedFile('${escapeHtml(f.filename)}')">▶️ Stream</button>
+              <button class="btn btn-secondary btn-sm" style="padding:3px 6px; font-size:0.7rem; color:#ef4444;" onclick="deleteUploadedMedia('${escapeHtml(f.filename)}')">🗑️</button>
+            </div>
+          </div>
+        `;
+      }
+      list.innerHTML = html;
+    }
+
+    // ==========================================
+    // 🎧 ADVANCED SPOTIFY SIMULATOR
+    // ==========================================
+    let spotifyProgressTimer = null;
+    let spotifyCurrentSec = 0;
+    let spotifyTotalSec = 180;
+
+    async function playSpotify() {
+      vibrate(25);
+      const title = document.getElementById('music-title-input').value.trim() || 'Starboy';
+      const artist = document.getElementById('music-artist-input').value.trim() || 'The Weeknd';
+      const album = document.getElementById('music-album-input').value.trim() || 'Starboy (Deluxe)';
+      const duration = parseInt(document.getElementById('music-duration-input').value) || 230;
+
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'set_spotify_presence',
+            song: title,
+            artist: artist,
+            album: album,
+            duration: duration
+          })
+        });
+        const json = await res.json();
+        showToast(json.message || `Listening to ${title}`);
+
+        startSpotifyLiveTimer(title, artist, duration);
+        fetchStatus();
+      } catch (e) {
+        showToast("Error playing Spotify: " + e.message, true);
       }
     }
 
@@ -4131,18 +4542,91 @@
         const res = await fetch('/api/action', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'stop_music' })
+          body: JSON.stringify({ action: 'set_spotify_presence', song: '', artist: '', album: '', duration: 0 })
         });
         const json = await res.json();
-        showToast(json.message || "Music stopped");
-        const mBadge = document.getElementById('music-status-badge');
-        if (mBadge) {
-          mBadge.innerText = 'Stopped';
-          mBadge.className = 'badge badge-voice';
-        }
+        showToast(json.message || "Spotify presence cleared");
+        stopSpotifyLiveTimer();
         fetchStatus();
       } catch (e) {
-        showToast("Error stopping music: " + e.message, true);
+        showToast("Error clearing Spotify: " + e.message, true);
+      }
+    }
+
+    function startSpotifyLiveTimer(title, artist, duration) {
+      if (spotifyProgressTimer) clearInterval(spotifyProgressTimer);
+      spotifyCurrentSec = 0;
+      spotifyTotalSec = duration || 180;
+
+      const titleElem = document.getElementById('spotify-card-title');
+      const artistElem = document.getElementById('spotify-card-artist');
+      const totalElem = document.getElementById('spotify-time-total');
+      const badge = document.getElementById('music-status-badge');
+
+      if (titleElem) titleElem.innerText = title;
+      if (artistElem) artistElem.innerText = 'by ' + artist;
+      if (totalElem) totalElem.innerText = formatDurationSec(spotifyTotalSec);
+      if (badge) {
+        badge.innerText = 'Listening';
+        badge.className = 'badge badge-online';
+      }
+
+      spotifyProgressTimer = setInterval(() => {
+        spotifyCurrentSec++;
+        if (spotifyCurrentSec > spotifyTotalSec) {
+          spotifyCurrentSec = 0;
+        }
+        const pct = Math.min(100, Math.round((spotifyCurrentSec / spotifyTotalSec) * 100));
+        const elElem = document.getElementById('spotify-time-elapsed');
+        const barElem = document.getElementById('spotify-progress-bar');
+        if (elElem) elElem.innerText = formatDurationSec(spotifyCurrentSec);
+        if (barElem) barElem.style.width = pct + '%';
+      }, 1000);
+    }
+
+    function stopSpotifyLiveTimer() {
+      if (spotifyProgressTimer) {
+        clearInterval(spotifyProgressTimer);
+        spotifyProgressTimer = null;
+      }
+      const badge = document.getElementById('music-status-badge');
+      if (badge) {
+        badge.innerText = 'Stopped';
+        badge.className = 'badge badge-voice';
+      }
+      const elElem = document.getElementById('spotify-time-elapsed');
+      const barElem = document.getElementById('spotify-progress-bar');
+      if (elElem) elElem.innerText = '0:00';
+      if (barElem) barElem.style.width = '0%';
+    }
+
+    function formatDurationSec(sec) {
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      return `${m}:${s < 10 ? '0' : ''}${s}`;
+    }
+
+    function renderSpotifyState(data) {
+      if (data.spotify_song) {
+        const titleElem = document.getElementById('spotify-card-title');
+        const artistElem = document.getElementById('spotify-card-artist');
+        const mTitleInput = document.getElementById('music-title-input');
+        const mArtistInput = document.getElementById('music-artist-input');
+        const mAlbumInput = document.getElementById('music-album-input');
+        const mDurInput = document.getElementById('music-duration-input');
+
+        if (titleElem) titleElem.innerText = data.spotify_song;
+        if (artistElem) artistElem.innerText = 'by ' + (data.spotify_artist || 'Artist');
+        if (mTitleInput && document.activeElement !== mTitleInput && !mTitleInput.value) mTitleInput.value = data.spotify_song;
+        if (mArtistInput && document.activeElement !== mArtistInput && !mArtistInput.value) mArtistInput.value = data.spotify_artist || '';
+        if (mAlbumInput && document.activeElement !== mAlbumInput && !mAlbumInput.value) mAlbumInput.value = data.spotify_album || '';
+        if (mDurInput && document.activeElement !== mDurInput && data.spotify_duration) mDurInput.value = data.spotify_duration;
+
+        if (!spotifyProgressTimer) {
+          startSpotifyLiveTimer(data.spotify_song, data.spotify_artist || 'Artist', data.spotify_duration || 180);
+        }
+      } else if (!data.spotify_song && !data.music_title && spotifyProgressTimer) {
+        stopSpotifyLiveTimer();
       }
     }
 
@@ -4909,7 +5393,7 @@
       return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    let currentAppVersion = '1.4.1';
+    let currentAppVersion = '1.4.2';
     let latestUpdateData = null;
 
     function toggleAutoCheckUpdate(enabled) {

@@ -178,8 +178,33 @@ class DiscordMediaConnection:
         self.aesgcm = None
         self.seq_ack = -1
 
+        self.profile = "balanced"
+        self.fps = 30
+        self.ts_delta = 3000
+        self.frame_interval = 1.0 / 30.0
+
+        self.speaker_callback = None
         self._video_thread = None
         self._audio_thread = None
+
+    def set_profile(self, profile):
+        profile = (profile or "").lower()
+        if profile == "eco":
+            self.fps = 15
+            self.ts_delta = 6000
+            self.frame_interval = 1.0 / 15.0
+            self.profile = "eco"
+        elif profile == "ultra":
+            self.fps = 60
+            self.ts_delta = 1500
+            self.frame_interval = 1.0 / 60.0
+            self.profile = "ultra"
+        else:
+            self.fps = 30
+            self.ts_delta = 3000
+            self.frame_interval = 1.0 / 30.0
+            self.profile = "balanced"
+        self.log(f"Stream profile set to {self.profile.upper()} ({self.fps}fps, {self.ts_delta} ticks/frame)")
 
     def log(self, msg):
         prefix = f"[Account {self.account_id}] {'🎥 Stream' if self.is_stream else '🎤 Voice'}"
@@ -357,6 +382,15 @@ class DiscordMediaConnection:
                             )
                             self._audio_thread.start()
 
+                    elif op == 5:  # SPEAKING
+                        uid = d.get("user_id")
+                        spk = (d.get("speaking", 0) > 0)
+                        if uid and self.speaker_callback:
+                            try:
+                                self.speaker_callback(uid, spk)
+                            except Exception:
+                                pass
+
                     elif op == 3:  # HEARTBEAT_ACK
                         pass
 
@@ -396,13 +430,14 @@ class DiscordMediaConnection:
         nonce_counter = 0
         frame_idx = 0
         dest = (self.ip, self.port)
-        interval = 1.0 / 30.0  # 30 FPS (33.3ms)
 
-        self.log("⚡ 30 FPS Video Worker Started (High-Precision Timing)")
+        self.log(f"⚡ Video Worker Active: {self.fps} FPS ({self.profile.upper()})")
 
         next_time = time.perf_counter()
         while self.running and self.connected and self.udp_sock and self.aesgcm:
             try:
+                interval = self.frame_interval
+                delta = self.ts_delta
                 # Alternate between SMPTE test card and animated pattern
                 packets = PRE_PACKETIZED_SMPTE if ((frame_idx // 30) % 2 == 0) else PRE_PACKETIZED_TESTSRC
                 frame_idx += 1
@@ -432,7 +467,7 @@ class DiscordMediaConnection:
                     seq = (seq + 1) & 0xFFFF
                     nonce_counter += 1
 
-                timestamp = (timestamp + 3000) & 0xFFFFFFFF  # 90000 / 30 = 3000 ticks
+                timestamp = (timestamp + delta) & 0xFFFFFFFF
 
                 next_time += interval
                 sleep_dur = next_time - time.perf_counter()
