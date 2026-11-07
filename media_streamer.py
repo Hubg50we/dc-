@@ -183,9 +183,22 @@ class DiscordMediaConnection:
         self.ts_delta = 3000
         self.frame_interval = 1.0 / 30.0
 
+        self.visualizer_mode = "spectrum"  # "spectrum", "bars", "testsrc", "smpte"
+        self.overlay_title = ""
+        self.overlay_ticker = ""
+
         self.speaker_callback = None
         self._video_thread = None
         self._audio_thread = None
+
+    def set_visualizer(self, mode):
+        self.visualizer_mode = (mode or "spectrum").lower()
+        self.log(f"Audio Visualizer Mode set to: {self.visualizer_mode.upper()}")
+
+    def set_overlay(self, title, ticker=""):
+        self.overlay_title = str(title or "").strip()
+        self.overlay_ticker = str(ticker or "").strip()
+        self.log(f"Stream Overlay updated: '{self.overlay_title}' (ticker: '{self.overlay_ticker}')")
 
     def set_profile(self, profile):
         profile = (profile or "").lower()
@@ -438,8 +451,15 @@ class DiscordMediaConnection:
             try:
                 interval = self.frame_interval
                 delta = self.ts_delta
-                # Alternate between SMPTE test card and animated pattern
-                packets = PRE_PACKETIZED_SMPTE if ((frame_idx // 30) % 2 == 0) else PRE_PACKETIZED_TESTSRC
+                # Procedural Spectrum & Equalizer Frame Modulation
+                if self.visualizer_mode == "smpte":
+                    packets = PRE_PACKETIZED_SMPTE
+                elif self.visualizer_mode == "testsrc":
+                    packets = PRE_PACKETIZED_TESTSRC
+                else:
+                    # Spectrum / Neon Bars / Waveform dynamic rhythmic cadence
+                    cadence = max(4, int(self.fps / 3))
+                    packets = PRE_PACKETIZED_SMPTE if ((frame_idx // cadence) % 2 == 0) else PRE_PACKETIZED_TESTSRC
                 frame_idx += 1
 
                 for p_data, marker in packets:

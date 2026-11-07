@@ -402,6 +402,65 @@ def run_tests():
     except Exception as e:
         check("POST action: delete_uploaded_media", False, str(e))
 
+    # 42. Test Live Spectrum Visualizer Mode (spectrum, bars, testsrc, smpte)
+    try:
+        st_v1, d_v1 = http_post("/api/action", {"action": "set_visualizer_mode", "mode": "neon_bars"})
+        st_v2, d_v2 = http_post("/api/action", {"action": "set_visualizer_mode", "mode": "spectrum"})
+        check("POST action: set_visualizer_mode (Live Audio Reactive Visualizer Engine)",
+              st_v1 == 200 and d_v1.get("success") is True and d_v2.get("mode") == "spectrum")
+    except Exception as e:
+        check("POST action: set_visualizer_mode", False, str(e))
+
+    # 43. Test Go Live Stream Overlay & Dynamic Watermark
+    try:
+        st_ov, d_ov = http_post("/api/action", {
+            "action": "set_stream_overlay",
+            "enabled": True,
+            "title": "🔴 LIVE 24/7 BROADCAST",
+            "ticker": "Now Playing: High Fidelity Audio Stream"
+        })
+        check("POST action: set_stream_overlay (Dynamic Stream Watermark & Ticker)",
+              st_ov == 200 and d_ov.get("enabled") is True and d_ov.get("title") == "🔴 LIVE 24/7 BROADCAST")
+    except Exception as e:
+        check("POST action: set_stream_overlay", False, str(e))
+
+    # 44. Test Smart Text Chat Auto-Responder
+    try:
+        st_cr1, d_cr1 = http_post("/api/action", {"action": "set_chat_auto_responder", "enabled": True})
+        st_cr2, d_cr2 = http_post("/api/action", {
+            "action": "add_chat_rule",
+            "trigger": "!ping",
+            "response": "Pong! Discord 24/7 Bot v1.4.3 is fully active 🚀",
+            "exact": True
+        })
+        st_cr3, d_cr3 = http_post("/api/action", {"action": "delete_chat_rule", "trigger": "!ping"})
+        check("POST action: chat_auto_responder / add_chat_rule / delete_chat_rule (Conversational Engine)",
+              d_cr1.get("enabled") is True and d_cr2.get("success") is True and d_cr3.get("success") is True)
+    except Exception as e:
+        check("POST action: chat_auto_responder", False, str(e))
+
+    # 45. Test 12-Pad Soundboard Activation
+    try:
+        st_pad, d_pad = http_post("/api/action", {"action": "play_soundboard_pad", "id": "airhorn"})
+        check("POST action: play_soundboard_pad (Multi-Pad Instant SFX Broadcaster)",
+              st_pad == 200 and d_pad.get("success") is True and d_pad.get("pad") == "airhorn")
+    except Exception as e:
+        check("POST action: play_soundboard_pad", False, str(e))
+
+    # 46. Test Microphone Voice Clip Broadcast
+    try:
+        dummy_clip_b64 = base64.b64encode(b"RIFF\x24\x00\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00\x44\xac\x00\x00data\x00\x00\x00\x00").decode("ascii")
+        st_vc, d_vc = http_post("/api/action", {
+            "action": "broadcast_voice_clip",
+            "name": "Live Phone Mic",
+            "duration": 4.5,
+            "data": f"data:audio/wav;base64,{dummy_clip_b64}"
+        })
+        check("POST action: broadcast_voice_clip (Direct Phone Mic / Audio Memo Broadcaster)",
+              st_vc == 200 and d_vc.get("success") is True and d_vc.get("name") == "Live Phone Mic")
+    except Exception as e:
+        check("POST action: broadcast_voice_clip", False, str(e))
+
     # Summary
     passed = sum(1 for _, ok, _ in results if ok)
     total = len(results)

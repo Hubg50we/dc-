@@ -27,3 +27,5 @@ Thumbs.db
 streambot/node_modules/
 streambot/tmp/
 streambot/.env
+uploads/*
+!uploads/.gitkeep

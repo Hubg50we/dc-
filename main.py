@@ -75,7 +75,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.4.2"
+APP_VERSION = "1.4.3"
 AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
@@ -112,6 +112,50 @@ SPOTIFY_ARTIST = ""
 SPOTIFY_ALBUM = ""
 SPOTIFY_DURATION = 180
 VOICE_HUD_MEMBERS = {}
+
+VISUALIZER_MODE = "spectrum"  # "spectrum", "bars", "testsrc", "smpte"
+STREAM_OVERLAY_ENABLED = False
+STREAM_OVERLAY_TITLE = "🔴 LIVE: 24/7 Music Lounge"
+STREAM_OVERLAY_TICKER = "Welcome to the Voice Channel • Quality Sound • dc- Pro"
+
+CHAT_AUTO_RESPONDER_ENABLED = False
+CHAT_AUTO_RESPONDER_RULES = [
+    {"trigger": "!ping", "response": "🏓 Pong! dc- Voice Bot is fully operational.", "exact": False},
+    {"trigger": "hello", "response": "Hey there! Welcome to the voice channel 👋", "exact": False},
+    {"trigger": "!help", "response": "dc- Pro Voice Bot: 24/7 Audio, Go Live Streaming, and Soundboard Active!", "exact": False}
+]
+
+SOUNDBOARD_PADS = [
+    {"id": "airhorn", "name": "Airhorn 📢", "emoji": "📢", "flags": 5, "duration": 3.0},
+    {"id": "vine_boom", "name": "Vine Boom 💥", "emoji": "💥", "flags": 5, "duration": 2.5},
+    {"id": "bruh", "name": "Bruh 🗿", "emoji": "🗿", "flags": 5, "duration": 2.0},
+    {"id": "metal_pipe", "name": "Metal Pipe 🪈", "emoji": "🪈", "flags": 5, "duration": 3.0},
+    {"id": "applause", "name": "Applause 👏", "emoji": "👏", "flags": 5, "duration": 4.0},
+    {"id": "gg", "name": "Good Game 🏆", "emoji": "🏆", "flags": 5, "duration": 2.5},
+    {"id": "sad_trombone", "name": "Sad Trombone 🎺", "emoji": "🎺", "flags": 5, "duration": 3.5},
+    {"id": "drum_roll", "name": "Drum Roll 🥁", "emoji": "🥁", "flags": 5, "duration": 4.0},
+    {"id": "what", "name": "What?! ❓", "emoji": "❓", "flags": 5, "duration": 2.0},
+    {"id": "wow", "name": "Anime Wow ✨", "emoji": "✨", "flags": 5, "duration": 2.5},
+    {"id": "scream", "name": "Scream FX 😱", "emoji": "😱", "flags": 5, "duration": 3.0},
+    {"id": "discord_ping", "name": "Discord Ping 🔔", "emoji": "🔔", "flags": 5, "duration": 1.5}
+]
+
+async def send_chat_message(token, channel_id, message_text):
+    if not token or not channel_id or not message_text:
+        return
+    url = f"{API}/channels/{channel_id}/messages"
+    headers = {
+        "Authorization": token,
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+    data = json.dumps({"content": message_text}).encode("utf-8")
+    req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+    loop = asyncio.get_running_loop()
+    try:
+        await loop.run_in_executor(None, lambda: urllib.request.urlopen(req, timeout=5).read())
+    except Exception as e:
+        log(f"[Chat Responder] Failed to send message to {channel_id}: {e}")
 
 UPLOADS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
 if not os.path.exists(UPLOADS_DIR):
@@ -773,8 +817,10 @@ async def run_account(aid):
                     # Low-End Mobile Battery & GC Optimization:
                     # Drop high-frequency chat messages, presences & typing events from 100+ servers before JSON parsing
                     if isinstance(raw_msg, str):
+                        is_chat = CHAT_AUTO_RESPONDER_ENABLED and ('"MESSAGE_CREATE"' in raw_msg)
                         if (
-                            '"VOICE_STATE_UPDATE"' not in raw_msg
+                            not is_chat
+                            and '"VOICE_STATE_UPDATE"' not in raw_msg
                             and '"VOICE_SERVER_UPDATE"' not in raw_msg
                             and '"STREAM_CREATE"' not in raw_msg
                             and '"STREAM_SERVER_UPDATE"' not in raw_msg
@@ -857,6 +903,7 @@ async def run_account(aid):
                                 log(f"[Account {aid}] 🎤 Connecting Voice Gateway to {endpoint}...")
                                 v_conn = DiscordMediaConnection(aid, acc.get("user_id"), acc.get("session_id"), token, endpoint, g_id, is_stream=False, logger=log)
                                 v_conn.set_profile(STREAM_PROFILE)
+                                v_conn.set_visualizer(VISUALIZER_MODE)
                                 cur_ch = acc.get("voice_channel")
                                 def _make_speaker_cb(ch):
                                     def _on_spk(uid, spk):
@@ -890,6 +937,9 @@ async def run_account(aid):
                                 log(f"[Account {aid}] 📡 Stream Server Update: {endpoint} (server_id={srv_id})")
                                 s_conn = DiscordMediaConnection(aid, acc.get("user_id"), acc.get("session_id"), token, endpoint, srv_id, is_stream=True, logger=log)
                                 s_conn.set_profile(STREAM_PROFILE)
+                                s_conn.set_visualizer(VISUALIZER_MODE)
+                                if STREAM_OVERLAY_ENABLED:
+                                    s_conn.set_overlay(STREAM_OVERLAY_TITLE, STREAM_OVERLAY_TICKER)
                                 cur_ch = acc.get("voice_channel")
                                 def _make_stream_spk_cb(ch):
                                     def _on_spk(uid, spk):
@@ -899,6 +949,22 @@ async def run_account(aid):
                                 s_conn.speaker_callback = _make_stream_spk_cb(cur_ch)
                                 acc["stream_conn"] = s_conn
                                 s_conn.start()
+
+                        elif t == "MESSAGE_CREATE" and CHAT_AUTO_RESPONDER_ENABLED:
+                            d = ev.get("d", {})
+                            author = d.get("author", {})
+                            author_id = str(author.get("id", ""))
+                            if author_id and author_id != str(acc.get("user_id")) and not author.get("bot", False):
+                                msg_content = (d.get("content") or "").strip().lower()
+                                ch_id = d.get("channel_id")
+                                for rule in CHAT_AUTO_RESPONDER_RULES:
+                                    trig = rule.get("trigger", "").lower().strip()
+                                    rep = rule.get("response", "")
+                                    exact = rule.get("exact", False)
+                                    if trig and rep and ((exact and msg_content == trig) or (not exact and trig in msg_content)):
+                                        log(f"[Account {aid}] 🤖 Chat Auto-Responder: Trigger '{trig}' matched -> Replying to #{ch_id}")
+                                        asyncio.create_task(send_chat_message(acc.get("token"), ch_id, rep))
+                                        break
                     except Exception:
                         pass
 
@@ -1626,6 +1692,13 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             "spotify_duration": SPOTIFY_DURATION,
             "voice_hud": VOICE_HUD_MEMBERS,
             "uploaded_media": list_uploaded_media(),
+            "visualizer_mode": VISUALIZER_MODE,
+            "stream_overlay_enabled": STREAM_OVERLAY_ENABLED,
+            "stream_overlay_title": STREAM_OVERLAY_TITLE,
+            "stream_overlay_ticker": STREAM_OVERLAY_TICKER,
+            "chat_auto_responder_enabled": CHAT_AUTO_RESPONDER_ENABLED,
+            "chat_auto_responder_rules": CHAT_AUTO_RESPONDER_RULES,
+            "soundboard_pads": SOUNDBOARD_PADS,
             "presets": get_channel_presets(),
             "accounts": [
                 {
@@ -1711,8 +1784,121 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(404, "Not Found")
 
     def execute_action(self, payload):
-        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VOICE_FLAGS, ACTIVE_SFX, VOICE_STATUS, HUMAN_CHATTER_ENABLED, HUMAN_CHATTER_TASK, REAL_VIDEO_ACTIVE, REAL_VIDEO_MODE, REAL_VIDEO_TITLE, WEB_SHARE_URL, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE, STREAMBOT_QUEUE, STREAMBOT_CURRENT, STREAMBOT_STATUS, STREAMBOT_LOOP_MODE, STREAMBOT_VOLUME, STREAMBOT_RESOLUTION, STREAMBOT_FPS, STREAMBOT_BITRATE, STREAM_PROFILE, SPOTIFY_SONG, SPOTIFY_ARTIST, SPOTIFY_ALBUM, SPOTIFY_DURATION
+        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VOICE_FLAGS, ACTIVE_SFX, VOICE_STATUS, HUMAN_CHATTER_ENABLED, HUMAN_CHATTER_TASK, REAL_VIDEO_ACTIVE, REAL_VIDEO_MODE, REAL_VIDEO_TITLE, WEB_SHARE_URL, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE, STREAMBOT_QUEUE, STREAMBOT_CURRENT, STREAMBOT_STATUS, STREAMBOT_LOOP_MODE, STREAMBOT_VOLUME, STREAMBOT_RESOLUTION, STREAMBOT_FPS, STREAMBOT_BITRATE, STREAM_PROFILE, SPOTIFY_SONG, SPOTIFY_ARTIST, SPOTIFY_ALBUM, SPOTIFY_DURATION, VISUALIZER_MODE, STREAM_OVERLAY_ENABLED, STREAM_OVERLAY_TITLE, STREAM_OVERLAY_TICKER, CHAT_AUTO_RESPONDER_ENABLED, CHAT_AUTO_RESPONDER_RULES
         action = payload.get("action", "")
+
+        if action == "set_visualizer_mode":
+            mode = str(payload.get("mode", "spectrum")).lower().strip()
+            if mode not in ("spectrum", "bars", "testsrc", "smpte"):
+                mode = "spectrum"
+            VISUALIZER_MODE = mode
+            for a in ACCOUNTS.values():
+                for c in (a.get("voice_conn"), a.get("stream_conn")):
+                    if c:
+                        c.set_visualizer(VISUALIZER_MODE)
+            log(f"🎵 Audio Visualizer Mode updated: {VISUALIZER_MODE.upper()}")
+            return {"success": True, "mode": VISUALIZER_MODE, "message": f"Visualizer mode set to {VISUALIZER_MODE.upper()}"}
+
+        if action == "set_stream_overlay":
+            STREAM_OVERLAY_ENABLED = bool(payload.get("enabled", True))
+            if "title" in payload:
+                STREAM_OVERLAY_TITLE = str(payload.get("title", "")).strip()
+            if "ticker" in payload:
+                STREAM_OVERLAY_TICKER = str(payload.get("ticker", "")).strip()
+            for a in ACCOUNTS.values():
+                sc = a.get("stream_conn")
+                if sc and STREAM_OVERLAY_ENABLED:
+                    sc.set_overlay(STREAM_OVERLAY_TITLE, STREAM_OVERLAY_TICKER)
+            log(f"🎨 Stream Overlay {'Enabled' if STREAM_OVERLAY_ENABLED else 'Disabled'}: '{STREAM_OVERLAY_TITLE}'")
+            return {
+                "success": True,
+                "enabled": STREAM_OVERLAY_ENABLED,
+                "title": STREAM_OVERLAY_TITLE,
+                "ticker": STREAM_OVERLAY_TICKER,
+                "message": f"Stream Overlay {'Enabled' if STREAM_OVERLAY_ENABLED else 'Disabled'}"
+            }
+
+        if action == "set_chat_auto_responder":
+            if "enabled" in payload:
+                CHAT_AUTO_RESPONDER_ENABLED = bool(payload.get("enabled"))
+            if "rules" in payload and isinstance(payload.get("rules"), list):
+                CHAT_AUTO_RESPONDER_RULES = payload.get("rules")
+            log(f"🤖 Chat Auto-Responder {'Enabled' if CHAT_AUTO_RESPONDER_ENABLED else 'Disabled'} ({len(CHAT_AUTO_RESPONDER_RULES)} rules)")
+            return {
+                "success": True,
+                "enabled": CHAT_AUTO_RESPONDER_ENABLED,
+                "rules": CHAT_AUTO_RESPONDER_RULES,
+                "message": f"Chat Auto-Responder {'Enabled' if CHAT_AUTO_RESPONDER_ENABLED else 'Disabled'}"
+            }
+
+        if action == "add_chat_rule":
+            trig = str(payload.get("trigger", "")).strip().lower()
+            rep = str(payload.get("response", "")).strip()
+            exact = bool(payload.get("exact", False))
+            if not trig or not rep:
+                return {"success": False, "error": "Trigger and response cannot be empty"}
+            CHAT_AUTO_RESPONDER_RULES = [r for r in CHAT_AUTO_RESPONDER_RULES if r.get("trigger", "").lower() != trig]
+            CHAT_AUTO_RESPONDER_RULES.append({"trigger": trig, "response": rep, "exact": exact})
+            log(f"🤖 Added Chat Auto-Responder rule: '{trig}' -> '{rep}'")
+            return {"success": True, "rules": CHAT_AUTO_RESPONDER_RULES, "message": f"Added rule for '{trig}'"}
+
+        if action == "delete_chat_rule":
+            trig = str(payload.get("trigger", "")).strip().lower()
+            CHAT_AUTO_RESPONDER_RULES = [r for r in CHAT_AUTO_RESPONDER_RULES if r.get("trigger", "").lower() != trig]
+            log(f"🤖 Deleted Chat Auto-Responder rule for '{trig}'")
+            return {"success": True, "rules": CHAT_AUTO_RESPONDER_RULES, "message": f"Deleted rule for '{trig}'"}
+
+        if action == "play_soundboard_pad":
+            pad_id = str(payload.get("id", "")).strip()
+            pad = next((p for p in SOUNDBOARD_PADS if p["id"] == pad_id), None)
+            name = pad["name"] if pad else (pad_id or "SFX Pad")
+            duration = pad["duration"] if pad else float(payload.get("duration", 3.0))
+            flags = pad["flags"] if pad else int(payload.get("flags", 5))
+
+            ACTIVE_SFX = name
+            SPEAKING_SIM = True
+            for a in ACCOUNTS.values():
+                a["speaking"] = True
+                a["voice_flags"] = flags
+                a["active_sfx"] = name
+
+            sb_res = send_to_streambot("/api/play", {"url": f"sfx/{pad_id}.mp3", "title": name})
+            log(f"🎛️ Soundboard Pad Activated: [{name}] ({duration}s)")
+
+            if MAIN_LOOP and MAIN_LOOP.is_running():
+                async def _auto_stop_pad():
+                    await asyncio.sleep(duration)
+                    global ACTIVE_SFX
+                    if ACTIVE_SFX == name:
+                        ACTIVE_SFX = ""
+                        for a in ACCOUNTS.values():
+                            a["active_sfx"] = ""
+                asyncio.run_coroutine_threadsafe(_auto_stop_pad(), MAIN_LOOP)
+
+            return {"success": True, "pad": pad_id, "name": name, "duration": duration, "message": f"Played {name}", "streambot": sb_res}
+
+        if action == "broadcast_voice_clip":
+            b64_data = payload.get("data", "")
+            duration = float(payload.get("duration", 5.0))
+            clip_name = str(payload.get("name", "Voice Clip")).strip()
+            if b64_data:
+                if "," in b64_data:
+                    b64_data = b64_data.split(",", 1)[1]
+                try:
+                    raw = base64.b64decode(b64_data)
+                    clip_path = os.path.join(UPLOADS_DIR, "voice_clip_latest.wav")
+                    with open(clip_path, "wb") as f:
+                        f.write(raw)
+                except Exception:
+                    pass
+
+            ACTIVE_SFX = f"🎙️ {clip_name}"
+            SPEAKING_SIM = True
+            for a in ACCOUNTS.values():
+                a["speaking"] = True
+                a["active_sfx"] = ACTIVE_SFX
+            log(f"🎙️ Broadcast Voice Clip: [{clip_name}] ({duration}s)")
+            return {"success": True, "name": clip_name, "duration": duration, "message": f"Broadcasted voice clip: {clip_name}"}
 
         if action == "get_uploaded_media":
             return {"success": True, "files": list_uploaded_media()}

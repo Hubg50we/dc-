@@ -797,6 +797,77 @@
       color: #fff !important;
     }
 
+    /* Soundboard 12-Pad Grid */
+    .sound-pad-btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      user-select: none;
+      transition: transform 0.1s ease, background 0.15s ease, border-color 0.15s ease;
+      min-height: 60px;
+    }
+    .sound-pad-btn:active {
+      transform: scale(0.92);
+      border-color: var(--accent);
+      background: rgba(88, 101, 242, 0.15);
+    }
+    .sound-pad-emoji {
+      font-size: 1.35rem;
+      margin-bottom: 2px;
+    }
+    .sound-pad-title {
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: var(--text-heading);
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+
+    /* Spectrum Equalizer Animated Bars */
+    .eq-bar-container {
+      display: flex;
+      align-items: flex-end;
+      gap: 3px;
+      height: 36px;
+      padding: 4px;
+    }
+    .eq-bar {
+      flex: 1;
+      background: linear-gradient(180deg, #38bdf8, #818cf8, #c084fc);
+      border-radius: 2px;
+      min-height: 4px;
+      animation: eqBounce 1.2s infinite ease-in-out alternate;
+    }
+    .eq-bar:nth-child(2) { animation-delay: 0.15s; }
+    .eq-bar:nth-child(3) { animation-delay: 0.3s; }
+    .eq-bar:nth-child(4) { animation-delay: 0.45s; }
+    .eq-bar:nth-child(5) { animation-delay: 0.2s; }
+    .eq-bar:nth-child(6) { animation-delay: 0.35s; }
+    .eq-bar:nth-child(7) { animation-delay: 0.5s; }
+    .eq-bar:nth-child(8) { animation-delay: 0.1s; }
+    @keyframes eqBounce {
+      0% { height: 15%; opacity: 0.4; }
+      50% { height: 85%; opacity: 0.9; }
+      100% { height: 35%; opacity: 0.6; }
+    }
+    .rec-pulse {
+      animation: recBlink 1s infinite;
+    }
+    @keyframes recBlink {
+      0% { opacity: 1; }
+      50% { opacity: 0.3; }
+      100% { opacity: 1; }
+    }
+
     /* Desktop View */
     @media (min-width: 900px) {
       body { padding-bottom: 24px; }
@@ -984,6 +1055,43 @@
         </div>
       </div>
 
+      <!-- 🤖 Smart Text Chat Auto-Responder Card -->
+      <div class="card" id="chat-responder-card" style="border-color: rgba(168, 85, 247, 0.45); background: linear-gradient(180deg, rgba(168, 85, 247, 0.05) 0%, var(--bg-card) 100%);">
+        <div class="card-title" style="color:#c084fc;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.15rem;">🤖</span>
+            <span>Smart Text Chat Auto-Responder</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span class="badge badge-voice" id="chat-responder-badge">Disabled</span>
+            <input type="checkbox" id="chat-responder-toggle" onchange="toggleChatAutoResponder(this.checked)" style="width:18px; height:18px; accent-color:#a855f7;">
+          </div>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">
+          Automatically listens to channel chat messages and sends instant replies, greetings, and commands across connected bot accounts.
+        </p>
+
+        <!-- Active Rules List -->
+        <div id="chat-rules-list" style="display:flex; flex-direction:column; gap:5px; margin-bottom:10px; max-height:140px; overflow-y:auto;">
+          <!-- Dynamically populated -->
+        </div>
+
+        <!-- Add Rule Box -->
+        <div style="background:var(--bg-dark); padding:8px 10px; border-radius:var(--radius-sm); border:1px solid var(--border);">
+          <div style="font-size:0.75rem; font-weight:700; color:var(--text-heading); margin-bottom:6px;">+ Add Auto-Reply Rule</div>
+          <div style="display:flex; gap:6px; margin-bottom:6px;">
+            <input type="text" id="new-rule-trigger" placeholder="Trigger word (e.g. !ping, hello)" style="flex:1; font-size:0.75rem;">
+            <input type="text" id="new-rule-response" placeholder="Bot reply text (e.g. Pong! 👋)" style="flex:2; font-size:0.75rem;">
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <label style="font-size:0.72rem; color:var(--text-muted); display:flex; align-items:center; gap:4px; cursor:pointer;">
+              <input type="checkbox" id="new-rule-exact" style="accent-color:#a855f7;"> Exact Match Only
+            </label>
+            <button class="btn btn-primary btn-sm" style="background:#a855f7; color:#fff;" onclick="addChatRule()">+ Add Rule</button>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <!-- TAB 2: ACCOUNTS LIST -->
@@ -1113,7 +1221,7 @@
       <div class="card" style="border-color: rgba(88, 101, 242, 0.45);">
         <div class="card-title" style="color:var(--accent);">
           <span>🔄 App Updates & Version</span>
-          <span class="badge badge-voice" id="settings-app-version">v1.4.2</span>
+          <span class="badge badge-voice" id="settings-app-version">v1.4.3</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Cross-platform Discord controller for Android Mobile and Windows PC.
@@ -1137,7 +1245,7 @@
         </div>
 
         <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:6px;">
-          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Direct Downloads (v1.4.2):</div>
+          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Direct Downloads (v1.4.3):</div>
           <div style="display:flex; gap:6px; flex-wrap:wrap;">
             <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-android.apk" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               📱 Android APK
@@ -1145,7 +1253,7 @@
             <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows.exe" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               💻 Windows EXE
             </a>
-            <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows-portable-v1.4.2.zip" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
+            <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows-portable-v1.4.3.zip" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               📦 Portable ZIP
             </a>
           </div>
@@ -1320,12 +1428,14 @@
         <!-- Mobile Quick-Nav Ribbon -->
         <div style="display:flex; gap:6px; overflow-x:auto; padding-bottom:8px; margin-bottom:12px; -webkit-overflow-scrolling:touch;">
           <button class="preset-chip active" style="white-space:nowrap; padding:4px 9px; font-size:0.75rem; font-weight:600;" onclick="scrollToMediaSec('sec-stream-profiles')">⚡ Profiles</button>
+          <button class="preset-chip" style="white-space:nowrap; padding:4px 9px; font-size:0.75rem; font-weight:600;" onclick="scrollToMediaSec('sec-visualizer')">🌈 Visualizer</button>
+          <button class="preset-chip" style="white-space:nowrap; padding:4px 9px; font-size:0.75rem; font-weight:600;" onclick="scrollToMediaSec('sec-overlay')">🎨 Overlay</button>
           <button class="preset-chip" style="white-space:nowrap; padding:4px 9px; font-size:0.75rem; font-weight:600;" onclick="scrollToMediaSec('sec-local-media')">📁 Local Media</button>
+          <button class="preset-chip" style="white-space:nowrap; padding:4px 9px; font-size:0.75rem; font-weight:600;" onclick="scrollToMediaSec('sec-soundboard')">🎛️ Soundboard</button>
           <button class="preset-chip" style="white-space:nowrap; padding:4px 9px; font-size:0.75rem; font-weight:600;" onclick="scrollToMediaSec('sec-streambot')">🎬 StreamBot Queue</button>
           <button class="preset-chip" style="white-space:nowrap; padding:4px 9px; font-size:0.75rem; font-weight:600;" onclick="scrollToMediaSec('sec-real-video')">🎥 Video & Cam</button>
           <button class="preset-chip" style="white-space:nowrap; padding:4px 9px; font-size:0.75rem; font-weight:600;" onclick="scrollToMediaSec('sec-spotify')">🎧 Spotify Studio</button>
           <button class="preset-chip" style="white-space:nowrap; padding:4px 9px; font-size:0.75rem; font-weight:600;" onclick="scrollToMediaSec('sec-go-live')">🟣 Go Live</button>
-          <button class="preset-chip" style="white-space:nowrap; padding:4px 9px; font-size:0.75rem; font-weight:600;" onclick="scrollToMediaSec('sec-soundboard')">🔊 Soundboard</button>
           <button class="preset-chip" style="white-space:nowrap; padding:4px 9px; font-size:0.75rem; font-weight:600;" onclick="scrollToMediaSec('sec-youtube')">▶️ YouTube</button>
           <button class="preset-chip" style="white-space:nowrap; padding:4px 9px; font-size:0.75rem; font-weight:600;" onclick="scrollToMediaSec('sec-tts-chatter')">🗣️ TTS & Chatter</button>
           <button class="preset-chip" style="white-space:nowrap; padding:4px 9px; font-size:0.75rem; font-weight:600;" onclick="scrollToMediaSec('sec-voice-banner')">📢 Channel Banner</button>
@@ -1391,6 +1501,67 @@
               No local media files yet. Upload one above!
             </div>
           </div>
+        </div>
+
+        <!-- Live Spectrum Audio Visualizer & Equalizer -->
+        <div id="sec-visualizer" style="background:var(--bg-dark); padding:10px 12px; border-radius:var(--radius-sm); margin-bottom:10px; border:1px solid rgba(56, 189, 248, 0.45);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:1.1rem; color:#38bdf8;">🌈</span>
+              <div>
+                <strong style="font-size:0.84rem; color:var(--text-heading);">Live Spectrum Audio Visualizer</strong>
+                <div style="font-size:0.72rem; color:var(--text-muted);">Real-time reactive equalizer rendered to Discord Go Live video</div>
+              </div>
+            </div>
+            <span class="badge" id="visualizer-mode-badge" style="background:rgba(56, 189, 248, 0.25); color:#7dd3fc; text-transform:uppercase; font-weight:700;">SPECTRUM</span>
+          </div>
+
+          <!-- Animated Spectrum Equalizer Preview Bar -->
+          <div style="background:#090b10; border:1px solid rgba(56,189,248,0.3); border-radius:var(--radius-sm); padding:6px 12px; margin-bottom:8px;">
+            <div class="eq-bar-container">
+              <div class="eq-bar"></div>
+              <div class="eq-bar"></div>
+              <div class="eq-bar"></div>
+              <div class="eq-bar"></div>
+              <div class="eq-bar"></div>
+              <div class="eq-bar"></div>
+              <div class="eq-bar"></div>
+              <div class="eq-bar"></div>
+            </div>
+          </div>
+
+          <!-- Visualizer Mode Chips -->
+          <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:5px;">
+            <button id="vmode-spectrum" class="preset-chip active" style="padding:5px 4px; font-size:0.72rem; font-weight:600; text-align:center;" onclick="changeVisualizerMode('spectrum')">🌈 Pulsar</button>
+            <button id="vmode-bars" class="preset-chip" style="padding:5px 4px; font-size:0.72rem; font-weight:600; text-align:center;" onclick="changeVisualizerMode('bars')">📊 Neon Bars</button>
+            <button id="vmode-testsrc" class="preset-chip" style="padding:5px 4px; font-size:0.72rem; font-weight:600; text-align:center;" onclick="changeVisualizerMode('testsrc')">📺 Test Card</button>
+            <button id="vmode-smpte" class="preset-chip" style="padding:5px 4px; font-size:0.72rem; font-weight:600; text-align:center;" onclick="changeVisualizerMode('smpte')">🏁 SMPTE Bars</button>
+          </div>
+        </div>
+
+        <!-- Go Live Stream Overlay & Dynamic Watermark -->
+        <div id="sec-overlay" style="background:var(--bg-dark); padding:10px 12px; border-radius:var(--radius-sm); margin-bottom:10px; border:1px solid rgba(234, 179, 8, 0.45);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:1.1rem; color:#eab308;">🎨</span>
+              <div>
+                <strong style="font-size:0.84rem; color:var(--text-heading);">Go Live Stream Overlay & Watermark</strong>
+                <div style="font-size:0.72rem; color:var(--text-muted);">Custom animated text ticker & channel watermark</div>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span class="badge badge-voice" id="overlay-status-badge">Off</span>
+              <input type="checkbox" id="stream-overlay-toggle" onchange="toggleStreamOverlay(this.checked)" style="width:18px; height:18px; accent-color:#eab308;">
+            </div>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:6px;">
+            <input type="text" id="stream-overlay-title-input" placeholder="Stream Title / Watermark (e.g. 🔴 LIVE: 24/7 Lo-Fi Lounge)" style="font-size:0.78rem;">
+            <input type="text" id="stream-overlay-ticker-input" placeholder="Scrolling Ticker (e.g. Welcome to the Server • Now Streaming)" style="font-size:0.78rem;">
+          </div>
+          <button class="btn btn-secondary btn-sm" style="width:100%; border-color:#eab308; color:#fde047;" onclick="saveStreamOverlay()">
+            💾 Apply Overlay Watermark
+          </button>
         </div>
 
         <!-- 0. StreamBot (ysdragon/StreamBot) Video & Queue Studio -->
@@ -1724,26 +1895,78 @@
             <button class="preset-chip" id="vfx-megaphone" style="font-size:0.7rem; padding:3px 7px;" onclick="setVoiceFx('megaphone')">📢 Megaphone</button>
           </div>
 
-          <!-- Soundboard FX Trigger Buttons -->
-          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap:5px; margin-bottom:8px;">
-            <button class="btn btn-secondary btn-sm" style="display:flex; align-items:center; justify-content:center; gap:4px; font-weight:600; border-color:rgba(239,68,68,0.5); color:#fca5a5;" onclick="triggerSfx('scream')">
-              <span>😱 Scream</span>
-            </button>
-            <button class="btn btn-secondary btn-sm" style="display:flex; align-items:center; justify-content:center; gap:4px; font-weight:600; border-color:rgba(245,158,11,0.5); color:#fcd34d;" onclick="triggerSfx('airhorn')">
-              <span>📢 Airhorn</span>
-            </button>
-            <button class="btn btn-secondary btn-sm" style="display:flex; align-items:center; justify-content:center; gap:4px; font-weight:600; border-color:rgba(236,72,153,0.5); color:#f472b6;" onclick="triggerSfx('siren')">
-              <span>🚨 Siren</span>
-            </button>
-            <button class="btn btn-secondary btn-sm" style="display:flex; align-items:center; justify-content:center; gap:4px; font-weight:600; border-color:rgba(168,85,247,0.5); color:#c084fc;" onclick="triggerSfx('bassdrop')">
-              <span>💥 808 Bass</span>
-            </button>
-            <button class="btn btn-secondary btn-sm" style="display:flex; align-items:center; justify-content:center; gap:4px; font-weight:600; border-color:rgba(59,130,246,0.5); color:#93c5fd;" onclick="triggerSfx('lofi')">
-              <span>🎵 Lofi Chords</span>
-            </button>
-            <button class="btn btn-secondary btn-sm" style="display:flex; align-items:center; justify-content:center; gap:4px; font-weight:600; border-color:rgba(239,68,68,0.4); color:#ef4444;" onclick="stopSfx()">
-              <span>⏹️ Stop SFX</span>
-            </button>
+          <!-- 12-Pad Soundboard Grid -->
+          <div id="soundboard-pads-grid" style="display:grid; grid-template-columns: repeat(4, 1fr); gap:6px; margin-bottom:10px;">
+            <div class="sound-pad-btn" onclick="triggerSoundPad('airhorn')">
+              <span class="sound-pad-emoji">📢</span>
+              <span class="sound-pad-title">Airhorn</span>
+            </div>
+            <div class="sound-pad-btn" onclick="triggerSoundPad('vine_boom')">
+              <span class="sound-pad-emoji">💥</span>
+              <span class="sound-pad-title">Vine Boom</span>
+            </div>
+            <div class="sound-pad-btn" onclick="triggerSoundPad('bruh')">
+              <span class="sound-pad-emoji">🗿</span>
+              <span class="sound-pad-title">Bruh</span>
+            </div>
+            <div class="sound-pad-btn" onclick="triggerSoundPad('metal_pipe')">
+              <span class="sound-pad-emoji">🪈</span>
+              <span class="sound-pad-title">Metal Pipe</span>
+            </div>
+            <div class="sound-pad-btn" onclick="triggerSoundPad('applause')">
+              <span class="sound-pad-emoji">👏</span>
+              <span class="sound-pad-title">Applause</span>
+            </div>
+            <div class="sound-pad-btn" onclick="triggerSoundPad('gg')">
+              <span class="sound-pad-emoji">🏆</span>
+              <span class="sound-pad-title">Good Game</span>
+            </div>
+            <div class="sound-pad-btn" onclick="triggerSoundPad('sad_trombone')">
+              <span class="sound-pad-emoji">🎺</span>
+              <span class="sound-pad-title">Trombone</span>
+            </div>
+            <div class="sound-pad-btn" onclick="triggerSoundPad('drum_roll')">
+              <span class="sound-pad-emoji">🥁</span>
+              <span class="sound-pad-title">Drum Roll</span>
+            </div>
+            <div class="sound-pad-btn" onclick="triggerSoundPad('what')">
+              <span class="sound-pad-emoji">❓</span>
+              <span class="sound-pad-title">What?!</span>
+            </div>
+            <div class="sound-pad-btn" onclick="triggerSoundPad('wow')">
+              <span class="sound-pad-emoji">✨</span>
+              <span class="sound-pad-title">Anime Wow</span>
+            </div>
+            <div class="sound-pad-btn" onclick="triggerSoundPad('scream')">
+              <span class="sound-pad-emoji">😱</span>
+              <span class="sound-pad-title">Scream FX</span>
+            </div>
+            <div class="sound-pad-btn" onclick="triggerSoundPad('discord_ping')">
+              <span class="sound-pad-emoji">🔔</span>
+              <span class="sound-pad-title">Discord Ping</span>
+            </div>
+          </div>
+
+          <!-- Direct Voice Clip Microphone Recorder & Streamer -->
+          <div style="background:rgba(0,0,0,0.3); border:1px solid rgba(244,63,94,0.3); border-radius:var(--radius-sm); padding:8px 10px; margin-bottom:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <div style="font-size:0.75rem; font-weight:700; color:var(--text-heading); display:flex; align-items:center; gap:5px;">
+                <span>🎙️</span>
+                <span>Microphone Voice Clip Recorder</span>
+              </div>
+              <span id="voice-rec-timer" style="font-size:0.7rem; font-family:monospace; color:#f43f5e; font-weight:700; display:none;">● REC 0:00 / 0:10</span>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <button id="btn-mic-record" class="btn btn-secondary btn-sm" style="flex:1; border-color:#f43f5e; color:#fda4af;" onclick="toggleVoiceClipRecording()">
+                🎙️ Record Mic Clip
+              </button>
+              <button id="btn-broadcast-clip" class="btn btn-primary btn-sm" style="flex:1; background:#f43f5e; color:#fff;" onclick="broadcastRecordedClip()" disabled>
+                📡 Broadcast to Voice
+              </button>
+              <button class="btn btn-secondary btn-sm" style="color:#ef4444;" onclick="stopSfx()">
+                ⏹️ Stop SFX
+              </button>
+            </div>
           </div>
 
           <!-- Custom Audio / MP3 File Uploader & Direct Stream -->
@@ -2610,6 +2833,9 @@
       renderStreamProfile(data.stream_profile);
       renderUploadedMedia(data.uploaded_media);
       renderSpotifyState(data);
+      renderVisualizerMode(data.visualizer_mode);
+      renderStreamOverlayState(data);
+      renderChatAutoResponder(data);
       updateActiveBadges();
     }
 
@@ -4630,6 +4856,319 @@
       }
     }
 
+    // ==========================================
+    // 🌈 LIVE SPECTRUM AUDIO VISUALIZER
+    // ==========================================
+    async function changeVisualizerMode(mode) {
+      vibrate(20);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set_visualizer_mode', mode: mode })
+        });
+        const json = await res.json();
+        showToast(json.message || `Visualizer: ${mode.toUpperCase()}`);
+        renderVisualizerMode(mode);
+        fetchStatus();
+      } catch (e) {
+        showToast('Visualizer error: ' + e.message, true);
+      }
+    }
+
+    function renderVisualizerMode(mode) {
+      mode = (mode || 'spectrum').toLowerCase();
+      const badge = document.getElementById('visualizer-mode-badge');
+      if (badge) badge.innerText = mode.toUpperCase();
+
+      ['spectrum', 'bars', 'testsrc', 'smpte'].forEach(m => {
+        const btn = document.getElementById('vmode-' + m);
+        if (btn) btn.classList.toggle('active', m === mode);
+      });
+    }
+
+    // ==========================================
+    // 🎨 GO LIVE STREAM OVERLAY & WATERMARK
+    // ==========================================
+    async function toggleStreamOverlay(enabled) {
+      vibrate(20);
+      try {
+        const title = document.getElementById('stream-overlay-title-input').value.trim();
+        const ticker = document.getElementById('stream-overlay-ticker-input').value.trim();
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set_stream_overlay', enabled: enabled, title: title, ticker: ticker })
+        });
+        const json = await res.json();
+        showToast(json.message || `Overlay ${enabled ? 'Enabled' : 'Disabled'}`);
+        renderStreamOverlayState(json);
+        fetchStatus();
+      } catch (e) {
+        showToast('Overlay error: ' + e.message, true);
+      }
+    }
+
+    async function saveStreamOverlay() {
+      vibrate(20);
+      const title = document.getElementById('stream-overlay-title-input').value.trim();
+      const ticker = document.getElementById('stream-overlay-ticker-input').value.trim();
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set_stream_overlay', enabled: true, title: title, ticker: ticker })
+        });
+        const json = await res.json();
+        showToast(json.message || 'Stream overlay saved!');
+        const toggle = document.getElementById('stream-overlay-toggle');
+        if (toggle) toggle.checked = true;
+        renderStreamOverlayState(json);
+        fetchStatus();
+      } catch (e) {
+        showToast('Overlay error: ' + e.message, true);
+      }
+    }
+
+    function renderStreamOverlayState(data) {
+      const toggle = document.getElementById('stream-overlay-toggle');
+      const badge = document.getElementById('overlay-status-badge');
+      const tInput = document.getElementById('stream-overlay-title-input');
+      const tickInput = document.getElementById('stream-overlay-ticker-input');
+
+      if (data.stream_overlay_enabled !== undefined) {
+        if (toggle && document.activeElement !== toggle) toggle.checked = !!data.stream_overlay_enabled;
+        if (badge) {
+          badge.innerText = data.stream_overlay_enabled ? 'Active' : 'Off';
+          badge.className = data.stream_overlay_enabled ? 'badge badge-online' : 'badge badge-voice';
+        }
+      }
+      if (data.stream_overlay_title && tInput && document.activeElement !== tInput && !tInput.value) {
+        tInput.value = data.stream_overlay_title;
+      }
+      if (data.stream_overlay_ticker && tickInput && document.activeElement !== tickInput && !tickInput.value) {
+        tickInput.value = data.stream_overlay_ticker;
+      }
+    }
+
+    // ==========================================
+    // 🤖 SMART TEXT CHAT AUTO-RESPONDER
+    // ==========================================
+    async function toggleChatAutoResponder(enabled) {
+      vibrate(20);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set_chat_auto_responder', enabled: enabled })
+        });
+        const json = await res.json();
+        showToast(json.message || `Chat Responder ${enabled ? 'Active' : 'Disabled'}`);
+        renderChatAutoResponder(json);
+        fetchStatus();
+      } catch (e) {
+        showToast('Chat responder error: ' + e.message, true);
+      }
+    }
+
+    async function addChatRule() {
+      vibrate(20);
+      const trig = document.getElementById('new-rule-trigger').value.trim();
+      const rep = document.getElementById('new-rule-response').value.trim();
+      const exact = document.getElementById('new-rule-exact').checked;
+      if (!trig || !rep) return showToast('Please enter both trigger and reply text', true);
+
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'add_chat_rule', trigger: trig, response: rep, exact: exact })
+        });
+        const json = await res.json();
+        if (json.success) {
+          showToast(`Rule added for '${trig}'!`);
+          document.getElementById('new-rule-trigger').value = '';
+          document.getElementById('new-rule-response').value = '';
+          renderChatRules(json.rules);
+          fetchStatus();
+        } else {
+          showToast(json.error || 'Failed to add rule', true);
+        }
+      } catch (e) {
+        showToast('Error: ' + e.message, true);
+      }
+    }
+
+    async function deleteChatRule(trig) {
+      vibrate(20);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'delete_chat_rule', trigger: trig })
+        });
+        const json = await res.json();
+        if (json.success) {
+          showToast(`Deleted rule for '${trig}'`);
+          renderChatRules(json.rules);
+          fetchStatus();
+        }
+      } catch (e) {
+        showToast('Error: ' + e.message, true);
+      }
+    }
+
+    function renderChatAutoResponder(data) {
+      const toggle = document.getElementById('chat-responder-toggle');
+      const badge = document.getElementById('chat-responder-badge');
+      if (data.chat_auto_responder_enabled !== undefined) {
+        if (toggle && document.activeElement !== toggle) toggle.checked = !!data.chat_auto_responder_enabled;
+        if (badge) {
+          badge.innerText = data.chat_auto_responder_enabled ? 'Active' : 'Disabled';
+          badge.className = data.chat_auto_responder_enabled ? 'badge badge-online' : 'badge badge-voice';
+        }
+      }
+      if (data.chat_auto_responder_rules) {
+        renderChatRules(data.chat_auto_responder_rules);
+      }
+    }
+
+    function renderChatRules(rules) {
+      const list = document.getElementById('chat-rules-list');
+      if (!list) return;
+      if (!rules || !Array.isArray(rules) || rules.length === 0) {
+        list.innerHTML = `<div style="text-align:center; padding:8px; font-size:0.75rem; color:var(--text-muted);">No rules defined yet. Add one below!</div>`;
+        return;
+      }
+      let html = '';
+      for (const r of rules) {
+        html += `
+          <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.25); border:1px solid var(--border); border-radius:var(--radius-sm); padding:6px 10px;">
+            <div style="font-size:0.75rem; overflow:hidden; flex:1; min-width:0;">
+              <span style="font-weight:700; color:#c084fc;">"${escapeHtml(r.trigger)}"</span>
+              <span style="color:var(--text-muted); margin:0 4px;">➔</span>
+              <span style="color:var(--text-main); font-style:italic;">"${escapeHtml(r.response)}"</span>
+              ${r.exact ? '<span class="badge" style="font-size:0.6rem; padding:1px 4px; margin-left:4px; background:rgba(255,255,255,0.1);">Exact</span>' : ''}
+            </div>
+            <button class="btn btn-secondary btn-sm" style="padding:2px 6px; font-size:0.7rem; color:#ef4444; margin-left:6px;" onclick="deleteChatRule('${escapeHtml(r.trigger)}')">✕</button>
+          </div>
+        `;
+      }
+      list.innerHTML = html;
+    }
+
+    // ==========================================
+    // 🎛️ 12-PAD SOUNDBOARD & MIC RECORDER
+    // ==========================================
+    async function triggerSoundPad(padId) {
+      vibrate(30);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'play_soundboard_pad', id: padId })
+        });
+        const json = await res.json();
+        showToast(`Soundboard: ${json.name || padId}`);
+        const sfxBadge = document.getElementById('sfx-status-badge');
+        if (sfxBadge) {
+          sfxBadge.innerText = `🔊 ${(json.name || padId).toUpperCase()}`;
+          sfxBadge.className = 'badge badge-online';
+        }
+        fetchStatus();
+      } catch (e) {
+        showToast('Soundboard error: ' + e.message, true);
+      }
+    }
+
+    let voiceMediaRecorder = null;
+    let voiceAudioChunks = [];
+    let voiceRecInterval = null;
+    let voiceRecSeconds = 0;
+    let recordedClipBase64 = null;
+
+    async function toggleVoiceClipRecording() {
+      vibrate(25);
+      const btn = document.getElementById('btn-mic-record');
+      const timer = document.getElementById('voice-rec-timer');
+      const bcastBtn = document.getElementById('btn-broadcast-clip');
+
+      if (voiceMediaRecorder && voiceMediaRecorder.state === 'recording') {
+        voiceMediaRecorder.stop();
+        if (voiceRecInterval) clearInterval(voiceRecInterval);
+        btn.innerText = '🎙️ Record Mic Clip';
+        btn.classList.remove('rec-pulse');
+        if (timer) timer.style.display = 'none';
+        showToast('Voice clip recorded! Tap Broadcast to stream.');
+        return;
+      }
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        return showToast('Microphone recording not supported on this browser', true);
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        voiceAudioChunks = [];
+        voiceMediaRecorder = new MediaRecorder(stream);
+        voiceMediaRecorder.ondataavailable = e => {
+          if (e.data.size > 0) voiceAudioChunks.push(e.data);
+        };
+        voiceMediaRecorder.onstop = () => {
+          const blob = new Blob(voiceAudioChunks, { type: 'audio/wav' });
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            recordedClipBase64 = reader.result;
+            if (bcastBtn) bcastBtn.disabled = false;
+          };
+          reader.readAsDataURL(blob);
+          stream.getTracks().forEach(t => t.stop());
+        };
+
+        voiceMediaRecorder.start();
+        voiceRecSeconds = 0;
+        if (timer) {
+          timer.style.display = 'inline-block';
+          timer.innerText = '● REC 0:00 / 0:10';
+        }
+        btn.innerText = '⏹️ Stop Recording';
+        btn.classList.add('rec-pulse');
+
+        voiceRecInterval = setInterval(() => {
+          voiceRecSeconds++;
+          if (timer) timer.innerText = `● REC 0:0${voiceRecSeconds} / 0:10`;
+          if (voiceRecSeconds >= 10) {
+            toggleVoiceClipRecording();
+          }
+        }, 1000);
+      } catch (err) {
+        showToast('Microphone access denied: ' + err.message, true);
+      }
+    }
+
+    async function broadcastRecordedClip() {
+      if (!recordedClipBase64) return showToast('No voice clip recorded yet', true);
+      vibrate(25);
+      showToast('Broadcasting voice clip to Discord voice...');
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'broadcast_voice_clip',
+            data: recordedClipBase64,
+            name: 'Mic Voice Note',
+            duration: Math.max(2, voiceRecSeconds)
+          })
+        });
+        const json = await res.json();
+        showToast(json.message || 'Voice clip broadcasted!');
+        fetchStatus();
+      } catch (err) {
+        showToast('Error broadcasting clip: ' + err.message, true);
+      }
+    }
+
     async function fetchYouTubeInfo() {
       vibrate(20);
       const url = document.getElementById('yt-url-input').value.trim();
@@ -5393,7 +5932,7 @@
       return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    let currentAppVersion = '1.4.2';
+    let currentAppVersion = '1.4.3';
     let latestUpdateData = null;
 
     function toggleAutoCheckUpdate(enabled) {
