@@ -2393,7 +2393,7 @@ public class DiscordManager {
                                     if (streamConnection != null) {
                                         streamConnection.close();
                                     }
-                                    String srvId = (this.streamRtcServerId != null && !this.streamRtcServerId.isEmpty()) ? this.streamRtcServerId : streamKey;
+                                    String srvId = (Account.this.streamRtcServerId != null && !Account.this.streamRtcServerId.isEmpty()) ? Account.this.streamRtcServerId : streamKey;
                                     streamConnection = new DiscordVoiceConnection(Account.this, srvId, voiceChannel, sessionId, token, endpoint, client, mgr, true);
                                     streamConnection.connect();
                                 }
@@ -2402,7 +2402,7 @@ public class DiscordManager {
                                 String streamKey = d.optString("stream_key", "");
                                 String rtcServerId = d.optString("rtc_server_id", "");
                                 if (rtcServerId != null && !rtcServerId.isEmpty()) {
-                                    this.streamRtcServerId = rtcServerId;
+                                    Account.this.streamRtcServerId = rtcServerId;
                                 }
                                 mgr.log("Account #" + id + " 🎥 Stream Session Initialized: stream_key=" + streamKey + ", rtc_server_id=" + rtcServerId);
                             }
