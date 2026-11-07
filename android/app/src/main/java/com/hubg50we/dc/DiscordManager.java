@@ -44,7 +44,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.3.8";
+    public static final String APP_VERSION = "1.3.9";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -2253,6 +2253,7 @@ public class DiscordManager {
         public boolean youtubeActive = false;
         public String sessionId = "";
         public DiscordVoiceConnection voiceConnection = null;
+        public DiscordVoiceConnection streamConnection = null;
 
         private WebSocket ws;
         private Handler heartHandler;
@@ -2291,6 +2292,8 @@ public class DiscordManager {
                     // Drop high-frequency chat messages, presences & typing events from 100+ servers before JSON parsing
                     if (!text.contains("\"VOICE_STATE_UPDATE\"") &&
                         !text.contains("\"VOICE_SERVER_UPDATE\"") &&
+                        !text.contains("\"STREAM_SERVER_UPDATE\"") &&
+                        !text.contains("\"STREAM_CREATE\"") &&
                         !text.contains("\"op\":11") &&
                         !text.contains("\"op\":10") &&
                         !text.contains("\"op\":1") &&
@@ -2376,9 +2379,26 @@ public class DiscordManager {
                                     if (voiceConnection != null) {
                                         voiceConnection.close();
                                     }
-                                    voiceConnection = new DiscordVoiceConnection(Account.this, gId, voiceChannel, sessionId, token, endpoint, client, mgr);
+                                    voiceConnection = new DiscordVoiceConnection(Account.this, gId, voiceChannel, sessionId, token, endpoint, client, mgr, false);
                                     voiceConnection.connect();
                                 }
+                            } else if ("STREAM_SERVER_UPDATE".equals(t)) {
+                                JSONObject d = msg.getJSONObject("d");
+                                String streamKey = d.optString("stream_key", "");
+                                String token = d.optString("token", "");
+                                String endpoint = d.optString("endpoint", "");
+                                mgr.log("Account #" + id + " 📡 Stream Server Update: endpoint=" + endpoint + ", stream_key=" + streamKey);
+                                if (endpoint != null && !endpoint.isEmpty() && !"null".equals(endpoint)) {
+                                    if (streamConnection != null) {
+                                        streamConnection.close();
+                                    }
+                                    streamConnection = new DiscordVoiceConnection(Account.this, streamKey, voiceChannel, sessionId, token, endpoint, client, mgr, true);
+                                    streamConnection.connect();
+                                }
+                            } else if ("STREAM_CREATE".equals(t)) {
+                                JSONObject d = msg.getJSONObject("d");
+                                String streamKey = d.optString("stream_key", "");
+                                mgr.log("Account #" + id + " 🎥 Stream Session Initialized: " + streamKey);
                             }
                         }
                     } catch (Exception e) {
@@ -2582,6 +2602,10 @@ public class DiscordManager {
                     op19.put("d", d);
                     ws.send(op19.toString());
                     this.screenShare = false;
+                    if (streamConnection != null) {
+                        streamConnection.close();
+                        streamConnection = null;
+                    }
                     if (voiceConnection != null) {
                         voiceConnection.stopVideoStream();
                     }
@@ -2728,6 +2752,10 @@ public class DiscordManager {
         public void leaveVoice(String guildId) {
             this.userLeftIntentional = true;
             this.desiredChannelId = "";
+            if (streamConnection != null) {
+                streamConnection.close();
+                streamConnection = null;
+            }
             if (voiceConnection != null) {
                 voiceConnection.close();
                 voiceConnection = null;
@@ -2757,6 +2785,10 @@ public class DiscordManager {
 
         public void disconnect() {
             stopHeartbeat();
+            if (streamConnection != null) {
+                streamConnection.close();
+                streamConnection = null;
+            }
             if (voiceConnection != null) {
                 voiceConnection.close();
                 voiceConnection = null;
@@ -3029,9 +3061,17 @@ public class DiscordManager {
         private volatile boolean isLooping = false;
         private String activeSound = "stream";
 
+        private final boolean isStream;
+
         public DiscordVoiceConnection(Account account, String guildId, String channelId,
                                       String sessionId, String token, String endpoint,
                                       OkHttpClient httpClient, DiscordManager mgr) {
+            this(account, guildId, channelId, sessionId, token, endpoint, httpClient, mgr, false);
+        }
+
+        public DiscordVoiceConnection(Account account, String guildId, String channelId,
+                                      String sessionId, String token, String endpoint,
+                                      OkHttpClient httpClient, DiscordManager mgr, boolean isStream) {
             this.account = account;
             this.guildId = guildId;
             this.channelId = channelId;
@@ -3040,6 +3080,7 @@ public class DiscordManager {
             this.endpoint = endpoint;
             this.httpClient = httpClient;
             this.mgr = mgr;
+            this.isStream = isStream;
         }
 
         public void connect() {
@@ -3055,7 +3096,7 @@ public class DiscordManager {
             voiceWs = httpClient.newWebSocket(req, new WebSocketListener() {
                 @Override
                 public void onOpen(WebSocket webSocket, Response response) {
-                    mgr.log("Account #" + account.id + " 🎤 Voice Gateway connected to " + cleanEndpoint);
+                    mgr.log("Account #" + account.id + (isStream ? " 🎥 Stream Gateway connected to " : " 🎤 Voice Gateway connected to ") + cleanEndpoint);
                 }
 
                 @Override
@@ -3074,7 +3115,7 @@ public class DiscordManager {
                             voiceServerPort = d.getInt("port");
                             String ip = d.getString("ip");
                             voiceServerAddr = InetAddress.getByName(ip);
-                            mgr.log("Account #" + account.id + " 🎤 Voice Ready: SSRC=" + ssrc + ", IP=" + ip + ":" + voiceServerPort);
+                            mgr.log("Account #" + account.id + (isStream ? " 🎥 Stream Ready: SSRC=" : " 🎤 Voice Ready: SSRC=") + ssrc + ", IP=" + ip + ":" + voiceServerPort);
                             new Thread(() -> performUdpDiscovery(ip, voiceServerPort, ssrc), "VoiceUDP-" + account.id).start();
                         } else if (op == 4) { // SESSION_DESCRIPTION
                             JSONObject d = msg.getJSONObject("d");
@@ -3083,12 +3124,14 @@ public class DiscordManager {
                             for (int i = 0; i < 32; i++) {
                                 secretKey[i] = (byte) keyArr.getInt(i);
                             }
-                            mgr.log("Account #" + account.id + " 🔐 Voice Session Established (AES-256-GCM AEAD authenticated)!");
+                            mgr.log("Account #" + account.id + (isStream ? " 🔐 Stream Session Established (AES-256-GCM AEAD authenticated)!" : " 🔐 Voice Session Established (AES-256-GCM AEAD authenticated)!"));
                             connected = true;
                             sendSpeaking(account.voiceFlags > 0 ? account.voiceFlags : 5);
-                            startAudioLoop();
-                            if (account.screenShare || account.video) {
-                                startVideoStream(account.screenShare ? "screen" : "video");
+                            if (!isStream) {
+                                startAudioLoop();
+                            }
+                            if (isStream || account.screenShare || account.video) {
+                                startVideoStream(isStream ? "screen" : (account.screenShare ? "screen" : "video"));
                             }
                         }
                     } catch (Exception e) {
@@ -3120,6 +3163,16 @@ public class DiscordManager {
                 d.put("user_id", account.userId);
                 d.put("session_id", sessionId);
                 d.put("token", token);
+                d.put("video", true);
+                if (isStream) {
+                    JSONArray streams = new JSONArray();
+                    JSONObject s = new JSONObject();
+                    s.put("type", "screen");
+                    s.put("rid", "100");
+                    s.put("quality", 100);
+                    streams.put(s);
+                    d.put("streams", streams);
+                }
                 idObj.put("d", d);
                 voiceWs.send(idObj.toString());
             } catch (Exception e) {
