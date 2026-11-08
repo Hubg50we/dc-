@@ -75,7 +75,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.4.8"
+APP_VERSION = "1.4.9"
 AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
@@ -198,16 +198,62 @@ RADIO_STATIONS = [
 ]
 ACTIVE_RADIO_STATION = None
 
-# 🤖 AI Conversational Co-Host
+# 🤖 AI Conversational Co-Host (Powered by Ebony-Vinyl/dsh-our-free-model)
 AI_COHOST_ENABLED = False
 AI_COHOST_PERSONA = "friendly"  # "friendly", "dj", "gamer", "sarcastic"
 AI_COHOST_API_KEY = ""
+OFM_PROXY_URL = os.environ.get("OFM_PROXY_URL", "http://127.0.0.1:18900/v1/chat/completions")
+OFM_PROXY_KEY = os.environ.get("OFM_PROXY_KEY", "ofm-rQgtEVfESNZN1ES0V5r9WQCGK4TWYMbV")
+OFM_MODEL = os.environ.get("OFM_MODEL", "kilo-auto/free")
+
 AI_COHOST_RESPONSES = {
     "friendly": "Hey everyone! It's great having you all here in the voice channel. What are we playing today? 😊",
     "dj": "You're tuned in live to the 24/7 Discord Soundstage! Crank up the bass and enjoy the vibe! 🎧🔥",
     "gamer": "Locked and loaded! Ready for the next round. Don't forget to call out enemy positions! 🎮",
     "sarcastic": "Oh look, someone actually unmuted. Let's see if this speech was worth breaking the silence for. 😏"
 }
+
+def generate_ofm_ai_response(persona="friendly", prompt=""):
+    """
+    Connects to the Ebony-Vinyl/dsh-our-free-model proxy for live, free, uncapped AI generation.
+    Falls back gracefully to local persona lines if the proxy is offline.
+    """
+    system_prompts = {
+        "friendly": "You are a warm, friendly voice channel co-host. Respond in under 20 words, conversational and cheerful.",
+        "dj": "You are a high-energy Discord soundstage DJ. Respond in under 20 words with hype and beats swagger.",
+        "gamer": "You are an esports gaming co-host. Respond in under 20 words with snappy tactical gamer energy.",
+        "sarcastic": "You are a witty, dry Discord bot co-host. Respond in under 20 words with sarcastic humor."
+    }
+    sys_msg = system_prompts.get(persona, system_prompts["friendly"])
+    user_msg = prompt if prompt else f"Say a spontaneous funny line to the voice channel right now as the {persona} host."
+
+    try:
+        req = urllib.request.Request(
+            OFM_PROXY_URL,
+            data=json.dumps({
+                "model": OFM_MODEL,
+                "messages": [
+                    {"role": "system", "content": sys_msg},
+                    {"role": "user", "content": user_msg}
+                ],
+                "max_tokens": 45,
+                "temperature": 0.8
+            }).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {OFM_PROXY_KEY}"
+            }
+        )
+        with urllib.request.urlopen(req, timeout=4.5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            content = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+            if content:
+                clean = content.strip("\"' \n\r")
+                return clean
+    except Exception as e:
+        log(f"🤖 [OFM AI Fallback -> Local Engine] ({persona}): {e}")
+
+    return AI_COHOST_RESPONSES.get(persona, AI_COHOST_RESPONSES.get("friendly", "Hello!"))
 
 def get_voice_quality_telemetry():
     """Returns simulated & real UDP ping, jitter, packet loss, and bitrate history."""
@@ -1894,7 +1940,9 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             "ai_cohost": {
                 "enabled": AI_COHOST_ENABLED,
                 "persona": AI_COHOST_PERSONA,
-                "has_api_key": bool(AI_COHOST_API_KEY)
+                "has_api_key": bool(AI_COHOST_API_KEY),
+                "ofm_engine": "Ebony-Vinyl/dsh-our-free-model",
+                "ofm_model": OFM_MODEL
             },
             "voice_quality": get_voice_quality_telemetry(),
             "audio_dsp": {
@@ -2450,14 +2498,31 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             persona = str(payload.get("persona", AI_COHOST_PERSONA)).lower().strip()
             text = str(payload.get("text", "")).strip()
             if not text:
-                text = AI_COHOST_RESPONSES.get(persona, AI_COHOST_RESPONSES.get("friendly", "Hello!"))
+                text = generate_ofm_ai_response(persona)
             ACTIVE_SFX = f"🤖 AI ({persona.upper()}): {text[:25]}..."
             SPEAKING_SIM = True
             for a in ACCOUNTS.values():
                 a["speaking"] = True
                 a["active_sfx"] = ACTIVE_SFX
-            log(f"🤖 [AI Co-Host Speech] ({persona}): \"{text}\"")
-            return {"success": True, "persona": persona, "speech": text, "message": f"AI Co-Host spoke: \"{text}\""}
+            log(f"🤖 [AI Co-Host Speech via OFM Free AI] ({persona}): \"{text}\"")
+            return {"success": True, "persona": persona, "speech": text, "message": f"AI Co-Host spoke: \"{text}\"", "ofm_engine": "Ebony-Vinyl/dsh-our-free-model"}
+
+        if action == "ofm_status":
+            alive = False
+            try:
+                req = urllib.request.Request("http://127.0.0.1:18900/health")
+                with urllib.request.urlopen(req, timeout=1.5) as resp:
+                    alive = (resp.status == 200)
+            except Exception:
+                alive = False
+            return {
+                "success": True,
+                "alive": alive,
+                "endpoint": "http://127.0.0.1:18900/v1",
+                "model": OFM_MODEL,
+                "engine": "Ebony-Vinyl/dsh-our-free-model",
+                "message": f"OFM AI Engine {'Online' if alive else 'Offline (Auto-Fallback Active)'}"
+            }
 
         if action == "get_voice_quality":
             return {"success": True, "telemetry": get_voice_quality_telemetry()}

@@ -634,12 +634,12 @@ def run_tests():
     except Exception as e:
         check("POST action: radio_stations", False, str(e))
 
-    # 61. Test AI Conversational Co-Host
+    # 61. Test AI Conversational Co-Host (with OFM Engine)
     try:
         st_ai1, d_ai1 = http_post("/api/action", {"action": "set_ai_cohost", "enabled": True, "persona": "dj"})
         st_ai2, d_ai2 = http_post("/api/action", {"action": "trigger_ai_speech", "persona": "dj"})
         check("POST action: set_ai_cohost / trigger_ai_speech (Autonomous Voice Persona)",
-              st_ai1 == 200 and d_ai1.get("enabled") is True and d_ai1.get("persona") == "dj" and st_ai2 == 200 and "Soundstage" in d_ai2.get("speech", ""))
+              st_ai1 == 200 and d_ai1.get("enabled") is True and d_ai1.get("persona") == "dj" and st_ai2 == 200 and len(d_ai2.get("speech", "")) > 0)
     except Exception as e:
         check("POST action: ai_cohost", False, str(e))
 
@@ -651,6 +651,14 @@ def run_tests():
               st_vq == 200 and "ping_ms" in d_vq.get("telemetry", {}) and "voice_quality" in d_stat and "radio_stations" in d_stat)
     except Exception as e:
         check("POST action: voice_quality_telemetry", False, str(e))
+
+    # 63. Test Our Free Model (OFM - Ebony-Vinyl/dsh-our-free-model) Live Engine
+    try:
+        st_ofm, d_ofm = http_post("/api/action", {"action": "ofm_status"})
+        check("POST action: ofm_status (Ebony-Vinyl/dsh-our-free-model Proxy Integration)",
+              st_ofm == 200 and d_ofm.get("success") is True and d_ofm.get("engine") == "Ebony-Vinyl/dsh-our-free-model")
+    except Exception as e:
+        check("POST action: ofm_status", False, str(e))
 
     # Summary
     passed = sum(1 for _, ok, _ in results if ok)
