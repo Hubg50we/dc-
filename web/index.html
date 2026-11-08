@@ -1059,7 +1059,7 @@
             <span style="font-size:1.1rem;">🔀</span>
             <span>Multi-Channel Room Spreader & Gatherer</span>
           </div>
-          <span class="badge" style="background:rgba(168, 85, 247, 0.25); color:#e9d5ff; font-weight:700;">v1.5.3</span>
+          <span class="badge" style="background:rgba(168, 85, 247, 0.25); color:#e9d5ff; font-weight:700;">v1.5.4</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Distribute bot accounts across multiple voice channels simultaneously, or gather all accounts into a single room with 1 tap.
@@ -1604,6 +1604,117 @@
         </div>
       </div>
 
+      <!-- 🎛️ Vencord Audio Lab & Power Tools Card -->
+      <div class="card" style="border-color: rgba(236, 72, 153, 0.45); background: linear-gradient(180deg, rgba(236, 72, 153, 0.05) 0%, var(--bg-card) 100%);">
+        <div class="card-title" style="color:#f472b6;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.15rem;">🎛️</span>
+            <span>Vencord Audio Lab & Power Tools</span>
+          </div>
+          <span class="badge" style="background:rgba(236,72,153,0.25); color:#fbcfe8; font-size:0.7rem; font-weight:700;">v1.5.4</span>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">
+          Extreme volume amplification up to 2000%, Krisp neural noise filtration, live chat translator, and instant kaomoji macros.
+        </p>
+
+        <!-- 🔊 2000% User Volume Booster -->
+        <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px; margin-bottom:10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <strong style="font-size:0.8rem; color:var(--text-heading); display:flex; align-items:center; gap:6px;">
+              <span>🔊 User Volume Booster</span>
+              <span class="badge badge-voice" id="vol-boost-badge">100%</span>
+            </strong>
+            <label style="font-size:0.72rem; color:var(--text-muted); display:flex; align-items:center; gap:4px; cursor:pointer;">
+              <input type="checkbox" id="vol-limiter-toggle" checked style="accent-color:#ec4899;"> Soft Limiter
+            </label>
+          </div>
+          <input type="range" id="vol-boost-slider" min="10" max="2000" step="10" value="100" oninput="updateVolumeBoosterDisplay(this.value)" onchange="applyVolumeBooster(this.value)" style="width:100%; accent-color:#ec4899;">
+          <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:var(--text-muted); margin-top:2px;">
+            <span>10% (Whisper)</span>
+            <span>100% (Normal)</span>
+            <span>200% (Discord Max)</span>
+            <span style="color:#f472b6; font-weight:700;">2000% (Extreme)</span>
+          </div>
+        </div>
+
+        <!-- 🎙️ Krisp & RNNoise Neural Noise Gate -->
+        <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px; margin-bottom:10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <strong style="font-size:0.8rem; color:var(--text-heading);">🎙️ Krisp AI & RNNoise Gate</strong>
+            <input type="checkbox" id="noise-gate-toggle" onchange="toggleNoiseGate(this.checked)" style="width:18px; height:18px; accent-color:#ec4899;">
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <select id="noise-gate-engine" onchange="updateNoiseGateSettings()" style="flex:1; font-size:0.75rem; padding:4px 6px; background:#121622; border:1px solid var(--border); color:var(--text); border-radius:4px;">
+              <option value="krisp">Krisp AI Deep Neural</option>
+              <option value="rnnoise">RNNoise RNN Gate</option>
+              <option value="spectral">Spectral De-Noiser</option>
+            </select>
+            <label style="font-size:0.72rem; color:var(--text-muted); display:flex; align-items:center; gap:4px; cursor:pointer;">
+              <input type="checkbox" id="noise-dereverb-toggle" checked onchange="updateNoiseGateSettings()" style="accent-color:#ec4899;"> De-Reverb
+            </label>
+          </div>
+        </div>
+
+        <!-- 🌐 TranslateOnFly Widget -->
+        <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px; margin-bottom:10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <strong style="font-size:0.8rem; color:var(--text-heading);">🌐 TranslateOnFly (50+ Languages)</strong>
+            <label style="font-size:0.72rem; color:var(--text-muted); display:flex; align-items:center; gap:4px; cursor:pointer;">
+              <input type="checkbox" id="auto-translate-toggle" onchange="toggleAutoTranslate(this.checked)" style="accent-color:#ec4899;"> Auto-Translate Outgoing
+            </label>
+          </div>
+          <div style="display:flex; gap:6px; margin-bottom:6px;">
+            <input type="text" id="translate-input-text" placeholder="Type text to translate (e.g. Hello, good game!)..." style="flex:2; font-size:0.75rem;">
+            <select id="translate-target-lang" style="flex:1; font-size:0.75rem; background:#121622; border:1px solid var(--border); color:var(--text); border-radius:4px;">
+              <option value="es">Spanish (Español)</option>
+              <option value="fr">French (Français)</option>
+              <option value="de">German (Deutsch)</option>
+              <option value="ja">Japanese (日本語)</option>
+              <option value="ru">Russian (Русский)</option>
+              <option value="pt">Portuguese (Português)</option>
+            </select>
+            <button class="btn btn-primary btn-sm" style="background:#ec4899; color:#fff;" onclick="performTranslateAction()">Translate</button>
+          </div>
+          <div id="translate-result-box" style="display:none; font-size:0.78rem; background:#0d111b; border:1px solid rgba(236,72,153,0.3); border-radius:6px; padding:6px 8px; color:#fbcfe8;"></div>
+        </div>
+
+        <!-- ⚡ Quick Snippets & Kaomoji Macros -->
+        <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px; margin-bottom:10px;">
+          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600; margin-bottom:6px;">⚡ Quick Kaomoji & Snippet Chips:</div>
+          <div style="display:flex; gap:4px; flex-wrap:wrap;">
+            <button class="btn btn-secondary btn-sm" onclick="insertMacroSnippet('/shrug')" style="padding:2px 8px; font-size:0.72rem;">¯\_(ツ)_/¯</button>
+            <button class="btn btn-secondary btn-sm" onclick="insertMacroSnippet('/tableflip')" style="padding:2px 8px; font-size:0.72rem;">(╯°□°)╯︵ ┻━┻</button>
+            <button class="btn btn-secondary btn-sm" onclick="insertMacroSnippet('/unflip')" style="padding:2px 8px; font-size:0.72rem;">┬─┬ノ( º _ ºノ)</button>
+            <button class="btn btn-secondary btn-sm" onclick="insertMacroSnippet('/lenny')" style="padding:2px 8px; font-size:0.72rem;">( ͡° ͜ʖ ͡°)</button>
+            <button class="btn btn-secondary btn-sm" onclick="insertMacroSnippet('/gg')" style="padding:2px 8px; font-size:0.72rem;">GG WP 🎮</button>
+            <button class="btn btn-secondary btn-sm" onclick="insertMacroSnippet('/afk')" style="padding:2px 8px; font-size:0.72rem;">AFK ⏳</button>
+          </div>
+        </div>
+
+        <!-- 📱 Nitro App Icon Switcher & Gateway Health -->
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <div style="flex:1; min-width:180px; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius-sm); padding:8px 10px;">
+            <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600; margin-bottom:6px;">📱 Nitro App Icon:</div>
+            <div style="display:flex; gap:4px; flex-wrap:wrap;">
+              <button class="btn btn-secondary btn-sm" onclick="setAppIcon('default')" style="padding:2px 6px; font-size:0.7rem;">Blurple</button>
+              <button class="btn btn-secondary btn-sm" onclick="setAppIcon('canary')" style="padding:2px 6px; font-size:0.7rem; color:#fee75c;">Canary</button>
+              <button class="btn btn-secondary btn-sm" onclick="setAppIcon('midnight')" style="padding:2px 6px; font-size:0.7rem; color:#a855f7;">Midnight</button>
+              <button class="btn btn-secondary btn-sm" onclick="setAppIcon('vaporwave')" style="padding:2px 6px; font-size:0.7rem; color:#ec4899;">Vaporwave</button>
+            </div>
+          </div>
+
+          <div style="flex:1; min-width:180px; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius-sm); padding:8px 10px; display:flex; flex-direction:column; justify-content:space-between;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">📡 Gateway Ping:</div>
+              <span class="badge badge-online" id="gateway-ping-badge" style="font-size:0.7rem;">24 ms</span>
+            </div>
+            <button class="btn btn-secondary btn-sm" style="width:100%; font-size:0.72rem; margin-top:6px;" onclick="testGatewayLatency()">
+              ⚡ Test Gateway Network Ping
+            </button>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <!-- TAB 2: ACCOUNTS LIST -->
@@ -1733,7 +1844,7 @@
       <div class="card" style="border-color: rgba(88, 101, 242, 0.45);">
         <div class="card-title" style="color:var(--accent);">
           <span>🔄 App Updates & Version</span>
-          <span class="badge badge-voice" id="settings-app-version">v1.5.3</span>
+          <span class="badge badge-voice" id="settings-app-version">v1.5.4</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Cross-platform Discord controller for Android Mobile and Windows PC.
@@ -1757,7 +1868,7 @@
         </div>
 
         <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:6px;">
-          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Direct Downloads (v1.5.3):</div>
+          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Direct Downloads (v1.5.4):</div>
           <div style="display:flex; gap:6px; flex-wrap:wrap;">
             <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-android.apk" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               📱 Android APK
@@ -1765,7 +1876,7 @@
             <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows.exe" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               💻 Windows EXE
             </a>
-            <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows-portable-v1.5.3.zip" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
+            <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows-portable-v1.5.4.zip" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               📦 Portable ZIP
             </a>
           </div>
@@ -6831,7 +6942,7 @@
       return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    let currentAppVersion = '1.5.3';
+    let currentAppVersion = '1.5.4';
     let latestUpdateData = null;
 
     function toggleAutoCheckUpdate(enabled) {
@@ -8355,6 +8466,141 @@
         showToast(d.message || 'Custom CSS applied!');
       } catch (e) {
         showToast('CSS error: ' + e.message, true);
+      }
+    }
+
+    // 🎛️ Audio Lab & Vencord Power Tools JS Logic
+    function updateVolumeBoosterDisplay(val) {
+      const badge = document.getElementById('vol-boost-badge');
+      if (badge) badge.innerText = `${val}%`;
+    }
+
+    async function applyVolumeBooster(val) {
+      vibrate(15);
+      const limiter = document.getElementById('vol-limiter-toggle')?.checked ?? true;
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'set_volume_booster', gain: parseInt(val), peak_limiter: limiter, bass_preservation: true })
+        });
+        const d = await res.json();
+        showToast(d.message || `Volume booster set to ${val}%`);
+      } catch (e) {
+        showToast('Volume boost error: ' + e.message, true);
+      }
+    }
+
+    async function toggleNoiseGate(enabled) {
+      vibrate(15);
+      const eng = document.getElementById('noise-gate-engine')?.value || 'krisp';
+      const derev = document.getElementById('noise-dereverb-toggle')?.checked ?? true;
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'set_noise_suppression', enabled: enabled, engine: eng, aggressiveness: 75, de_reverb: derev })
+        });
+        const d = await res.json();
+        showToast(`AI Noise Gate: ${enabled ? 'Active (' + eng.toUpperCase() + ')' : 'Disabled'}`);
+      } catch (e) {
+        showToast('Noise gate error: ' + e.message, true);
+      }
+    }
+
+    async function updateNoiseGateSettings() {
+      const enabled = document.getElementById('noise-gate-toggle')?.checked ?? false;
+      if (enabled) toggleNoiseGate(true);
+    }
+
+    async function performTranslateAction() {
+      vibrate(10);
+      const text = document.getElementById('translate-input-text')?.value || "";
+      const targetLang = document.getElementById('translate-target-lang')?.value || "es";
+      const box = document.getElementById('translate-result-box');
+      if (!text) {
+        showToast('Please type text to translate', true);
+        return;
+      }
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'translate_text', text: text, target_lang: targetLang })
+        });
+        const d = await res.json();
+        if (box) {
+          box.style.display = 'block';
+          box.innerHTML = `<strong>[${d.target_lang.toUpperCase()}]:</strong> ${escapeHtml(d.translated)}`;
+        }
+        showToast(`Translated to ${targetLang.toUpperCase()}`);
+      } catch (e) {
+        showToast('Translation error: ' + e.message, true);
+      }
+    }
+
+    async function toggleAutoTranslate(enabled) {
+      vibrate(10);
+      const targetLang = document.getElementById('translate-target-lang')?.value || "es";
+      try {
+        await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'set_auto_translate', enabled: enabled, target_lang: targetLang })
+        });
+        showToast(`Auto-Translate: ${enabled ? 'Enabled (' + targetLang.toUpperCase() + ')' : 'Disabled'}`);
+      } catch (ignored) {}
+    }
+
+    async function insertMacroSnippet(macro) {
+      vibrate(10);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'expand_snippet', macro: macro })
+        });
+        const d = await res.json();
+        navigator.clipboard?.writeText(d.expanded);
+        showToast(`Copied: ${d.expanded}`);
+      } catch (e) {
+        showToast(`Macro: ${macro}`);
+      }
+    }
+
+    async function setAppIcon(icon) {
+      vibrate(15);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'set_app_icon', icon: icon })
+        });
+        const d = await res.json();
+        showToast(d.message || `App icon set to ${icon}`);
+      } catch (e) {
+        showToast('App icon error: ' + e.message, true);
+      }
+    }
+
+    async function testGatewayLatency() {
+      vibrate(20);
+      const badge = document.getElementById('gateway-ping-badge');
+      if (badge) badge.innerText = 'Testing...';
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'test_gateway_latency', region: 'us-east' })
+        });
+        const d = await res.json();
+        if (badge && d.latency) {
+          badge.innerText = `${d.latency.ping_ms} ms (${d.latency.status})`;
+        }
+        showToast(`Gateway Ping: ${d.latency?.ping_ms}ms (Jitter: ${d.latency?.jitter_ms}ms)`);
+      } catch (e) {
+        if (badge) badge.innerText = '24 ms';
+        showToast('Gateway test error: ' + e.message, true);
       }
     }
 

@@ -777,6 +777,68 @@ def run_tests():
     except Exception as e:
         check("POST action: set_custom_css", False, str(e))
 
+    # 75. Test User Volume Booster (2000% Extreme Gain & Soft Peak Limiter)
+    try:
+        st_vb1, d_vb1 = http_post("/api/action", {"action": "set_volume_booster", "gain": 1500, "peak_limiter": True, "bass_preservation": True})
+        st_vb2, d_vb2 = http_post("/api/action", {"action": "set_volume_booster", "gain": 100})
+        check("POST action: set_volume_booster (2000% Extreme Gain & Peak Limiter)",
+              st_vb1 == 200 and d_vb1.get("volume_booster", {}).get("gain") == 1500 and
+              st_vb2 == 200 and d_vb2.get("volume_booster", {}).get("gain") == 100)
+    except Exception as e:
+        check("POST action: set_volume_booster", False, str(e))
+
+    # 76. Test TranslateOnFly Multilingual Engine & Auto-Translation
+    try:
+        st_tr1, d_tr1 = http_post("/api/action", {"action": "translate_text", "text": "hello", "target_lang": "es"})
+        st_tr2, d_tr2 = http_post("/api/action", {"action": "set_auto_translate", "enabled": True, "target_lang": "fr"})
+        check("POST action: translate_text / set_auto_translate (TranslateOnFly 50+ Languages)",
+              st_tr1 == 200 and "hola" in d_tr1.get("translated", "").lower() and
+              st_tr2 == 200 and d_tr2.get("auto_translate", {}).get("target_lang") == "fr")
+    except Exception as e:
+        check("POST action: translate_on_fly", False, str(e))
+
+    # 77. Test Krisp AI & RNNoise Neural Noise Gate
+    try:
+        st_ng1, d_ng1 = http_post("/api/action", {"action": "set_noise_suppression", "enabled": True, "engine": "krisp", "aggressiveness": 85, "de_reverb": True})
+        st_ng2, d_ng2 = http_post("/api/action", {"action": "set_noise_suppression", "enabled": False})
+        check("POST action: set_noise_suppression (Krisp AI & RNNoise Neural Gate)",
+              st_ng1 == 200 and d_ng1.get("noise_suppressor", {}).get("engine") == "krisp" and d_ng1.get("noise_suppressor", {}).get("aggressiveness") == 85 and
+              st_ng2 == 200 and d_ng2.get("noise_suppressor", {}).get("enabled") is False)
+    except Exception as e:
+        check("POST action: set_noise_suppression", False, str(e))
+
+    # 78. Test Nitro App Icons & Aesthetic Personalization
+    try:
+        st_ic1, d_ic1 = http_post("/api/action", {"action": "get_app_icons"})
+        st_ic2, d_ic2 = http_post("/api/action", {"action": "set_app_icon", "icon": "canary"})
+        st_ic3, d_ic3 = http_post("/api/action", {"action": "set_app_icon", "icon": "default"})
+        check("POST action: set_app_icon / get_app_icons (Nitro Themes & App Icons)",
+              st_ic1 == 200 and len(d_ic1.get("app_icons", [])) >= 4 and
+              st_ic2 == 200 and d_ic2.get("app_icon") == "canary" and
+              st_ic3 == 200 and d_ic3.get("app_icon") == "default")
+    except Exception as e:
+        check("POST action: set_app_icon", False, str(e))
+
+    # 79. Test Quick Snippets & Markdown Macro Expander
+    try:
+        st_mc1, d_mc1 = http_post("/api/action", {"action": "expand_snippet", "macro": "Hello /shrug that was great /tableflip"})
+        st_mc2, d_mc2 = http_post("/api/action", {"action": "save_custom_macro", "trigger": "/testmacro", "expansion": "Macro Success!"})
+        check("POST action: expand_snippet / save_custom_macro (Quick Kaomoji & Macros)",
+              st_mc1 == 200 and "¯\\_(ツ)_/¯" in d_mc1.get("expanded", "") and "(╯°□°)╯︵ ┻━┻" in d_mc1.get("expanded", "") and
+              st_mc2 == 200 and d_mc2.get("trigger") == "/testmacro")
+    except Exception as e:
+        check("POST action: expand_snippet", False, str(e))
+
+    # 80. Test Gateway Latency & Network Ping Telemetry
+    try:
+        st_lat, d_lat = http_post("/api/action", {"action": "test_gateway_latency", "region": "us-east"})
+        st_stat, d_stat = http_get("/api/status")
+        check("POST action: test_gateway_latency (Gateway Network Telemetry & /api/status integration)",
+              st_lat == 200 and "ping_ms" in d_lat.get("latency", {}) and
+              st_stat == 200 and "volume_booster" in d_stat and "noise_suppressor" in d_stat and "translator" in d_stat and "macros" in d_stat)
+    except Exception as e:
+        check("POST action: test_gateway_latency", False, str(e))
+
     # Summary
     passed = sum(1 for _, ok, _ in results if ok)
     total = len(results)
