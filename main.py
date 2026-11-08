@@ -75,7 +75,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.5.1"
+APP_VERSION = "1.5.2"
 AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
@@ -244,6 +244,145 @@ CUSTOM_RPC = {
 # 📝 Live Voice Transcriber & Speech-to-Text HUD
 VOICE_TRANSCRIBER_ENABLED = False
 VOICE_TRANSCRIPTS = []  # list of {"id": str, "timestamp": int, "speaker": str, "text": str, "confidence": float}
+
+# 🔌 Modular Plugin Architecture & Add-On Marketplace
+PLUGINS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "plugins")
+if not os.path.exists(PLUGINS_DIR):
+    try:
+        os.makedirs(PLUGINS_DIR, exist_ok=True)
+    except Exception:
+        pass
+
+DEFAULT_PLUGINS = [
+    {
+        "id": "auto_mod",
+        "name": "Auto-Moderator & Anti-Raid Guard",
+        "version": "1.2.0",
+        "author": "dc- Core Team",
+        "description": "Scans voice room member joins and protects against rapid rejoin raids & spam.",
+        "icon": "🛡️",
+        "category": "Security",
+        "enabled": False,
+        "config": {
+            "max_joins_per_minute": 5,
+            "auto_mute_raiders": True
+        }
+    },
+    {
+        "id": "webhook_relay",
+        "name": "Discord Webhook Broadcaster",
+        "version": "1.1.0",
+        "author": "dc- Core Team",
+        "description": "Relays voice room events, track updates, and AI transcripts to an external Discord webhook.",
+        "icon": "📡",
+        "category": "Integration",
+        "enabled": False,
+        "config": {
+            "webhook_url": "",
+            "relay_ai_transcripts": True
+        }
+    },
+    {
+        "id": "sfx_mega_pack",
+        "name": "Community SFX Mega-Pack",
+        "version": "2.0.0",
+        "author": "Soundstage Pro",
+        "description": "Adds 20+ additional soundboard clips, anime memes, and gaming sound effects.",
+        "icon": "🎵",
+        "category": "Audio",
+        "enabled": True,
+        "config": {
+            "pack_preset": "gaming_meme"
+        }
+    },
+    {
+        "id": "scheduled_announcer",
+        "name": "Periodic Voice Announcer",
+        "version": "1.0.0",
+        "author": "dc- Core Team",
+        "description": "Periodically broadcasts custom TTS announcements or reminders to active voice channels.",
+        "icon": "⏰",
+        "category": "Automation",
+        "enabled": False,
+        "config": {
+            "interval_minutes": 15,
+            "message": "Welcome to the voice channel! Stream powered by dc- Pro."
+        }
+    },
+    {
+        "id": "dj_visual_master",
+        "name": "DJ Equalizer & Visual Matrix",
+        "version": "1.3.0",
+        "author": "AudioLab",
+        "description": "Unlocks advanced high-resolution 64-band visualizer filters and DJ booth themes.",
+        "icon": "🎛️",
+        "category": "Visuals",
+        "enabled": False,
+        "config": {
+            "bands": 64,
+            "theme": "cyberpunk_neon"
+        }
+    }
+]
+
+PLUGINS = list(DEFAULT_PLUGINS)
+
+def get_installed_plugins():
+    global PLUGINS
+    return PLUGINS
+
+def toggle_plugin_state(plugin_id, enabled=None):
+    global PLUGINS
+    for p in PLUGINS:
+        if p["id"] == plugin_id:
+            if enabled is None:
+                p["enabled"] = not p.get("enabled", False)
+            else:
+                p["enabled"] = bool(enabled)
+            log(f"🔌 Plugin [{p['name']}]: {'Enabled' if p['enabled'] else 'Disabled'}")
+            return p
+    return None
+
+def configure_plugin_settings(plugin_id, new_config):
+    global PLUGINS
+    for p in PLUGINS:
+        if p["id"] == plugin_id:
+            if isinstance(new_config, dict):
+                p["config"].update(new_config)
+            log(f"🔌 Plugin [{p['name']}] configuration updated")
+            return p
+    return None
+
+def install_custom_plugin(manifest):
+    global PLUGINS
+    pid = manifest.get("id") or f"custom_{int(time.time())}"
+    plugin = {
+        "id": pid,
+        "name": manifest.get("name", "Custom Plugin"),
+        "version": manifest.get("version", "1.0.0"),
+        "author": manifest.get("author", "User"),
+        "description": manifest.get("description", "User-installed custom plugin"),
+        "icon": manifest.get("icon", "🔌"),
+        "category": manifest.get("category", "Custom"),
+        "enabled": bool(manifest.get("enabled", True)),
+        "config": manifest.get("config", {}) if isinstance(manifest.get("config"), dict) else {}
+    }
+    for i, p in enumerate(PLUGINS):
+        if p["id"] == pid:
+            PLUGINS[i] = plugin
+            return plugin
+    PLUGINS.append(plugin)
+    log(f"🔌 Installed custom plugin: {plugin['name']} ({pid})")
+    return plugin
+
+def uninstall_custom_plugin(plugin_id):
+    global PLUGINS
+    initial_len = len(PLUGINS)
+    PLUGINS = [p for p in PLUGINS if p["id"] != plugin_id]
+    removed = len(PLUGINS) < initial_len
+    if removed:
+        log(f"🔌 Uninstalled plugin: {plugin_id}")
+    return removed
 
 def ensure_ofm_proxy_running():
     """Auto-detects and launches the built-in OFM Node daemon if not already responding."""
@@ -2109,6 +2248,8 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 "enabled": VOICE_TRANSCRIBER_ENABLED,
                 "count": len(VOICE_TRANSCRIPTS)
             },
+            "plugins": get_installed_plugins(),
+            "plugins_count": len(PLUGINS),
             "chat_auto_responder_enabled": CHAT_AUTO_RESPONDER_ENABLED,
             "chat_auto_responder_rules": CHAT_AUTO_RESPONDER_RULES,
             "soundboard_pads": SOUNDBOARD_PADS,
@@ -2847,6 +2988,41 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 log(f"📝 [Transcribed] {speaker}: \"{txt}\"")
                 return {"success": True, "transcript": t_obj}
             return {"success": False, "error": "Empty transcript text"}
+
+        if action == "get_plugins":
+            return {
+                "success": True,
+                "plugins": get_installed_plugins(),
+                "count": len(PLUGINS)
+            }
+
+        if action == "toggle_plugin":
+            pid = str(payload.get("id", "")).strip()
+            en = payload.get("enabled", None)
+            p = toggle_plugin_state(pid, en)
+            if p:
+                return {"success": True, "plugin": p, "message": f"Plugin '{p['name']}' {'enabled' if p['enabled'] else 'disabled'}"}
+            return {"success": False, "error": f"Plugin '{pid}' not found"}
+
+        if action == "configure_plugin":
+            pid = str(payload.get("id", "")).strip()
+            cfg = payload.get("config", {})
+            p = configure_plugin_settings(pid, cfg)
+            if p:
+                return {"success": True, "plugin": p, "message": f"Plugin '{p['name']}' configuration updated"}
+            return {"success": False, "error": f"Plugin '{pid}' not found"}
+
+        if action == "install_plugin":
+            manifest = payload.get("plugin", payload.get("manifest", {}))
+            if not manifest or not isinstance(manifest, dict):
+                return {"success": False, "error": "Invalid plugin manifest"}
+            p = install_custom_plugin(manifest)
+            return {"success": True, "plugin": p, "message": f"Plugin '{p['name']}' installed successfully"}
+
+        if action == "uninstall_plugin":
+            pid = str(payload.get("id", "")).strip()
+            removed = uninstall_custom_plugin(pid)
+            return {"success": removed, "message": f"Plugin '{pid}' {'uninstalled' if removed else 'not found'}"}
 
         if action == "upload_media":
             fname = os.path.basename(payload.get("filename", "media_file"))

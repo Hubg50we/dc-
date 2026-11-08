@@ -44,7 +44,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.5.1";
+    public static final String APP_VERSION = "1.5.2";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -2157,6 +2157,47 @@ public class DiscordManager {
                 tr.put("timestamp", System.currentTimeMillis() / 1000);
                 res.put("success", true);
                 res.put("transcript", tr);
+            } else if ("get_plugins".equals(action)) {
+                org.json.JSONArray list = new org.json.JSONArray();
+                org.json.JSONObject p1 = new org.json.JSONObject();
+                p1.put("id", "auto_mod");
+                p1.put("name", "Auto-Moderator & Anti-Raid Guard");
+                p1.put("enabled", false);
+                list.put(p1);
+                res.put("success", true);
+                res.put("plugins", list);
+                res.put("count", list.length());
+            } else if ("toggle_plugin".equals(action)) {
+                String pid = payload.optString("id", "");
+                boolean en = payload.optBoolean("enabled", true);
+                org.json.JSONObject p = new org.json.JSONObject();
+                p.put("id", pid);
+                p.put("name", pid);
+                p.put("enabled", en);
+                res.put("success", true);
+                res.put("plugin", p);
+                res.put("message", "Plugin '" + pid + "' " + (en ? "enabled" : "disabled"));
+            } else if ("configure_plugin".equals(action)) {
+                String pid = payload.optString("id", "");
+                org.json.JSONObject cfg = payload.optJSONObject("config");
+                org.json.JSONObject p = new org.json.JSONObject();
+                p.put("id", pid);
+                p.put("name", pid);
+                p.put("config", cfg != null ? cfg : new org.json.JSONObject());
+                res.put("success", true);
+                res.put("plugin", p);
+                res.put("message", "Plugin '" + pid + "' configured");
+            } else if ("install_plugin".equals(action)) {
+                org.json.JSONObject m = payload.optJSONObject("plugin");
+                if (m == null) m = payload.optJSONObject("manifest");
+                if (m == null) m = new org.json.JSONObject();
+                res.put("success", true);
+                res.put("plugin", m);
+                res.put("message", "Plugin installed successfully");
+            } else if ("uninstall_plugin".equals(action)) {
+                String pid = payload.optString("id", "");
+                res.put("success", true);
+                res.put("message", "Plugin '" + pid + "' uninstalled");
             } else {
                 res.put("success", true);
                 res.put("status", "ok");

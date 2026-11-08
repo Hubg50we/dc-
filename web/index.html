@@ -1059,7 +1059,7 @@
             <span style="font-size:1.1rem;">🔀</span>
             <span>Multi-Channel Room Spreader & Gatherer</span>
           </div>
-          <span class="badge" style="background:rgba(168, 85, 247, 0.25); color:#e9d5ff; font-weight:700;">v1.5.1</span>
+          <span class="badge" style="background:rgba(168, 85, 247, 0.25); color:#e9d5ff; font-weight:700;">v1.5.2</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Distribute bot accounts across multiple voice channels simultaneously, or gather all accounts into a single room with 1 tap.
@@ -1537,6 +1537,36 @@
         </button>
       </div>
 
+      <!-- 🔌 Modular Plugins & Add-On Marketplace Card -->
+      <div class="card" style="border-color: rgba(59, 130, 246, 0.45); background: linear-gradient(180deg, rgba(59, 130, 246, 0.05) 0%, var(--bg-card) 100%);">
+        <div class="card-title" style="color:#60a5fa;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.15rem;">🔌</span>
+            <span>Modular Plugins & Add-On Marketplace</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span class="badge" id="plugins-count-badge" style="background:rgba(59,130,246,0.25); color:#93c5fd; font-size:0.7rem;">5 Active</span>
+            <button class="btn btn-secondary btn-sm" onclick="showInstallPluginModal()" style="padding:2px 8px; font-size:0.72rem;">+ Install</button>
+          </div>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">
+          Extend bot capabilities with modular community add-ons, auto-moderation, webhook relays, and sound packs.
+        </p>
+
+        <div id="plugins-list-feed" style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px;">
+          <div style="color:var(--text-muted); font-size:0.78rem;">Loading installed plugins...</div>
+        </div>
+
+        <div style="display:flex; gap:6px;">
+          <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="fetchPlugins()">
+            🔄 Refresh Plugins
+          </button>
+          <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="showInstallPluginModal()">
+            📥 Install Manifest
+          </button>
+        </div>
+      </div>
+
     </div>
 
     <!-- TAB 2: ACCOUNTS LIST -->
@@ -1666,7 +1696,7 @@
       <div class="card" style="border-color: rgba(88, 101, 242, 0.45);">
         <div class="card-title" style="color:var(--accent);">
           <span>🔄 App Updates & Version</span>
-          <span class="badge badge-voice" id="settings-app-version">v1.5.1</span>
+          <span class="badge badge-voice" id="settings-app-version">v1.5.2</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Cross-platform Discord controller for Android Mobile and Windows PC.
@@ -1690,7 +1720,7 @@
         </div>
 
         <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:6px;">
-          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Direct Downloads (v1.5.1):</div>
+          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Direct Downloads (v1.5.2):</div>
           <div style="display:flex; gap:6px; flex-wrap:wrap;">
             <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-android.apk" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               📱 Android APK
@@ -1698,7 +1728,7 @@
             <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows.exe" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               💻 Windows EXE
             </a>
-            <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows-portable-v1.5.1.zip" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
+            <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows-portable-v1.5.2.zip" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               📦 Portable ZIP
             </a>
           </div>
@@ -3456,6 +3486,7 @@
       renderAntiAfkState(data.anti_afk);
       renderCustomRpcState(data.custom_rpc);
       renderVoiceTranscriberState(data.voice_transcriber);
+      renderPluginsList(data.plugins, data.plugins_count);
       updateActiveBadges();
     }
 
@@ -6763,7 +6794,7 @@
       return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    let currentAppVersion = '1.5.1';
+    let currentAppVersion = '1.5.2';
     let latestUpdateData = null;
 
     function toggleAutoCheckUpdate(enabled) {
@@ -8082,6 +8113,93 @@
       const feed = document.getElementById('voice-transcripts-feed');
       if (feed) feed.innerHTML = `<div style="color:var(--text-muted); font-style:italic;">Transcript cleared. Listening for new speech...</div>`;
       showToast('Transcript feed cleared');
+    }
+
+    // 🔌 Modular Plugin Functions
+    function renderPluginsList(plugins, count) {
+      if (!plugins) return;
+      const badge = document.getElementById('plugins-count-badge');
+      if (badge && count !== undefined) {
+        const activeCount = plugins.filter(p => p.enabled).length;
+        badge.innerText = `${activeCount}/${plugins.length} Active`;
+      }
+      const feed = document.getElementById('plugins-list-feed');
+      if (!feed) return;
+
+      feed.innerHTML = plugins.map(p => `
+        <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius-sm); padding:8px 10px; display:flex; justify-content:space-between; align-items:center;">
+          <div style="flex:1; padding-right:8px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:1rem;">${escapeHtml(p.icon || '🔌')}</span>
+              <strong style="font-size:0.84rem; color:var(--text-heading);">${escapeHtml(p.name)}</strong>
+              <span class="badge" style="background:rgba(255,255,255,0.08); font-size:0.65rem;">v${escapeHtml(p.version)}</span>
+            </div>
+            <div style="font-size:0.73rem; color:var(--text-muted); margin-top:2px;">
+              ${escapeHtml(p.description)}
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="badge ${p.enabled ? 'badge-online' : 'badge-voice'}" style="font-size:0.7rem;">${p.enabled ? 'ON' : 'OFF'}</span>
+            <input type="checkbox" ${p.enabled ? 'checked' : ''} onchange="togglePlugin('${escapeHtml(p.id)}', this.checked)" style="width:18px; height:18px; accent-color:#3b82f6;">
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function togglePlugin(pluginId, enabled) {
+      vibrate(15);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'toggle_plugin', id: pluginId, enabled: enabled })
+        });
+        const d = await res.json();
+        showToast(d.message || `Plugin ${pluginId} updated`);
+        fetchStatus();
+      } catch (e) {
+        showToast('Plugin toggle error: ' + e.message, true);
+      }
+    }
+
+    async function fetchPlugins() {
+      vibrate(10);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'get_plugins' })
+        });
+        const d = await res.json();
+        if (d.plugins) {
+          renderPluginsList(d.plugins, d.count);
+          showToast(`Loaded ${d.plugins.length} installed plugins`);
+        }
+      } catch (e) {
+        showToast('Fetch plugins error: ' + e.message, true);
+      }
+    }
+
+    async function showInstallPluginModal() {
+      const name = prompt("Enter Plugin Name:", "My Custom Discord Addon");
+      if (!name) return;
+      const desc = prompt("Enter Plugin Description:", "Custom community plugin extension");
+      const id = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            action: 'install_plugin',
+            plugin: { id: id, name: name, description: desc || "Custom user plugin", version: "1.0.0", author: "User", enabled: true }
+          })
+        });
+        const d = await res.json();
+        showToast(d.message || `Plugin ${name} installed!`);
+        fetchStatus();
+      } catch (e) {
+        showToast('Install plugin error: ' + e.message, true);
+      }
     }
 
     document.addEventListener('visibilitychange', () => {

@@ -725,6 +725,35 @@ def run_tests():
     except Exception as e:
         check("POST action: voice_transcriber", False, str(e))
 
+    # 71. Test Modular Plugins Listing & State Toggle
+    try:
+        st_pl1, d_pl1 = http_post("/api/action", {"action": "get_plugins"})
+        st_pl2, d_pl2 = http_post("/api/action", {"action": "toggle_plugin", "id": "auto_mod", "enabled": True})
+        check("POST action: get_plugins / toggle_plugin (Modular Plugin Architecture)",
+              st_pl1 == 200 and d_pl1.get("count", 0) >= 5 and st_pl2 == 200 and d_pl2.get("plugin", {}).get("enabled") is True)
+    except Exception as e:
+        check("POST action: plugins_toggle", False, str(e))
+
+    # 72. Test Plugin Configuration & Dynamic Installation
+    try:
+        st_cfg, d_cfg = http_post("/api/action", {"action": "configure_plugin", "id": "webhook_relay", "config": {"webhook_url": "https://discord.com/api/webhooks/test"}})
+        custom_manifest = {
+            "id": "raid_shield",
+            "name": "Raid Shield Guard",
+            "version": "1.0.0",
+            "author": "Community",
+            "description": "Custom anti-nuke and raid mitigation module",
+            "icon": "🛡️",
+            "enabled": True
+        }
+        st_ins, d_ins = http_post("/api/action", {"action": "install_plugin", "plugin": custom_manifest})
+        st_un, d_un = http_post("/api/action", {"action": "uninstall_plugin", "id": "raid_shield"})
+        check("POST action: configure_plugin / install_plugin / uninstall_plugin (Custom Add-Ons)",
+              st_cfg == 200 and d_cfg.get("plugin", {}).get("config", {}).get("webhook_url") == "https://discord.com/api/webhooks/test" and
+              st_ins == 200 and d_ins.get("plugin", {}).get("id") == "raid_shield" and st_un == 200 and d_un.get("success") is True)
+    except Exception as e:
+        check("POST action: plugins_config_install", False, str(e))
+
     # Summary
     passed = sum(1 for _, ok, _ in results if ok)
     total = len(results)
