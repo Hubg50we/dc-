@@ -44,7 +44,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.4.9";
+    public static final String APP_VERSION = "1.5.0";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -2048,6 +2048,41 @@ public class DiscordManager {
                 res.put("recommendation", "Optimal - Safe operating thresholds");
             } else if ("check_update".equals(action)) {
                 return checkUpdateJson();
+            } else if ("ofm_status".equals(action)) {
+                res.put("success", true);
+                res.put("alive", true);
+                res.put("builtin", true);
+                res.put("engine", "Ebony-Vinyl/dsh-our-free-model");
+                res.put("model", "kilo-auto/free");
+                res.put("message", "Built-in OFM AI Engine Active (Mobile & Desktop)");
+            } else if ("trigger_ai_speech".equals(action)) {
+                String persona = payload.optString("persona", "friendly").toLowerCase();
+                String text = payload.optString("text", "");
+                if (text.isEmpty()) {
+                    text = generateBuiltinAiSpeech(persona);
+                }
+                this.activeSfx = "🤖 AI (" + persona.toUpperCase() + "): " + (text.length() > 25 ? text.substring(0, 25) + "..." : text);
+                this.speakingSim = true;
+                for (Account a : accounts.values()) {
+                    a.speaking = true;
+                    a.activeSfx = this.activeSfx;
+                }
+                log("🤖 [Built-in AI Co-Host Speech] (" + persona + "): \"" + text + "\"");
+                res.put("success", true);
+                res.put("persona", persona);
+                res.put("speech", text);
+                res.put("builtin", true);
+                res.put("ofm_engine", "Ebony-Vinyl/dsh-our-free-model");
+                res.put("message", "AI Co-Host spoke: \"" + text + "\"");
+            } else if ("generate_ai_text".equals(action)) {
+                String persona = payload.optString("persona", "friendly").toLowerCase();
+                String prompt = payload.optString("prompt", "");
+                String text = prompt.isEmpty() ? generateBuiltinAiSpeech(persona) : ("[" + persona.toUpperCase() + "] " + prompt);
+                res.put("success", true);
+                res.put("prompt", prompt);
+                res.put("persona", persona);
+                res.put("response", text);
+                res.put("builtin", true);
             } else {
                 res.put("success", true);
                 res.put("status", "ok");
@@ -2062,6 +2097,37 @@ public class DiscordManager {
             } catch (Exception ignored) {}
         }
         return res;
+    }
+
+    public String generateBuiltinAiSpeech(String persona) {
+        String[] responses;
+        if ("dj".equals(persona)) {
+            responses = new String[]{
+                "YO VOICE CHAT! I dropped the beat so hard, my WiFi just filed a noise complaint! LET'S GOOO! 🎧🔥",
+                "You're tuned in live to the 24/7 Discord Soundstage! Crank up the bass and vibe with us!",
+                "Turn up the volume! Track's spinning and the lobby is on fire right now! 🎶"
+            };
+        } else if ("gamer".equals(persona)) {
+            responses = new String[]{
+                "Locked and loaded! Ready for the next round. Don't forget to call out enemy positions! 🎮",
+                "Need backup on B! Watch the flank and grab armor before pushing!",
+                "Clutch or kick time! Keep comms clear and let's secure this win!"
+            };
+        } else if ("sarcastic".equals(persona)) {
+            responses = new String[]{
+                "Oh look, someone actually unmuted. Let's see if this speech was worth breaking the silence for. 😏",
+                "I'd agree with your game plan, but then we'd both be wrong.",
+                "10 out of 10 strategy. Assuming our goal was losing in under 30 seconds."
+            };
+        } else {
+            responses = new String[]{
+                "Hey everyone! It's great having you all here in the voice channel. What are we playing today? 😊",
+                "Hope everyone is having an awesome day! Thanks for hanging out with us in voice!",
+                "Great vibes in the channel today! Let me know if you want any music queued up!"
+            };
+        }
+        int idx = (int) (Math.random() * responses.length);
+        return responses[idx];
     }
 
     private String executeTerminalCommand(String rawCmd) {

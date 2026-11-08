@@ -660,6 +660,14 @@ def run_tests():
     except Exception as e:
         check("POST action: ofm_status", False, str(e))
 
+    # 64. Test Built-in AI Interactive Text Generation (generate_ai_text)
+    try:
+        st_gen, d_gen = http_post("/api/action", {"action": "generate_ai_text", "prompt": "Say hello from built-in AI", "persona": "friendly", "model": "kilo-auto/free"})
+        check("POST action: generate_ai_text (Built-in OFM Prompt & Model Generation)",
+              st_gen == 200 and d_gen.get("success") is True and len(d_gen.get("text", "")) > 0 and d_gen.get("builtin") is True)
+    except Exception as e:
+        check("POST action: generate_ai_text", False, str(e))
+
     # Summary
     passed = sum(1 for _, ok, _ in results if ok)
     total = len(results)
