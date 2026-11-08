@@ -896,6 +896,10 @@
         <span style="width:8px; height:8px; border-radius:50%; background:var(--success); display:inline-block;" id="status-bulb"></span>
         <span id="gateway-status-txt">📱 Mobile Gateway</span>
       </div>
+      <div id="telemetry-pill" style="display:none; align-items:center; gap:5px; font-size:0.75rem; background:var(--bg-card); border:1px solid var(--border); padding:4px 10px; border-radius:16px;" title="Battery & System Telemetry">
+        <span id="telemetry-icon">🔋</span>
+        <span id="telemetry-txt">--%</span>
+      </div>
       <button class="icon-btn" onclick="toggleAmoled()" title="AMOLED Black Toggle">⚡</button>
       <button class="icon-btn" onclick="refreshAll()" title="Refresh Dashboard">↻</button>
     </div>
@@ -1028,6 +1032,36 @@
           <button class="btn btn-secondary" onclick="triggerAction('unmute')">🔊 Unmute All</button>
           <button class="btn btn-warning" onclick="triggerAction('deafen')">🎧 Deafen All</button>
           <button class="btn btn-secondary" onclick="triggerAction('undeafen')">🎧 Undeafen All</button>
+        </div>
+      </div>
+
+      <!-- 🔀 Multi-Channel Room Spreader & Gatherer Card -->
+      <div class="card" style="border-color: rgba(168, 85, 247, 0.45); background: linear-gradient(180deg, rgba(168, 85, 247, 0.05) 0%, var(--bg-card) 100%);">
+        <div class="card-title" style="color:#c084fc;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.1rem;">🔀</span>
+            <span>Multi-Channel Room Spreader & Gatherer</span>
+          </div>
+          <span class="badge" style="background:rgba(168, 85, 247, 0.25); color:#e9d5ff; font-weight:700;">v1.4.5</span>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
+          Distribute bot accounts across multiple voice channels simultaneously, or gather all accounts into a single room with 1 tap.
+        </p>
+
+        <div class="field-group">
+          <label class="field-label">
+            <span>Target Channels (One ID per line or comma-separated)</span>
+          </label>
+          <textarea id="spreader-channel-list" rows="3" placeholder="123456789012345678&#10;987654321098765432&#10;555666777888999000" style="width:100%; font-family:monospace; font-size:0.8rem; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text); padding:8px; resize:vertical;"></textarea>
+        </div>
+
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <button class="btn btn-primary" style="flex:1;" onclick="spreadAccountsToChannels()">
+            🔀 Spread Bots
+          </button>
+          <button class="btn btn-secondary" style="flex:1;" onclick="gatherAccountsToChannel()">
+            📥 Gather All Here
+          </button>
         </div>
       </div>
 
@@ -1221,7 +1255,7 @@
       <div class="card" style="border-color: rgba(88, 101, 242, 0.45);">
         <div class="card-title" style="color:var(--accent);">
           <span>🔄 App Updates & Version</span>
-          <span class="badge badge-voice" id="settings-app-version">v1.4.4</span>
+          <span class="badge badge-voice" id="settings-app-version">v1.4.5</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Cross-platform Discord controller for Android Mobile and Windows PC.
@@ -1245,7 +1279,7 @@
         </div>
 
         <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:6px;">
-          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Direct Downloads (v1.4.4):</div>
+          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Direct Downloads (v1.4.5):</div>
           <div style="display:flex; gap:6px; flex-wrap:wrap;">
             <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-android.apk" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               📱 Android APK
@@ -1253,13 +1287,37 @@
             <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows.exe" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               💻 Windows EXE
             </a>
-            <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows-portable-v1.4.4.zip" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
+            <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows-portable-v1.4.5.zip" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               📦 Portable ZIP
             </a>
           </div>
         </div>
 
         <div id="update-check-result" style="display:none; margin-top:8px; padding:10px; border-radius:8px; font-size:0.82rem;"></div>
+      </div>
+
+      <!-- 💾 1-Click Profile Backup & Migration Card -->
+      <div class="card" style="border-color: rgba(59, 130, 246, 0.45); background: linear-gradient(180deg, rgba(59, 130, 246, 0.05) 0%, var(--bg-card) 100%);">
+        <div class="card-title" style="color:#60a5fa;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.1rem;">💾</span>
+            <span>1-Click Profile Backup & Migration</span>
+          </div>
+          <span class="badge" style="background:rgba(59, 130, 246, 0.25); color:#93c5fd; font-weight:700;">JSON</span>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">
+          Export and import all tokens, channel presets, soundboard configs, and DSP settings between phone and PC in seconds.
+        </p>
+
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-primary" style="flex:1;" onclick="exportProfileBackup()">
+            📤 Export Full Backup (.json)
+          </button>
+          <button class="btn btn-secondary" style="flex:1;" onclick="document.getElementById('backup-file-input').click()">
+            📥 Import Backup (.json)
+          </button>
+          <input type="file" id="backup-file-input" accept=".json,application/json" style="display:none;" onchange="importProfileBackup(event)">
+        </div>
       </div>
 
       <!-- ⚡ Low-End Mobile & Battery Saver Card -->
@@ -2545,6 +2603,28 @@
       document.getElementById('stat-online').innerText = data.online_accounts || 0;
       document.getElementById('stat-voice').innerText = data.voice_accounts || 0;
       document.getElementById('stat-uptime').innerText = formatUptime(data.uptime);
+
+      // System Telemetry (Battery %, charging, thermals)
+      const tel = data.system_telemetry || (data.battery_level !== undefined ? {
+        battery_level: data.battery_level,
+        charging: !!data.charging,
+        temperature: data.temperature || 0,
+        platform: data.platform || 'Native'
+      } : null);
+
+      if (tel && tel.battery_level !== undefined && tel.battery_level >= 0) {
+        const telPill = document.getElementById('telemetry-pill');
+        const telTxt = document.getElementById('telemetry-txt');
+        const telIcon = document.getElementById('telemetry-icon');
+        if (telPill && telTxt && telIcon) {
+          telPill.style.display = 'inline-flex';
+          telIcon.innerText = tel.charging ? '⚡' : (tel.battery_level > 20 ? '🔋' : '🪫');
+          let extra = '';
+          if (tel.temperature && tel.temperature > 0) extra = ` • ${tel.temperature}°C`;
+          telTxt.innerText = `${tel.battery_level}%${extra}`;
+          telPill.title = `Platform: ${tel.platform || 'Native'} | State: ${tel.charging ? 'Charging' : 'Discharging'}${extra}`;
+        }
+      }
 
       if (data.version) {
         currentAppVersion = data.version;
@@ -6149,7 +6229,7 @@
       return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    let currentAppVersion = '1.4.4';
+    let currentAppVersion = '1.4.5';
     let latestUpdateData = null;
 
     function toggleAutoCheckUpdate(enabled) {
@@ -6447,6 +6527,135 @@
       } catch (e) {
         showToast('Shizuku auth error: ' + e.message, true);
       }
+    }
+
+    // 🔀 Multi-Channel Room Spreader & Gatherer
+    async function spreadAccountsToChannels() {
+      vibrate(25);
+      const listArea = document.getElementById('spreader-channel-list');
+      const text = (listArea ? listArea.value : '').trim();
+      if (!text) {
+        showToast('Please enter target channel IDs', true);
+        return;
+      }
+      const rawChannels = text.split(/[\r\n,]+/).map(c => c.trim()).filter(Boolean);
+      if (rawChannels.length === 0) {
+        showToast('No valid channel IDs found', true);
+        return;
+      }
+      const gid = (document.getElementById('target-guild-id') ? document.getElementById('target-guild-id').value : '').trim();
+      logToConsole(`🔀 Spreading bots across ${rawChannels.length} voice channels...`);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'spread_accounts_to_channels',
+            channels: rawChannels,
+            guild_id: gid
+          })
+        });
+        const json = await res.json();
+        if (json.success) {
+          showToast(json.message || `Distributed bots across ${rawChannels.length} channels`);
+        } else {
+          showToast('Spreader error: ' + (json.error || 'Failed'), true);
+        }
+        fetchStatus();
+      } catch (e) {
+        showToast('Spreader network error: ' + e.message, true);
+      }
+    }
+
+    async function gatherAccountsToChannel() {
+      vibrate(25);
+      const ch = (document.getElementById('target-channel-id') ? document.getElementById('target-channel-id').value : '').trim();
+      const gid = (document.getElementById('target-guild-id') ? document.getElementById('target-guild-id').value : '').trim();
+      if (!ch) {
+        showToast('Please specify an active Voice Channel ID above', true);
+        return;
+      }
+      logToConsole(`📥 Gathering all bots into channel ${ch}...`);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'gather_accounts_to_channel',
+            channel_id: ch,
+            guild_id: gid
+          })
+        });
+        const json = await res.json();
+        if (json.success) {
+          showToast(json.message || `Gathered bots into channel ${ch}`);
+        } else {
+          showToast('Gather error: ' + (json.error || 'Failed'), true);
+        }
+        fetchStatus();
+      } catch (e) {
+        showToast('Gather network error: ' + e.message, true);
+      }
+    }
+
+    // 💾 1-Click Profile Backup & Migration
+    async function exportProfileBackup() {
+      vibrate(25);
+      showToast('Exporting full profile backup...');
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'export_backup' })
+        });
+        const json = await res.json();
+        if (json.success && json.backup) {
+          const blob = new Blob([JSON.stringify(json.backup, null, 2)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `dc-profile-backup-v${currentAppVersion}-${Date.now()}.json`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          showToast('Backup file downloaded successfully!');
+        } else {
+          showToast('Export failed: ' + (json.error || 'Unknown error'), true);
+        }
+      } catch (e) {
+        showToast('Export backup error: ' + e.message, true);
+      }
+    }
+
+    async function importProfileBackup(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      vibrate(25);
+      const reader = new FileReader();
+      reader.onload = async function(e) {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          const res = await fetch('/api/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'import_backup',
+              backup: parsed
+            })
+          });
+          const json = await res.json();
+          if (json.success) {
+            showToast(json.message || 'Profile imported successfully!');
+            fetchStatus();
+          } else {
+            showToast('Import failed: ' + (json.error || 'Unknown error'), true);
+          }
+        } catch (err) {
+          showToast('Invalid backup JSON file: ' + err.message, true);
+        }
+      };
+      reader.readAsText(file);
     }
 
     fetchStatus();

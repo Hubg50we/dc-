@@ -200,6 +200,11 @@ class DiscordMediaConnection:
         self.desktop_capture_thread = None
         self.frame_queue = collections.deque(maxlen=15)
 
+        self.audio_pipe_proc = None
+        self.audio_pipe_thread = None
+        self.audio_queue = collections.deque(maxlen=30)
+        self.active_media_source = ""
+
     def set_desktop_capture(self, enabled=True):
         self.desktop_capture_active = bool(enabled)
         if self.desktop_capture_active:
@@ -289,6 +294,93 @@ class DiscordMediaConnection:
                 pass
             self.desktop_capture_proc = None
         self.frame_queue.clear()
+
+    def stream_native_audio(self, source, audio_filter=""):
+        """
+        Extracts and streams real 48kHz Opus audio packets from any file or URL.
+        Zero Node.js dependency!
+        """
+        self._stop_native_audio()
+        self.active_media_source = source
+
+        cmd = [
+            "ffmpeg", "-hide_banner", "-loglevel", "error",
+            "-re", "-i", source,
+            "-vn"
+        ]
+        if audio_filter:
+            cmd.extend(["-af", audio_filter])
+        cmd.extend([
+            "-c:a", "libopus", "-b:a", "96k", "-vbr", "on",
+            "-application", "audio", "-frame_duration", "20",
+            "-f", "opus", "pipe:1"
+        ])
+
+        try:
+            creationflags = 0
+            if sys.platform == "win32":
+                creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+            self.audio_pipe_proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                bufsize=10**6,
+                creationflags=creationflags
+            )
+            self.log(f"🎵 Native Audio Pipe Active: '{source}'")
+
+            def _audio_reader():
+                buf = b""
+                proc = self.audio_pipe_proc
+                while self.running and proc and proc.poll() is None:
+                    try:
+                        chunk = proc.stdout.read(4096)
+                        if not chunk:
+                            break
+                        buf += chunk
+                        while True:
+                            pos = buf.find(b"OggS")
+                            if pos == -1:
+                                if len(buf) > 65536:
+                                    buf = buf[-8:]
+                                break
+                            if len(buf) < pos + 27:
+                                break
+                            n_segs = buf[pos + 26]
+                            if len(buf) < pos + 27 + n_segs:
+                                break
+                            seg_table = buf[pos + 27:pos + 27 + n_segs]
+                            page_body_len = sum(seg_table)
+                            page_total_len = 27 + n_segs + page_body_len
+                            if len(buf) < pos + page_total_len:
+                                break
+                            body = buf[pos + 27 + n_segs:pos + page_total_len]
+                            buf = buf[pos + page_total_len:]
+
+                            offset = 0
+                            curr_pkt = b""
+                            for seg_len in seg_table:
+                                curr_pkt += body[offset:offset + seg_len]
+                                offset += seg_len
+                                if seg_len < 255:
+                                    if curr_pkt and not curr_pkt.startswith(b"OpusHead") and not curr_pkt.startswith(b"OpusTags"):
+                                        self.audio_queue.append(curr_pkt)
+                                    curr_pkt = b""
+                    except Exception:
+                        break
+            self.audio_pipe_thread = threading.Thread(target=_audio_reader, daemon=True)
+            self.audio_pipe_thread.start()
+        except Exception as e:
+            self.log(f"[!] Native audio pipe error: {e}")
+
+    def _stop_native_audio(self):
+        if self.audio_pipe_proc:
+            try:
+                self.audio_pipe_proc.kill()
+            except Exception:
+                pass
+            self.audio_pipe_proc = None
+        self.audio_queue.clear()
 
     def set_visualizer(self, mode):
         self.visualizer_mode = (mode or "spectrum").lower()
@@ -626,8 +718,9 @@ class DiscordMediaConnection:
                     self.audio_ssrc
                 )
 
+                frame_to_send = self.audio_queue.popleft() if len(self.audio_queue) > 0 else silence_frame
                 nonce = struct.pack(">I", nonce_counter) + (b"\x00" * 8)
-                ciphertext = self.aesgcm.encrypt(nonce, silence_frame, rtp_header)
+                ciphertext = self.aesgcm.encrypt(nonce, frame_to_send, rtp_header)
                 packet = rtp_header + ciphertext + struct.pack(">I", nonce_counter)
 
                 self.udp_sock.sendto(packet, dest)

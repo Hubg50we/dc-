@@ -35,6 +35,23 @@ public class DiscordService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null && intent.getAction() != null) {
+            String act = intent.getAction();
+            DiscordManager dm = DiscordManager.getInstance(this);
+            if ("ACTION_MUTE_ALL".equals(act)) {
+                org.json.JSONObject p = new org.json.JSONObject();
+                try { p.put("action", "mute"); p.put("percent", 100); } catch (Exception ignored) {}
+                dm.handleAction(p);
+            } else if ("ACTION_UNMUTE_ALL".equals(act)) {
+                org.json.JSONObject p = new org.json.JSONObject();
+                try { p.put("action", "unmute"); p.put("percent", 100); } catch (Exception ignored) {}
+                dm.handleAction(p);
+            } else if ("ACTION_DISCONNECT_ALL".equals(act)) {
+                org.json.JSONObject p = new org.json.JSONObject();
+                try { p.put("action", "leave"); p.put("percent", 100); } catch (Exception ignored) {}
+                dm.handleAction(p);
+            }
+        }
         Notification notification = buildNotification("dc- Voice Manager Running in Background");
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
@@ -66,12 +83,27 @@ public class DiscordService extends Service {
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
         );
 
+        Intent muteIntent = new Intent(this, DiscordService.class);
+        muteIntent.setAction("ACTION_MUTE_ALL");
+        PendingIntent mutePending = PendingIntent.getService(this, 1, muteIntent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+
+        Intent unmuteIntent = new Intent(this, DiscordService.class);
+        unmuteIntent.setAction("ACTION_UNMUTE_ALL");
+        PendingIntent unmutePending = PendingIntent.getService(this, 2, unmuteIntent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+
+        Intent disconnIntent = new Intent(this, DiscordService.class);
+        disconnIntent.setAction("ACTION_DISCONNECT_ALL");
+        PendingIntent disconnPending = PendingIntent.getService(this, 3, disconnIntent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+
         return new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("dc- Discord Manager")
+                .setContentTitle("dc- Discord Manager (v1.4.5)")
                 .setContentText(text)
                 .setSmallIcon(R.drawable.ic_launcher)
                 .setContentIntent(pendingIntent)
                 .setOngoing(true)
+                .addAction(R.drawable.ic_launcher, "Mute", mutePending)
+                .addAction(R.drawable.ic_launcher, "Unmute", unmutePending)
+                .addAction(R.drawable.ic_launcher, "Disconnect", disconnPending)
                 .build();
     }
 

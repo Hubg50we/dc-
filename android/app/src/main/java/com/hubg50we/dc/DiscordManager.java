@@ -44,7 +44,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.4.4";
+    public static final String APP_VERSION = "1.4.5";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -700,6 +700,98 @@ public class DiscordManager {
                 res.put("guild_id", targetGid);
                 res.put("channel_id", ch);
                 res.put("message", "Dispatched " + count + " bot(s) to " + ch + (targetGid.isEmpty() ? "" : " (Server: " + targetGid + ")"));
+            }
+
+            // 3b. Multi-Room Spreader & Room Gatherer
+            else if ("spread_accounts_to_channels".equals(action)) {
+                JSONArray chArr = payload.optJSONArray("channels");
+                int spreadCount = 0;
+                if (chArr != null && chArr.length() > 0) {
+                    List<String> chList = new ArrayList<>();
+                    for (int i = 0; i < chArr.length(); i++) {
+                        String c = chArr.optString(i, "").trim();
+                        if (!c.isEmpty()) chList.add(c);
+                    }
+                    if (!chList.isEmpty()) {
+                        List<Account> onlineAccs = new ArrayList<>();
+                        for (Account a : accounts.values()) {
+                            if (a != null && a.online) onlineAccs.add(a);
+                        }
+                        for (int i = 0; i < onlineAccs.size(); i++) {
+                            Account a = onlineAccs.get(i);
+                            String targetCh = chList.get(i % chList.size());
+                            String accGid = a.currentGuildId.isEmpty() ? this.guildId : a.currentGuildId;
+                            a.setVoiceState(accGid, targetCh, a.mute, a.deaf);
+                            spreadCount++;
+                        }
+                    }
+                }
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("count", spreadCount);
+                res.put("message", "Distributed " + spreadCount + " account(s) across voice channels");
+            } else if ("gather_accounts_to_channel".equals(action)) {
+                String targetCh = payload.optString("channel_id", this.defaultChannelId).trim();
+                int gatherCount = 0;
+                for (Account a : accounts.values()) {
+                    if (a != null && a.online) {
+                        String accGid = a.currentGuildId.isEmpty() ? this.guildId : a.currentGuildId;
+                        a.setVoiceState(accGid, targetCh, a.mute, a.deaf);
+                        gatherCount++;
+                    }
+                }
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("count", gatherCount);
+                res.put("channel_id", targetCh);
+                res.put("message", "Gathered " + gatherCount + " account(s) into " + targetCh);
+            }
+
+            // 3c. Backup Export & Import Profile Migration
+            else if ("export_backup".equals(action)) {
+                JSONObject bData = new JSONObject();
+                bData.put("version", APP_VERSION);
+                bData.put("timestamp", System.currentTimeMillis() / 1000);
+                bData.put("device_type", deviceMode);
+                bData.put("default_guild", guildId);
+                bData.put("default_channel", defaultChannelId);
+                bData.put("auto_rejoin", autoRejoin);
+                bData.put("stealth_delay", stealthDelaySec);
+                JSONArray accExport = new JSONArray();
+                for (Account a : accounts.values()) {
+                    JSONObject ao = new JSONObject();
+                    ao.put("id", a.id);
+                    ao.put("token", a.token);
+                    ao.put("name", a.name);
+                    accExport.put(ao);
+                }
+                bData.put("accounts", accExport);
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("backup", bData);
+                res.put("message", "Backup exported successfully");
+            } else if ("import_backup".equals(action)) {
+                JSONObject bData = payload.optJSONObject("backup");
+                if (bData == null) bData = payload;
+                JSONArray accImport = bData.optJSONArray("accounts");
+                int count = 0;
+                if (accImport != null) {
+                    for (int i = 0; i < accImport.length(); i++) {
+                        JSONObject ao = accImport.optJSONObject(i);
+                        if (ao != null) {
+                            String t = cleanToken(ao.optString("token", ""));
+                            if (!t.isEmpty()) {
+                                addAccountInternal(t);
+                                count++;
+                            }
+                        }
+                    }
+                    saveTokensToPrefs();
+                }
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("imported_count", count);
+                res.put("message", "Restored " + count + " account(s) from backup");
             }
 
             // 4. Voice Controls
@@ -2046,6 +2138,25 @@ public class DiscordManager {
             json.put("voice_accounts", voiceCount);
             json.put("version", APP_VERSION);
             json.put("uptime", (System.currentTimeMillis() - startTime) / 1000);
+
+            // Android System Telemetry
+            JSONObject telemetry = new JSONObject();
+            telemetry.put("platform", "Android");
+            try {
+                android.content.Intent bIntent = context.registerReceiver(null, new android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED));
+                if (bIntent != null) {
+                    int level = bIntent.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1);
+                    int scale = bIntent.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1);
+                    int status = bIntent.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1);
+                    boolean isCharging = (status == android.os.BatteryManager.BATTERY_STATUS_CHARGING || status == android.os.BatteryManager.BATTERY_STATUS_FULL);
+                    int temp = bIntent.getIntExtra(android.os.BatteryManager.EXTRA_TEMPERATURE, 0) / 10;
+                    int pct = (level >= 0 && scale > 0) ? (int)((level / (float)scale) * 100) : level;
+                    telemetry.put("battery_level", pct);
+                    telemetry.put("is_charging", isCharging);
+                    telemetry.put("temperature", temp);
+                }
+            } catch (Exception ignored) {}
+            json.put("system_telemetry", telemetry);
             json.put("default_guild", guildId);
             json.put("default_channel", defaultChannelId);
             json.put("device_type", deviceMode);

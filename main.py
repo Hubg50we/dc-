@@ -75,7 +75,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.4.4"
+APP_VERSION = "1.4.5"
 AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
@@ -246,6 +246,49 @@ def list_uploaded_media():
             except Exception:
                 pass
     return files
+
+def get_system_telemetry():
+    """Returns real-time Android & host system telemetry (battery, charging, thermals)."""
+    battery_pct = 100
+    is_charging = True
+    temp = 36.5
+    platform_name = "Android" if (os.path.exists("/system") or "ANDROID_ROOT" in os.environ) else ("Windows" if sys.platform == "win32" else "Linux")
+
+    for path in ["/sys/class/power_supply/battery/capacity", "/sys/class/power_supply/BAT0/capacity"]:
+        if os.path.exists(path):
+            try:
+                with open(path, "r") as f:
+                    battery_pct = int(f.read().strip())
+                break
+            except Exception:
+                pass
+    for status_path in ["/sys/class/power_supply/battery/status", "/sys/class/power_supply/BAT0/status"]:
+        if os.path.exists(status_path):
+            try:
+                with open(status_path, "r") as f:
+                    st = f.read().strip().lower()
+                    is_charging = (st in ("charging", "full"))
+                break
+            except Exception:
+                pass
+    for temp_path in ["/sys/class/thermal/thermal_zone0/temp"]:
+        if os.path.exists(temp_path):
+            try:
+                with open(temp_path, "r") as f:
+                    raw_t = int(f.read().strip())
+                    temp = round(raw_t / 1000.0, 1) if raw_t > 1000 else raw_t
+                break
+            except Exception:
+                pass
+
+    return {
+        "platform": platform_name,
+        "battery_level": battery_pct,
+        "charging": is_charging,
+        "is_charging": is_charging,
+        "temperature": temp,
+        "wake_lock": True
+    }
 
 # StreamBot (ysdragon/StreamBot) Core Engine Globals
 STREAMBOT_QUEUE = []
@@ -1755,6 +1798,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             "stream_overlay_title": STREAM_OVERLAY_TITLE,
             "stream_overlay_ticker": STREAM_OVERLAY_TICKER,
             "desktop_screen_capture": DESKTOP_SCREEN_CAPTURE,
+            "system_telemetry": get_system_telemetry(),
             "audio_dsp": {
                 "bass_boost": AUDIO_BASS_BOOST,
                 "pitch_shift": AUDIO_PITCH_SHIFT,
@@ -1839,6 +1883,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(resp)
             except Exception as e:
+                log(f"[!] execute_action error: {e}")
                 err = json.dumps({"success": False, "error": str(e)}).encode("utf-8")
                 self.send_response(400)
                 self.send_header("Content-Type", "application/json")
@@ -1849,7 +1894,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(404, "Not Found")
 
     def execute_action(self, payload):
-        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VOICE_FLAGS, ACTIVE_SFX, VOICE_STATUS, HUMAN_CHATTER_ENABLED, HUMAN_CHATTER_TASK, REAL_VIDEO_ACTIVE, REAL_VIDEO_MODE, REAL_VIDEO_TITLE, WEB_SHARE_URL, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE, STREAMBOT_QUEUE, STREAMBOT_CURRENT, STREAMBOT_STATUS, STREAMBOT_LOOP_MODE, STREAMBOT_VOLUME, STREAMBOT_RESOLUTION, STREAMBOT_FPS, STREAMBOT_BITRATE, STREAM_PROFILE, SPOTIFY_SONG, SPOTIFY_ARTIST, SPOTIFY_ALBUM, SPOTIFY_DURATION, VISUALIZER_MODE, STREAM_OVERLAY_ENABLED, STREAM_OVERLAY_TITLE, STREAM_OVERLAY_TICKER, CHAT_AUTO_RESPONDER_ENABLED, CHAT_AUTO_RESPONDER_RULES, DESKTOP_SCREEN_CAPTURE, AUDIO_BASS_BOOST, AUDIO_PITCH_SHIFT, AUDIO_NORMALIZER, AUDIO_EQ_PRESET
+        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VOICE_FLAGS, ACTIVE_SFX, VOICE_STATUS, HUMAN_CHATTER_ENABLED, HUMAN_CHATTER_TASK, REAL_VIDEO_ACTIVE, REAL_VIDEO_MODE, REAL_VIDEO_TITLE, WEB_SHARE_URL, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE, STREAMBOT_QUEUE, STREAMBOT_CURRENT, STREAMBOT_STATUS, STREAMBOT_LOOP_MODE, STREAMBOT_VOLUME, STREAMBOT_RESOLUTION, STREAMBOT_FPS, STREAMBOT_BITRATE, STREAM_PROFILE, SPOTIFY_SONG, SPOTIFY_ARTIST, SPOTIFY_ALBUM, SPOTIFY_DURATION, VISUALIZER_MODE, STREAM_OVERLAY_ENABLED, STREAM_OVERLAY_TITLE, STREAM_OVERLAY_TICKER, CHAT_AUTO_RESPONDER_ENABLED, CHAT_AUTO_RESPONDER_RULES, DESKTOP_SCREEN_CAPTURE, AUDIO_BASS_BOOST, AUDIO_PITCH_SHIFT, AUDIO_NORMALIZER, AUDIO_EQ_PRESET, AUTO_REJOIN, CUSTOM_ACTIVITY_NAME, CUSTOM_ACTIVITY_TYPE, STEALTH_DELAY
         action = payload.get("action", "")
 
         if action == "set_desktop_screen_capture":
@@ -1929,6 +1974,136 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 "preset": AUDIO_EQ_PRESET,
                 "message": f"Audio DSP updated ({AUDIO_EQ_PRESET.upper()})"
             }
+
+        if action == "spread_accounts_to_channels":
+            ch_list = payload.get("channels", [])
+            target_gid = str(payload.get("guild_id", "")).strip() or GUILD_ID
+            if not ch_list or not isinstance(ch_list, list):
+                return {"success": False, "error": "No channels list provided"}
+            online_accs = [a for a in ACCOUNTS.values() if a.get("online") or a.get("token")]
+            count = 0
+            for i, a in enumerate(online_accs):
+                ch_id = str(ch_list[i % len(ch_list)]).strip()
+                if ch_id:
+                    a["voice_channel"] = ch_id
+                    a["guild_id"] = target_gid
+                    if MAIN_LOOP and MAIN_LOOP.is_running():
+                        asyncio.run_coroutine_threadsafe(apply([a], channel=ch_id, guild=target_gid), MAIN_LOOP)
+                    count += 1
+            log(f"🔀 Distributed {count} account(s) across {len(ch_list)} voice channels")
+            return {"success": True, "count": count, "channels": ch_list, "channels_count": len(ch_list), "message": f"Distributed {count} bot(s) across {len(ch_list)} channels"}
+
+        if action == "gather_accounts_to_channel":
+            target_ch = str(payload.get("channel_id", CHANNEL_ID)).strip()
+            target_gid = str(payload.get("guild_id", "")).strip() or GUILD_ID
+            online_accs = [a for a in ACCOUNTS.values() if a.get("online") or a.get("token")]
+            for a in online_accs:
+                a["voice_channel"] = target_ch
+                a["guild_id"] = target_gid
+            if MAIN_LOOP and MAIN_LOOP.is_running():
+                asyncio.run_coroutine_threadsafe(apply(online_accs, channel=target_ch, guild=target_gid), MAIN_LOOP)
+            log(f"👥 Gathered all {len(online_accs)} account(s) into channel: {target_ch}")
+            return {"success": True, "count": len(online_accs), "channel_id": target_ch, "message": f"Gathered {len(online_accs)} bot(s) into {target_ch}"}
+
+        if action == "export_backup":
+            backup_data = {
+                "version": APP_VERSION,
+                "timestamp": int(time.time()),
+                "device_type": DEVICE_TYPE,
+                "guild_id": GUILD_ID,
+                "channel_id": CHANNEL_ID,
+                "auto_rejoin": AUTO_REJOIN,
+                "stealth_delay": STEALTH_DELAY,
+                "accounts": [{"id": a["id"], "token": a["token"], "name": a.get("name")} for a in ACCOUNTS.values()],
+                "presets": get_channel_presets(),
+                "soundboard_pads": SOUNDBOARD_PADS,
+                "chat_auto_responder_enabled": CHAT_AUTO_RESPONDER_ENABLED,
+                "chat_auto_responder_rules": CHAT_AUTO_RESPONDER_RULES,
+                "audio_dsp": {
+                    "bass_boost": AUDIO_BASS_BOOST,
+                    "pitch_shift": AUDIO_PITCH_SHIFT,
+                    "normalizer": AUDIO_NORMALIZER,
+                    "preset": AUDIO_EQ_PRESET
+                },
+                "visualizer_mode": VISUALIZER_MODE,
+                "stream_overlay": {
+                    "enabled": STREAM_OVERLAY_ENABLED,
+                    "title": STREAM_OVERLAY_TITLE,
+                    "ticker": STREAM_OVERLAY_TICKER
+                }
+            }
+            log("💾 Exported full profile backup")
+            return {"success": True, "backup": backup_data, "message": "Backup profile exported successfully"}
+
+        if action == "import_backup":
+            b_data = payload.get("backup")
+            if not b_data and isinstance(payload, dict):
+                b_data = payload
+            if not b_data or not isinstance(b_data, dict):
+                return {"success": False, "error": "Invalid backup data format"}
+
+            imported_count = 0
+            if "accounts" in b_data and isinstance(b_data["accounts"], list):
+                for acc_info in b_data["accounts"]:
+                    tok = acc_info.get("token", "").strip()
+                    if tok and not is_placeholder_token(tok):
+                        aid = max(ACCOUNTS.keys(), default=0) + 1
+                        ACCOUNTS[aid] = {
+                            "id": aid,
+                            "token": tok,
+                            "name": acc_info.get("name") or f"Bot {aid}",
+                            "online": False,
+                            "voice_channel": None,
+                            "guild_id": GUILD_ID
+                        }
+                        imported_count += 1
+                sync_tokens_file()
+
+            if "presets" in b_data and isinstance(b_data["presets"], list):
+                save_channel_presets(b_data["presets"])
+
+            if "chat_auto_responder_rules" in b_data:
+                CHAT_AUTO_RESPONDER_RULES = b_data["chat_auto_responder_rules"]
+            if "visualizer_mode" in b_data:
+                VISUALIZER_MODE = b_data["visualizer_mode"]
+
+            log(f"💾 Restored backup profile ({imported_count} accounts, presets & preferences)")
+            return {"success": True, "imported_accounts": imported_count, "message": f"Backup profile restored ({imported_count} accounts imported)"}
+
+        if action == "play_native_media":
+            source = str(payload.get("source", "")).strip()
+            title = str(payload.get("title", os.path.basename(source) or "Native Media")).strip()
+            filter_chain = ""
+            if AUDIO_BASS_BOOST > 0:
+                filter_chain += f"bass=g={AUDIO_BASS_BOOST}:f=110:w=0.6,"
+            if AUDIO_PITCH_SHIFT != 1.0:
+                filter_chain += f"asetrate=48000*{AUDIO_PITCH_SHIFT},aresample=48000,"
+            if AUDIO_NORMALIZER:
+                filter_chain += "loudnorm=I=-16:TP=-1.5:LRA=11,"
+            filter_chain = filter_chain.rstrip(",")
+
+            ACTIVE_SFX = title
+            SPEAKING_SIM = True
+            for a in ACCOUNTS.values():
+                a["speaking"] = True
+                a["active_sfx"] = title
+                for conn in (a.get("voice_conn"), a.get("stream_conn")):
+                    if conn:
+                        conn.stream_native_audio(source, filter_chain)
+            log(f"🎵 [Pure Python Native Pipe] Streaming: '{title}' (Zero Node.js dependency)")
+            return {"success": True, "source": source, "title": title, "message": f"Streaming {title} natively"}
+
+        if action == "stop_native_media":
+            ACTIVE_SFX = ""
+            SPEAKING_SIM = False
+            for a in ACCOUNTS.values():
+                a["speaking"] = False
+                a["active_sfx"] = ""
+                for conn in (a.get("voice_conn"), a.get("stream_conn")):
+                    if conn:
+                        conn._stop_native_audio()
+            log("⏹️ [Pure Python Native Pipe] Playback stopped")
+            return {"success": True, "message": "Native media playback stopped"}
 
         if action == "set_visualizer_mode":
             mode = str(payload.get("mode", "spectrum")).lower().strip()
@@ -2189,13 +2364,11 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             return {"success": False, "error": "Invalid device_type (use 'mobile' or 'desktop')"}
 
         if action == "set_auto_rejoin":
-            global AUTO_REJOIN
             AUTO_REJOIN = bool(payload.get("auto_rejoin", True))
             save_env_config()
             return {"success": True, "message": f"Auto-Rejoin Guard {'Enabled' if AUTO_REJOIN else 'Disabled'}", "auto_rejoin": AUTO_REJOIN}
 
         if action in ("set_presence", "set_activity"):
-            global CUSTOM_ACTIVITY_NAME, CUSTOM_ACTIVITY_TYPE
             CUSTOM_ACTIVITY_NAME = str(payload.get("activity_name", "")).strip()
             CUSTOM_ACTIVITY_TYPE = int(payload.get("activity_type", 0))
             save_env_config()
@@ -2257,7 +2430,6 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             return {"success": True, "message": f"Saved channel preset '{name}'", "presets": presets}
 
         if action == "set_stealth_delay":
-            global STEALTH_DELAY
             STEALTH_DELAY = float(payload.get("stealth_delay", 0.1))
             save_env_config()
             return {"success": True, "stealth_delay": STEALTH_DELAY, "message": f"Stealth delay set to {STEALTH_DELAY:.2f}s"}

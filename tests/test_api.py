@@ -516,6 +516,74 @@ def run_tests():
     except Exception as e:
         check("POST action: set_audio_dsp", False, str(e))
 
+    # 51. Test System Telemetry & Hardware Stats
+    try:
+        st_stat, d_stat = http_get("/api/status")
+        tel = d_stat.get("system_telemetry", {})
+        has_tel = (
+            st_stat == 200 and
+            isinstance(tel, dict) and
+            "battery_level" in tel and
+            "charging" in tel and
+            "platform" in tel
+        )
+        check("GET /api/status (System Telemetry, Battery % & Platform Monitor)",
+              has_tel)
+    except Exception as e:
+        check("GET /api/status (System Telemetry)", False, str(e))
+
+    # 52. Test Multi-Channel Room Spreader
+    try:
+        st_spr, d_spr = http_post("/api/action", {
+            "action": "spread_accounts_to_channels",
+            "channels": ["111222333444555", "666777888999000", "123123123123123"]
+        })
+        check("POST action: spread_accounts_to_channels (Multi-Room Spreader)",
+              st_spr == 200 and d_spr.get("success") is True and d_spr.get("channels_count") == 3)
+    except Exception as e:
+        check("POST action: spread_accounts_to_channels", False, str(e))
+
+    # 53. Test Voice Channel Gatherer
+    try:
+        st_gat, d_gat = http_post("/api/action", {
+            "action": "gather_accounts_to_channel",
+            "channel_id": "999888777666555"
+        })
+        check("POST action: gather_accounts_to_channel (1-Tap Room Gatherer)",
+              st_gat == 200 and d_gat.get("success") is True and d_gat.get("channel_id") == "999888777666555")
+    except Exception as e:
+        check("POST action: gather_accounts_to_channel", False, str(e))
+
+    # 54. Test 1-Click Profile Backup & Migration (Export & Import)
+    try:
+        st_exp, d_exp = http_post("/api/action", {"action": "export_backup"})
+        backup_obj = d_exp.get("backup", {})
+        has_backup = st_exp == 200 and d_exp.get("success") is True and "accounts" in backup_obj and "presets" in backup_obj
+        
+        st_imp, d_imp = http_post("/api/action", {
+            "action": "import_backup",
+            "backup": backup_obj
+        })
+        check("POST action: export_backup / import_backup (1-Click Profile Migration)",
+              has_backup and st_imp == 200 and d_imp.get("success") is True)
+    except Exception as e:
+        check("POST action: export_backup / import_backup", False, str(e))
+
+    # 55. Test Pure Python Native Audio/Video Pipe
+    try:
+        st_play, d_play = http_post("/api/action", {
+            "action": "play_native_media",
+            "source": "silence",
+            "audio_filter": "none"
+        })
+        st_stop, d_stop = http_post("/api/action", {
+            "action": "stop_native_media"
+        })
+        check("POST action: play_native_media / stop_native_media (Zero-Node Native Pipe)",
+              st_play == 200 and d_play.get("success") is True and st_stop == 200 and d_stop.get("success") is True)
+    except Exception as e:
+        check("POST action: play_native_media / stop_native_media", False, str(e))
+
     # Summary
     passed = sum(1 for _, ok, _ in results if ok)
     total = len(results)
