@@ -44,7 +44,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.4.7";
+    public static final String APP_VERSION = "1.4.8";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 

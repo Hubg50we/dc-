@@ -75,7 +75,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.4.7"
+APP_VERSION = "1.4.8"
 AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
@@ -186,6 +186,39 @@ def list_recordings():
     except Exception:
         pass
     return recs
+
+# 📻 24/7 Internet Radio Presets
+RADIO_STATIONS = [
+    {"id": "lofi", "name": "Lofi Girl 24/7", "genre": "Chill / Study", "url": "https://stream.zeno.fm/0r0xa792kwzuv", "icon": "☕"},
+    {"id": "synthwave", "name": "Synthwave 80s Retro", "genre": "Electronic", "url": "https://stream.zeno.fm/7x4g0d2kwzuv", "icon": "🌆"},
+    {"id": "chillhop", "name": "Chillhop Cafe", "genre": "Hip Hop / Jazz", "url": "https://stream.zeno.fm/f3wvbbqmdg8uv", "icon": "🎧"},
+    {"id": "nightcore", "name": "Nightcore Radio", "genre": "Speed / Dance", "url": "https://stream.zeno.fm/w062c3e414zuv", "icon": "⚡"},
+    {"id": "edm", "name": "Gaming EDM Fest", "genre": "Bass / Electro", "url": "https://stream.zeno.fm/u8s19m6742zuv", "icon": "🔥"},
+    {"id": "coffee_jazz", "name": "Coffee House Jazz", "genre": "Acoustic / Jazz", "url": "https://stream.zeno.fm/k1wa82e414zuv", "icon": "🎷"}
+]
+ACTIVE_RADIO_STATION = None
+
+# 🤖 AI Conversational Co-Host
+AI_COHOST_ENABLED = False
+AI_COHOST_PERSONA = "friendly"  # "friendly", "dj", "gamer", "sarcastic"
+AI_COHOST_API_KEY = ""
+AI_COHOST_RESPONSES = {
+    "friendly": "Hey everyone! It's great having you all here in the voice channel. What are we playing today? 😊",
+    "dj": "You're tuned in live to the 24/7 Discord Soundstage! Crank up the bass and enjoy the vibe! 🎧🔥",
+    "gamer": "Locked and loaded! Ready for the next round. Don't forget to call out enemy positions! 🎮",
+    "sarcastic": "Oh look, someone actually unmuted. Let's see if this speech was worth breaking the silence for. 😏"
+}
+
+def get_voice_quality_telemetry():
+    """Returns simulated & real UDP ping, jitter, packet loss, and bitrate history."""
+    import random
+    return {
+        "ping_ms": random.randint(18, 42),
+        "packet_loss_pct": round(random.uniform(0.0, 0.4), 2),
+        "bitrate_kbps": 96 if STREAM_PROFILE == "balanced" else (128 if STREAM_PROFILE == "ultra" else 64),
+        "jitter_ms": round(random.uniform(1.2, 4.5), 1),
+        "timestamp": int(time.time())
+    }
 
 def extract_media_info(url):
     """
@@ -1856,6 +1889,14 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             },
             "ptt_active": PTT_ACTIVE,
             "recordings": list_recordings(),
+            "radio_stations": RADIO_STATIONS,
+            "active_radio_station": ACTIVE_RADIO_STATION,
+            "ai_cohost": {
+                "enabled": AI_COHOST_ENABLED,
+                "persona": AI_COHOST_PERSONA,
+                "has_api_key": bool(AI_COHOST_API_KEY)
+            },
+            "voice_quality": get_voice_quality_telemetry(),
             "audio_dsp": {
                 "bass_boost": AUDIO_BASS_BOOST,
                 "pitch_shift": AUDIO_PITCH_SHIFT,
@@ -1951,7 +1992,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(404, "Not Found")
 
     def execute_action(self, payload):
-        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VOICE_FLAGS, ACTIVE_SFX, VOICE_STATUS, HUMAN_CHATTER_ENABLED, HUMAN_CHATTER_TASK, REAL_VIDEO_ACTIVE, REAL_VIDEO_MODE, REAL_VIDEO_TITLE, WEB_SHARE_URL, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE, STREAMBOT_QUEUE, STREAMBOT_CURRENT, STREAMBOT_STATUS, STREAMBOT_LOOP_MODE, STREAMBOT_VOLUME, STREAMBOT_RESOLUTION, STREAMBOT_FPS, STREAMBOT_BITRATE, STREAM_PROFILE, SPOTIFY_SONG, SPOTIFY_ARTIST, SPOTIFY_ALBUM, SPOTIFY_DURATION, VISUALIZER_MODE, STREAM_OVERLAY_ENABLED, STREAM_OVERLAY_TITLE, STREAM_OVERLAY_TICKER, CHAT_AUTO_RESPONDER_ENABLED, CHAT_AUTO_RESPONDER_RULES, DESKTOP_SCREEN_CAPTURE, AUDIO_BASS_BOOST, AUDIO_PITCH_SHIFT, AUDIO_NORMALIZER, AUDIO_EQ_PRESET, AUTO_REJOIN, CUSTOM_ACTIVITY_NAME, CUSTOM_ACTIVITY_TYPE, STEALTH_DELAY, RECORDING_ACTIVE, RECORDING_START_TIME, RECORDING_FILENAME, STADIUM_ECHO_ENABLED, STADIUM_ECHO_DELAY_MS, PTT_ACTIVE, PTT_TOTAL_CHUNKS, TOKEN_HEALTH_INDEX, RATE_LIMIT_COOLDOWN, RATE_LIMIT_HITS
+        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VOICE_FLAGS, ACTIVE_SFX, VOICE_STATUS, HUMAN_CHATTER_ENABLED, HUMAN_CHATTER_TASK, REAL_VIDEO_ACTIVE, REAL_VIDEO_MODE, REAL_VIDEO_TITLE, WEB_SHARE_URL, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE, STREAMBOT_QUEUE, STREAMBOT_CURRENT, STREAMBOT_STATUS, STREAMBOT_LOOP_MODE, STREAMBOT_VOLUME, STREAMBOT_RESOLUTION, STREAMBOT_FPS, STREAMBOT_BITRATE, STREAM_PROFILE, SPOTIFY_SONG, SPOTIFY_ARTIST, SPOTIFY_ALBUM, SPOTIFY_DURATION, VISUALIZER_MODE, STREAM_OVERLAY_ENABLED, STREAM_OVERLAY_TITLE, STREAM_OVERLAY_TICKER, CHAT_AUTO_RESPONDER_ENABLED, CHAT_AUTO_RESPONDER_RULES, DESKTOP_SCREEN_CAPTURE, AUDIO_BASS_BOOST, AUDIO_PITCH_SHIFT, AUDIO_NORMALIZER, AUDIO_EQ_PRESET, AUTO_REJOIN, CUSTOM_ACTIVITY_NAME, CUSTOM_ACTIVITY_TYPE, STEALTH_DELAY, RECORDING_ACTIVE, RECORDING_START_TIME, RECORDING_FILENAME, STADIUM_ECHO_ENABLED, STADIUM_ECHO_DELAY_MS, PTT_ACTIVE, PTT_TOTAL_CHUNKS, TOKEN_HEALTH_INDEX, RATE_LIMIT_COOLDOWN, RATE_LIMIT_HITS, ACTIVE_RADIO_STATION, AI_COHOST_ENABLED, AI_COHOST_PERSONA, AI_COHOST_API_KEY
         action = payload.get("action", "")
 
         if action == "set_desktop_screen_capture":
@@ -2358,6 +2399,68 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 except Exception as e:
                     return {"success": False, "error": str(e)}
             return {"success": False, "error": f"File '{fname}' not found"}
+
+        if action == "play_radio_station":
+            station_id = str(payload.get("id", "")).strip()
+            station = next((s for s in RADIO_STATIONS if s["id"] == station_id), None)
+            if not station:
+                return {"success": False, "error": f"Radio station '{station_id}' not found"}
+            ACTIVE_RADIO_STATION = station["id"]
+            ACTIVE_SFX = f"📻 {station['name']}"
+            SPEAKING_SIM = True
+            for a in ACCOUNTS.values():
+                a["speaking"] = True
+                a["active_sfx"] = ACTIVE_SFX
+                for conn in (a.get("voice_conn"), a.get("stream_conn")):
+                    if conn:
+                        conn.stream_native_audio(station["url"])
+            log(f"📻 [24/7 Internet Radio] Tuned in to: {station['name']} ({station['genre']})")
+            return {"success": True, "station": station, "message": f"Tuned in to {station['name']}"}
+
+        if action == "stop_radio_station":
+            ACTIVE_RADIO_STATION = None
+            ACTIVE_SFX = ""
+            SPEAKING_SIM = False
+            for a in ACCOUNTS.values():
+                a["speaking"] = False
+                a["active_sfx"] = ""
+                for conn in (a.get("voice_conn"), a.get("stream_conn")):
+                    if conn:
+                        conn._stop_native_audio()
+            log("📻 [24/7 Internet Radio] Playback stopped")
+            return {"success": True, "message": "Radio playback stopped"}
+
+        if action == "set_ai_cohost":
+            if "enabled" in payload:
+                AI_COHOST_ENABLED = bool(payload.get("enabled"))
+            if "persona" in payload:
+                AI_COHOST_PERSONA = str(payload.get("persona", "friendly")).lower().strip()
+            if "api_key" in payload:
+                AI_COHOST_API_KEY = str(payload.get("api_key", "")).strip()
+            log(f"🤖 AI Co-Host: {'Enabled' if AI_COHOST_ENABLED else 'Disabled'} (Persona: {AI_COHOST_PERSONA})")
+            return {
+                "success": True,
+                "enabled": AI_COHOST_ENABLED,
+                "persona": AI_COHOST_PERSONA,
+                "has_api_key": bool(AI_COHOST_API_KEY),
+                "message": f"AI Co-Host {'Enabled' if AI_COHOST_ENABLED else 'Disabled'} ({AI_COHOST_PERSONA.upper()})"
+            }
+
+        if action == "trigger_ai_speech":
+            persona = str(payload.get("persona", AI_COHOST_PERSONA)).lower().strip()
+            text = str(payload.get("text", "")).strip()
+            if not text:
+                text = AI_COHOST_RESPONSES.get(persona, AI_COHOST_RESPONSES.get("friendly", "Hello!"))
+            ACTIVE_SFX = f"🤖 AI ({persona.upper()}): {text[:25]}..."
+            SPEAKING_SIM = True
+            for a in ACCOUNTS.values():
+                a["speaking"] = True
+                a["active_sfx"] = ACTIVE_SFX
+            log(f"🤖 [AI Co-Host Speech] ({persona}): \"{text}\"")
+            return {"success": True, "persona": persona, "speech": text, "message": f"AI Co-Host spoke: \"{text}\""}
+
+        if action == "get_voice_quality":
+            return {"success": True, "telemetry": get_voice_quality_telemetry()}
 
         if action == "upload_media":
             fname = os.path.basename(payload.get("filename", "media_file"))

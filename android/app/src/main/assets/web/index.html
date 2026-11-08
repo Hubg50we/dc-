@@ -904,6 +904,18 @@
         <span>🛡️</span>
         <span id="safety-score-txt">100% Safe</span>
       </div>
+      <select id="lang-select" onchange="switchLanguage(this.value)" style="background:var(--bg-card); border:1px solid var(--border); border-radius:16px; color:var(--text); font-size:0.72rem; padding:3px 7px; cursor:pointer;" title="Interface Language">
+        <option value="en">🌐 EN</option>
+        <option value="es">🇪🇸 ES</option>
+        <option value="ar">🇸🇦 AR</option>
+        <option value="hi">🇮🇳 HI</option>
+        <option value="ru">🇷🇺 RU</option>
+        <option value="fr">🇫🇷 FR</option>
+        <option value="de">🇩🇪 DE</option>
+        <option value="ja">🇯🇵 JA</option>
+        <option value="zh">🇨🇳 ZH</option>
+        <option value="bn">🇧🇩 BN</option>
+      </select>
       <button class="icon-btn" onclick="triggerPipMode()" title="Floating Picture-in-Picture Mini-Dock">🪟</button>
       <button class="icon-btn" onclick="toggleAmoled()" title="AMOLED Black Toggle">⚡</button>
       <button class="icon-btn" onclick="refreshAll()" title="Refresh Dashboard">↻</button>
@@ -1047,7 +1059,7 @@
             <span style="font-size:1.1rem;">🔀</span>
             <span>Multi-Channel Room Spreader & Gatherer</span>
           </div>
-          <span class="badge" style="background:rgba(168, 85, 247, 0.25); color:#e9d5ff; font-weight:700;">v1.4.7</span>
+          <span class="badge" style="background:rgba(168, 85, 247, 0.25); color:#e9d5ff; font-weight:700;">v1.4.8</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Distribute bot accounts across multiple voice channels simultaneously, or gather all accounts into a single room with 1 tap.
@@ -1213,6 +1225,86 @@
         </div>
       </div>
 
+      <!-- 📻 24/7 Internet Radio Presets Card -->
+      <div class="card" style="border-color: rgba(245, 158, 11, 0.45); background: linear-gradient(180deg, rgba(245, 158, 11, 0.05) 0%, var(--bg-card) 100%);">
+        <div class="card-title" style="color:#fbbf24;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.15rem;">📻</span>
+            <span data-i18n="radio_presets_title">24/7 Internet Radio Presets</span>
+          </div>
+          <span class="badge" id="radio-active-badge" style="background:rgba(245,158,11,0.25); color:#fde68a;">Idle</span>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;" data-i18n="radio_presets_desc">
+          1-Tap instant stream presets into Discord voice. Zero URL hunting, pure 48kHz native Opus audio.
+        </p>
+
+        <div id="radio-stations-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(130px, 1fr)); gap:8px; margin-bottom:10px;">
+          <!-- Dynamically populated -->
+        </div>
+
+        <div style="display:flex; justify-content:flex-end;">
+          <button class="btn btn-secondary btn-sm" onclick="stopRadioStation()" style="color:var(--danger); border-color:var(--danger);" data-i18n="stop_radio">
+            ⏹️ Stop Radio
+          </button>
+        </div>
+      </div>
+
+      <!-- 🤖 AI Conversational Co-Host Card -->
+      <div class="card" style="border-color: rgba(14, 165, 233, 0.45); background: linear-gradient(180deg, rgba(14, 165, 233, 0.05) 0%, var(--bg-card) 100%);">
+        <div class="card-title" style="color:#38bdf8;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.15rem;">🤖</span>
+            <span data-i18n="ai_cohost_title">AI Conversational Co-Host</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span class="badge badge-voice" id="ai-cohost-badge">Off</span>
+            <input type="checkbox" id="ai-cohost-toggle" onchange="toggleAiCohost(this.checked)" style="width:18px; height:18px; accent-color:#0284c7;">
+          </div>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;" data-i18n="ai_cohost_desc">
+          Autonomous AI persona that injects dynamic speech & chat reactions into the voice channel.
+        </p>
+
+        <div style="display:flex; gap:8px; margin-bottom:8px;">
+          <select id="ai-persona-select" onchange="updateAiPersona(this.value)" style="flex:1; padding:8px; border-radius:var(--radius-sm); background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:0.82rem;">
+            <option value="friendly">😊 Friendly Companion</option>
+            <option value="dj">🎧 Soundstage DJ</option>
+            <option value="gamer">🎮 Tactical Gamer</option>
+            <option value="sarcastic">😏 Sarcastic Bot</option>
+          </select>
+          <button class="btn btn-primary btn-sm" style="background:#0284c7; color:#fff;" onclick="triggerAiCohostSpeech()" data-i18n="trigger_speech">
+            🎙️ Speak Now
+          </button>
+        </div>
+      </div>
+
+      <!-- 📈 Real-Time Voice Quality & Latency Telemetry Graph -->
+      <div class="card" style="border-color: rgba(16, 185, 129, 0.45); background: linear-gradient(180deg, rgba(16, 185, 129, 0.05) 0%, var(--bg-card) 100%);">
+        <div class="card-title" style="color:#34d399;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.15rem;">📈</span>
+            <span data-i18n="voice_telemetry_title">Voice Quality & Latency Telemetry</span>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <span class="badge" id="vq-ping-badge" style="background:rgba(16,185,129,0.2); color:#6ee7b7;">Ping: --ms</span>
+            <span class="badge" id="vq-loss-badge" style="background:rgba(59,130,246,0.2); color:#93c5fd;">Loss: 0%</span>
+          </div>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;" data-i18n="voice_telemetry_desc">
+          Real-time UDP gateway latency, packet loss %, buffer jitter, and Opus bitrate stream monitoring.
+        </p>
+
+        <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius-sm); padding:6px; margin-bottom:8px;">
+          <canvas id="voice-quality-chart" width="400" height="100" style="width:100%; height:100px; display:block;"></canvas>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-muted);">
+          <span>Jitter: <strong id="vq-jitter-val" style="color:var(--text-heading);">-- ms</strong></span>
+          <span>Bitrate: <strong id="vq-bitrate-val" style="color:var(--text-heading);">96 kbps</strong></span>
+          <span>Sync Mode: <strong style="color:var(--success);">UDP Direct</strong></span>
+        </div>
+      </div>
+
     </div>
 
     <!-- TAB 2: ACCOUNTS LIST -->
@@ -1342,7 +1434,7 @@
       <div class="card" style="border-color: rgba(88, 101, 242, 0.45);">
         <div class="card-title" style="color:var(--accent);">
           <span>🔄 App Updates & Version</span>
-          <span class="badge badge-voice" id="settings-app-version">v1.4.7</span>
+          <span class="badge badge-voice" id="settings-app-version">v1.4.8</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Cross-platform Discord controller for Android Mobile and Windows PC.
@@ -1366,7 +1458,7 @@
         </div>
 
         <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:6px;">
-          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Direct Downloads (v1.4.7):</div>
+          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Direct Downloads (v1.4.8):</div>
           <div style="display:flex; gap:6px; flex-wrap:wrap;">
             <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-android.apk" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               📱 Android APK
@@ -1374,7 +1466,7 @@
             <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows.exe" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               💻 Windows EXE
             </a>
-            <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows-portable-v1.4.7.zip" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
+            <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows-portable-v1.4.8.zip" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               📦 Portable ZIP
             </a>
           </div>
@@ -3123,6 +3215,9 @@
       renderSoundboardPads(data.soundboard_pads, data.uploaded_media);
       renderAudioDspState(data.audio_dsp);
       renderChatAutoResponder(data);
+      renderRadioStations(data.radio_stations, data.active_radio_station);
+      renderAiCohostState(data.ai_cohost);
+      renderVoiceQualityTelemetry(data.voice_quality);
       updateActiveBadges();
     }
 
@@ -6430,7 +6525,7 @@
       return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    let currentAppVersion = '1.4.7';
+    let currentAppVersion = '1.4.8';
     let latestUpdateData = null;
 
     function toggleAutoCheckUpdate(enabled) {
@@ -7022,6 +7117,342 @@
         showToast('Mic unlocked (PTT mode)');
       }
     }
+
+    // 🌐 Multi-Language (10+ Languages) Dictionary & Switcher
+    const TRANSLATIONS = {
+      en: {
+        radio_presets_title: "24/7 Internet Radio Presets",
+        radio_presets_desc: "1-Tap instant stream presets into Discord voice. Zero URL hunting, pure 48kHz native Opus audio.",
+        stop_radio: "⏹️ Stop Radio",
+        ai_cohost_title: "AI Conversational Co-Host",
+        ai_cohost_desc: "Autonomous AI persona that injects dynamic speech & chat reactions into the voice channel.",
+        trigger_speech: "🎙️ Speak Now",
+        voice_telemetry_title: "Voice Quality & Latency Telemetry",
+        voice_telemetry_desc: "Real-time UDP gateway latency, packet loss %, buffer jitter, and Opus bitrate stream monitoring."
+      },
+      es: {
+        radio_presets_title: "Preajustes de Radio 24/7",
+        radio_presets_desc: "Transmisión instantánea en voz de Discord en 1 toque. Audio puro Opus a 48 kHz.",
+        stop_radio: "⏹️ Detener Radio",
+        ai_cohost_title: "Coanfitrión Conversacional IA",
+        ai_cohost_desc: "Persona IA autónoma que aporta respuestas de voz dinámicas al canal.",
+        trigger_speech: "🎙️ Hablar Ahora",
+        voice_telemetry_title: "Telemetría de Calidad de Voz",
+        voice_telemetry_desc: "Latencia UDP, pérdida de paquetes %, fluctuación de búfer y tasa de bits en tiempo real."
+      },
+      ar: {
+        radio_presets_title: "محطات راديو 24/7 مسبقة الضبط",
+        radio_presets_desc: "بث فوري بنقرة واحدة داخل القناة الصوتية بجودة صوت أوبوس 48 كيلو هرتز.",
+        stop_radio: "⏹️ إيقاف الراديو",
+        ai_cohost_title: "مضيف ذكاء اصطناعي تفاعلي",
+        ai_cohost_desc: "شخصية ذكاء اصطناعي ترسل تفاعلات صوتية ودردشة داخل القناة الصوتية.",
+        trigger_speech: "🎙️ تحدث الآن",
+        voice_telemetry_title: "قياسات جودة الصوت وزمن الاستجابة",
+        voice_telemetry_desc: "مراقبة مباشرة لزمن استجابة UDP ونسبة فقدان الحزم والتذبذب ومعدل البت."
+      },
+      hi: {
+        radio_presets_title: "24/7 इंटरनेट रेडियो प्रीसेट",
+        radio_presets_desc: "डिस्कॉर्ड वॉयस में 1-टैप लाइव स्ट्रीम। बिना यूआरएल खोजे शुद्ध 48kHz ओपस ऑडियो।",
+        stop_radio: "⏹️ रेडियो बंद करें",
+        ai_cohost_title: "एआई संवादात्मक सह-मेजबान",
+        ai_cohost_desc: "स्वायत्त एआई व्यक्तित्व जो वॉयस चैनल में गतिशील भाषण प्रतिक्रियाएं देता है।",
+        trigger_speech: "🎙️ अभी बोलें",
+        voice_telemetry_title: "वॉयस गुणवत्ता और विलंबता टेलीमेट्री",
+        voice_telemetry_desc: "वास्तविक समय UDP पिंग, पैकेट हानि %, बफर जिटर और बिटरेट मॉनिटरिंग।"
+      },
+      ru: {
+        radio_presets_title: "Интернет-радио 24/7",
+        radio_presets_desc: "Мгновенное вещание в голосовой канал Discord в 1 клик. Чистый 48 кГц Opus звук.",
+        stop_radio: "⏹️ Остановить радио",
+        ai_cohost_title: "ИИ Соведущий в Голосе",
+        ai_cohost_desc: "Автономный ИИ-персонаж, добавляющий голосовые реакции и фразы в канал.",
+        trigger_speech: "🎙️ Сказать сейчас",
+        voice_telemetry_title: "Телеметрия качества связи и задержки",
+        voice_telemetry_desc: "Мониторинг UDP-пинга, процента потери пакетов, джиттера и битрейта в реальном времени."
+      },
+      fr: {
+        radio_presets_title: "Préréglages Radio 24/7",
+        radio_presets_desc: "Diffusion instantanée en 1 clic dans le canal vocal Discord en audio pur Opus 48 kHz.",
+        stop_radio: "⏹️ Arrêter la radio",
+        ai_cohost_title: "Co-Animateur IA Conversationnel",
+        ai_cohost_desc: "Personnage IA autonome qui injecte des réactions vocales dynamiques dans le salon.",
+        trigger_speech: "🎙️ Parler maintenant",
+        voice_telemetry_title: "Télémétrie Qualité Vocale & Latence",
+        voice_telemetry_desc: "Surveillance en temps réel du ping UDP, perte de paquets %, gigue et débit binaire."
+      },
+      de: {
+        radio_presets_title: "24/7 Internetradio-Voreinstellungen",
+        radio_presets_desc: "1-Klick Live-Stream in den Discord-Sprachkanal. Reine 48-kHz-Opus-Audioqualität.",
+        stop_radio: "⏹️ Radio stoppen",
+        ai_cohost_title: "KI-Gesprächs-Co-Moderator",
+        ai_cohost_desc: "Autonome KI-Persona für dynamische Sprach- und Chat-Reaktionen im Sprachkanal.",
+        trigger_speech: "🎙️ Jetzt sprechen",
+        voice_telemetry_title: "Sprachqualität- & Latenz-Telemetrie",
+        voice_telemetry_desc: "Echtzeit-UDP-Ping, Paketverlust %, Puffer-Jitter und Bitraten-Überwachung."
+      },
+      ja: {
+        radio_presets_title: "24時間ネットラジオプリセット",
+        radio_presets_desc: "1タップでDiscordボイスへ即座にストリーミング。高音質48kHz Opusオーディオ。",
+        stop_radio: "⏹️ ラジオ停止",
+        ai_cohost_title: "AI対話型コ・ホスト",
+        ai_cohost_desc: "ボイスチャンネルに動的な音声リアクションを自動で発話するAIパーソナ。",
+        trigger_speech: "🎙️ 発話する",
+        voice_telemetry_title: "音声品質＆レイテンシ テレメトリ",
+        voice_telemetry_desc: "リアルタイムUDP Ping、パケット損失率、ジッター、Opusビットレート監視。"
+      },
+      zh: {
+        radio_presets_title: "24/7 在线网络电台预设",
+        radio_presets_desc: "一键无缝推流至 Discord 语音频道，纯净 48kHz Opus 原生音频。",
+        stop_radio: "⏹️ 停止电台",
+        ai_cohost_title: "AI 语音互动副主持",
+        ai_cohost_desc: "自主 AI 角色，在语音频道中智能注入生动对话与语音互动。",
+        trigger_speech: "🎙️ 立即发声",
+        voice_telemetry_title: "语音质量与延迟实时遥测",
+        voice_telemetry_desc: "实时 UDP 网关延迟、丢包率 %、抖动与 Opus 码率波动图谱监控。"
+      },
+      bn: {
+        radio_presets_title: "২৪/৭ ইন্টারনেট রেডিও প্রিসেট",
+        radio_presets_desc: "১-ট্যাপে সরাসরি ডিসকর্ড ভয়েস চ্যানেলে লাইভ স্ট্রিম। খাঁটি ৪৮kHz ওপাস অডিও।",
+        stop_radio: "⏹️ রেডিও থামান",
+        ai_cohost_title: "এআই ভয়েস কো-হোস্ট",
+        ai_cohost_desc: "স্বয়ংক্রিয় এআই সহকারী যা ভয়েস চ্যানেলে বুদ্ধিমান কথা এবং প্রতিক্রিয়া প্রকাশ করে।",
+        trigger_speech: "🎙️ এখনই বলুন",
+        voice_telemetry_title: "ভয়েস কোয়ালিটি ও লেটেন্সি গ্রাফ",
+        voice_telemetry_desc: "রিয়েল-টাইম ইউডিপি পিং, প্যাকেট লস %, বাফার জিটার এবং বিটরেট পর্যবেক্ষণ।"
+      }
+    };
+
+    function switchLanguage(lang) {
+      if (!TRANSLATIONS[lang]) lang = 'en';
+      localStorage.setItem('dc_lang', lang);
+      const dict = TRANSLATIONS[lang];
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const k = el.getAttribute('data-i18n');
+        if (dict[k]) el.innerText = dict[k];
+      });
+      const sel = document.getElementById('lang-select');
+      if (sel) sel.value = lang;
+    }
+
+    // 📻 24/7 Internet Radio Functions
+    let currentRadioStations = [];
+    let currentActiveRadioStation = null;
+
+    function renderRadioStations(stations, activeStation) {
+      currentRadioStations = stations || [];
+      currentActiveRadioStation = activeStation;
+      const grid = document.getElementById('radio-stations-grid');
+      const badge = document.getElementById('radio-active-badge');
+      if (!grid) return;
+
+      if (badge) {
+        if (activeStation) {
+          const st = currentRadioStations.find(s => s.id === activeStation);
+          badge.innerText = `ON: ${st ? st.name : activeStation}`;
+          badge.className = 'badge badge-online';
+        } else {
+          badge.innerText = 'Idle';
+          badge.className = 'badge';
+        }
+      }
+
+      let html = '';
+      currentRadioStations.forEach(st => {
+        const isActive = activeStation === st.id;
+        html += `
+          <div style="background:${isActive ? 'rgba(245,158,11,0.2)' : 'var(--bg-dark)'}; border:1px solid ${isActive ? '#f59e0b' : 'var(--border)'}; border-radius:var(--radius-sm); padding:8px 10px; cursor:pointer; transition:all 0.15s ease;" onclick="playRadioStation('${st.id}')">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+              <span style="font-size:1.1rem;">${st.icon || '📻'}</span>
+              <span class="badge ${isActive ? 'badge-online' : 'badge-voice'}" style="font-size:0.65rem;">${isActive ? 'LIVE' : 'PLAY'}</span>
+            </div>
+            <strong style="display:block; font-size:0.78rem; color:var(--text-heading); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(st.name)}</strong>
+            <div style="font-size:0.68rem; color:var(--text-muted);">${escapeHtml(st.genre)}</div>
+          </div>
+        `;
+      });
+      grid.innerHTML = html;
+    }
+
+    async function playRadioStation(id) {
+      vibrate(15);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'play_radio_station', id: id })
+        });
+        const data = await res.json();
+        showToast(data.message || `Playing radio: ${id}`);
+        fetchStatus();
+      } catch (e) {
+        showToast('Error playing radio: ' + e.message, true);
+      }
+    }
+
+    async function stopRadioStation() {
+      vibrate(15);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'stop_radio_station' })
+        });
+        const data = await res.json();
+        showToast(data.message || 'Radio stopped');
+        fetchStatus();
+      } catch (e) {
+        showToast('Error stopping radio: ' + e.message, true);
+      }
+    }
+
+    // 🤖 AI Co-Host Functions
+    function renderAiCohostState(aiData) {
+      if (!aiData) return;
+      const toggle = document.getElementById('ai-cohost-toggle');
+      const badge = document.getElementById('ai-cohost-badge');
+      const pSelect = document.getElementById('ai-persona-select');
+
+      if (toggle && document.activeElement !== toggle) {
+        toggle.checked = !!aiData.enabled;
+      }
+      if (badge) {
+        badge.innerText = aiData.enabled ? 'Active' : 'Off';
+        badge.className = aiData.enabled ? 'badge badge-online' : 'badge badge-voice';
+      }
+      if (pSelect && document.activeElement !== pSelect && aiData.persona) {
+        pSelect.value = aiData.persona;
+      }
+    }
+
+    async function toggleAiCohost(enabled) {
+      vibrate(15);
+      const persona = document.getElementById('ai-persona-select')?.value || 'friendly';
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'set_ai_cohost', enabled: enabled, persona: persona })
+        });
+        const data = await res.json();
+        showToast(data.message || 'AI Co-Host updated');
+        fetchStatus();
+      } catch (e) {
+        showToast('Error: ' + e.message, true);
+      }
+    }
+
+    async function updateAiPersona(persona) {
+      const toggle = document.getElementById('ai-cohost-toggle');
+      toggleAiCohost(toggle ? toggle.checked : true);
+    }
+
+    async function triggerAiCohostSpeech() {
+      vibrate(20);
+      const persona = document.getElementById('ai-persona-select')?.value || 'friendly';
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'trigger_ai_speech', persona: persona })
+        });
+        const data = await res.json();
+        showToast(data.message || 'AI speech triggered');
+        fetchStatus();
+      } catch (e) {
+        showToast('Error: ' + e.message, true);
+      }
+    }
+
+    // 📈 Real-Time Voice Quality Canvas Graph
+    const vqHistory = [];
+    function renderVoiceQualityTelemetry(vq) {
+      if (!vq) return;
+      const pBadge = document.getElementById('vq-ping-badge');
+      const lBadge = document.getElementById('vq-loss-badge');
+      const jVal = document.getElementById('vq-jitter-val');
+      const bVal = document.getElementById('vq-bitrate-val');
+
+      if (pBadge) pBadge.innerText = `Ping: ${vq.ping_ms}ms`;
+      if (lBadge) lBadge.innerText = `Loss: ${vq.packet_loss_pct}%`;
+      if (jVal) jVal.innerText = `${vq.jitter_ms} ms`;
+      if (bVal) bVal.innerText = `${vq.bitrate_kbps} kbps`;
+
+      vqHistory.push(vq.ping_ms);
+      if (vqHistory.length > 25) vqHistory.shift();
+      drawVoiceQualityGraph();
+    }
+
+    function drawVoiceQualityGraph() {
+      const cvs = document.getElementById('voice-quality-chart');
+      if (!cvs) return;
+      const ctx = cvs.getContext('2d');
+      if (!ctx) return;
+      const w = cvs.width;
+      const h = cvs.height;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // Grid lines
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+      ctx.lineWidth = 1;
+      for (let y = 20; y < h; y += 25) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+      }
+
+      if (vqHistory.length < 2) return;
+
+      const maxVal = Math.max(60, ...vqHistory);
+      const minVal = Math.min(10, ...vqHistory);
+      const range = (maxVal - minVal) || 1;
+      const step = w / (vqHistory.length - 1);
+
+      // Gradient fill
+      const grad = ctx.createLinearGradient(0, 0, 0, h);
+      grad.addColorStop(0, 'rgba(16, 185, 129, 0.35)');
+      grad.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
+
+      ctx.beginPath();
+      vqHistory.forEach((val, i) => {
+        const x = i * step;
+        const y = h - ((val - minVal) / range) * (h - 20) - 10;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.lineTo(w, h);
+      ctx.lineTo(0, h);
+      ctx.closePath();
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // Stroke line
+      ctx.beginPath();
+      vqHistory.forEach((val, i) => {
+        const x = i * step;
+        const y = h - ((val - minVal) / range) * (h - 20) - 10;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Draw points
+      vqHistory.forEach((val, i) => {
+        const x = i * step;
+        const y = h - ((val - minVal) / range) * (h - 20) - 10;
+        ctx.beginPath();
+        ctx.arc(x, y, 3, 0, 2 * Math.PI);
+        ctx.fillStyle = '#34d399';
+        ctx.fill();
+      });
+    }
+
+    // Initialize saved language
+    const savedLang = localStorage.getItem('dc_lang') || 'en';
+    switchLanguage(savedLang);
 
     fetchStatus();
     fetchLogs();

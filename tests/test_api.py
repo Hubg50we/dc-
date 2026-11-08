@@ -625,6 +625,33 @@ def run_tests():
     except Exception as e:
         check("POST action: ptt_broadcast", False, str(e))
 
+    # 60. Test 24/7 Internet Radio Presets (Lofi, Synthwave, Chillhop, etc.)
+    try:
+        st_rad1, d_rad1 = http_post("/api/action", {"action": "play_radio_station", "id": "lofi"})
+        st_rad2, d_rad2 = http_post("/api/action", {"action": "stop_radio_station"})
+        check("POST action: play_radio_station / stop_radio_station (24/7 Web Radio Presets)",
+              st_rad1 == 200 and d_rad1.get("success") is True and d_rad1.get("station", {}).get("id") == "lofi" and st_rad2 == 200 and d_rad2.get("success") is True)
+    except Exception as e:
+        check("POST action: radio_stations", False, str(e))
+
+    # 61. Test AI Conversational Co-Host
+    try:
+        st_ai1, d_ai1 = http_post("/api/action", {"action": "set_ai_cohost", "enabled": True, "persona": "dj"})
+        st_ai2, d_ai2 = http_post("/api/action", {"action": "trigger_ai_speech", "persona": "dj"})
+        check("POST action: set_ai_cohost / trigger_ai_speech (Autonomous Voice Persona)",
+              st_ai1 == 200 and d_ai1.get("enabled") is True and d_ai1.get("persona") == "dj" and st_ai2 == 200 and "Soundstage" in d_ai2.get("speech", ""))
+    except Exception as e:
+        check("POST action: ai_cohost", False, str(e))
+
+    # 62. Test Real-Time Voice Quality & Latency Telemetry
+    try:
+        st_vq, d_vq = http_post("/api/action", {"action": "get_voice_quality"})
+        st_stat, d_stat = http_get("/api/status")
+        check("POST action: get_voice_quality & /api/status telemetry (UDP Ping, Jitter & Loss)",
+              st_vq == 200 and "ping_ms" in d_vq.get("telemetry", {}) and "voice_quality" in d_stat and "radio_stations" in d_stat)
+    except Exception as e:
+        check("POST action: voice_quality_telemetry", False, str(e))
+
     # Summary
     passed = sum(1 for _, ok, _ in results if ok)
     total = len(results)
