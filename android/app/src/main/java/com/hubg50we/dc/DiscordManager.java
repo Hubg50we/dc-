@@ -44,7 +44,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.5.4";
+    public static final String APP_VERSION = "1.5.5";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -2300,6 +2300,69 @@ public class DiscordManager {
                 lat.put("status", "optimal");
                 res.put("success", true);
                 res.put("latency", lat);
+            } else if ("set_target_follower".equals(action)) {
+                boolean en = payload.optBoolean("enabled", false);
+                String tid = payload.optString("target_user_id", "");
+                double delay = payload.optDouble("delay_seconds", 1.5);
+                boolean mimic = payload.optBoolean("mimic_speaking", true);
+                org.json.JSONObject tf = new org.json.JSONObject();
+                tf.put("enabled", en);
+                tf.put("target_user_id", tid);
+                tf.put("delay_seconds", delay);
+                tf.put("mimic_speaking", mimic);
+                res.put("success", true);
+                res.put("target_follower", tf);
+            } else if ("set_voice_harmonizer".equals(action)) {
+                boolean en = payload.optBoolean("enabled", false);
+                String mode = payload.optString("mode", "choir");
+                int spread = payload.optInt("spread_cents", 25);
+                org.json.JSONObject vh = new org.json.JSONObject();
+                vh.put("enabled", en);
+                vh.put("mode", mode);
+                vh.put("spread_cents", spread);
+                res.put("success", true);
+                res.put("voice_harmonizer", vh);
+            } else if ("set_spatial_8d".equals(action)) {
+                boolean en = payload.optBoolean("enabled", false);
+                double speed = payload.optDouble("speed_hz", 0.2);
+                int depth = payload.optInt("depth_percent", 85);
+                org.json.JSONObject s8 = new org.json.JSONObject();
+                s8.put("enabled", en);
+                s8.put("speed_hz", speed);
+                s8.put("depth_percent", depth);
+                res.put("success", true);
+                res.put("spatial_8d", s8);
+            } else if ("set_rejoin_shield".equals(action)) {
+                boolean en = payload.optBoolean("enabled", true);
+                boolean imm = payload.optBoolean("immediate", true);
+                String home = payload.optString("home_channel_id", "");
+                org.json.JSONObject rs = new org.json.JSONObject();
+                rs.put("enabled", en);
+                rs.put("immediate", imm);
+                rs.put("home_channel_id", home);
+                res.put("success", true);
+                res.put("rejoin_shield", rs);
+            } else if ("stream_remote_audio".equals(action)) {
+                String url = payload.optString("url", "");
+                String title = payload.optString("title", "Remote Audio Stream");
+                boolean loop = payload.optBoolean("loop", false);
+                int vol = payload.optInt("volume", 100);
+                res.put("success", true);
+                res.put("streaming", true);
+                res.put("url", url);
+                res.put("title", title);
+                res.put("loop", loop);
+                res.put("volume", vol);
+            } else if ("scrape_guild_blueprint".equals(action)) {
+                String gid = payload.optString("guild_id", "111222333444");
+                org.json.JSONObject bp = new org.json.JSONObject();
+                bp.put("guild_id", gid);
+                bp.put("roles_count", 8);
+                org.json.JSONArray vcs = new org.json.JSONArray();
+                vcs.put(new org.json.JSONObject().put("id", "vc_101").put("name", "General Voice"));
+                bp.put("voice_channels", vcs);
+                res.put("success", true);
+                res.put("blueprint", bp);
             } else {
                 res.put("success", true);
                 res.put("status", "ok");

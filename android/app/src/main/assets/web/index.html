@@ -1059,7 +1059,7 @@
             <span style="font-size:1.1rem;">🔀</span>
             <span>Multi-Channel Room Spreader & Gatherer</span>
           </div>
-          <span class="badge" style="background:rgba(168, 85, 247, 0.25); color:#e9d5ff; font-weight:700;">v1.5.4</span>
+          <span class="badge" style="background:rgba(168, 85, 247, 0.25); color:#e9d5ff; font-weight:700;">v1.5.5</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Distribute bot accounts across multiple voice channels simultaneously, or gather all accounts into a single room with 1 tap.
@@ -1611,7 +1611,7 @@
             <span style="font-size:1.15rem;">🎛️</span>
             <span>Vencord Audio Lab & Power Tools</span>
           </div>
-          <span class="badge" style="background:rgba(236,72,153,0.25); color:#fbcfe8; font-size:0.7rem; font-weight:700;">v1.5.4</span>
+          <span class="badge" style="background:rgba(236,72,153,0.25); color:#fbcfe8; font-size:0.7rem; font-weight:700;">v1.5.5</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">
           Extreme volume amplification up to 2000%, Krisp neural noise filtration, live chat translator, and instant kaomoji macros.
@@ -1710,6 +1710,88 @@
             </div>
             <button class="btn btn-secondary btn-sm" style="width:100%; font-size:0.72rem; margin-top:6px;" onclick="testGatewayLatency()">
               ⚡ Test Gateway Network Ping
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 🎯 Ghost Target Follower & 8D Spatial Audio Studio Card -->
+      <div class="card" style="border-color: rgba(16, 185, 129, 0.45); background: linear-gradient(180deg, rgba(16, 185, 129, 0.05) 0%, var(--bg-card) 100%);">
+        <div class="card-title" style="color:#34d399;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.15rem;">🎯</span>
+            <span>Ghost Target Follower & 8D Spatial Studio</span>
+          </div>
+          <span class="badge" style="background:rgba(16, 185, 129, 0.25); color:#a7f3d0; font-size:0.7rem; font-weight:700;">v1.5.5</span>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">
+          Autonomous voice room chaser, 4-part choir harmonizer, binaural 8D orbital audio, and anti-kick rejoin protection.
+        </p>
+
+        <!-- 🎯 Target User Follower -->
+        <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px; margin-bottom:10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <strong style="font-size:0.8rem; color:var(--text-heading);">🎯 Target User Chaser (Auto-Follow)</strong>
+            <input type="checkbox" id="target-follower-toggle" onchange="toggleTargetFollower(this.checked)" style="width:18px; height:18px; accent-color:#10b981;">
+          </div>
+          <div style="display:flex; gap:6px; margin-bottom:6px;">
+            <input type="text" id="target-follower-uid" placeholder="Target User ID (e.g. 1535504524121473145)" style="flex:2; font-size:0.75rem;">
+            <button class="btn btn-primary btn-sm" style="background:#10b981; color:#fff;" onclick="saveTargetFollower()">Save Target</button>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:0.72rem; color:var(--text-muted);">
+            <span>Stealth Hop Delay: <strong id="follower-delay-val">1.5s</strong></span>
+            <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+              <input type="checkbox" id="follower-mimic-toggle" checked style="accent-color:#10b981;"> Mimic Speaking Turns
+            </label>
+          </div>
+        </div>
+
+        <!-- 🎼 4-Part Choir & Harmonizer DSP -->
+        <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px; margin-bottom:10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <strong style="font-size:0.8rem; color:var(--text-heading);">🎼 4-Part Choir & Harmonizer DSP</strong>
+            <input type="checkbox" id="voice-harmonizer-toggle" onchange="toggleVoiceHarmonizer(this.checked)" style="width:18px; height:18px; accent-color:#10b981;">
+          </div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <button class="btn btn-secondary btn-sm" onclick="setHarmonizerMode('choir')" style="flex:1; font-size:0.7rem;">Soprano/Alto Choir</button>
+            <button class="btn btn-secondary btn-sm" onclick="setHarmonizerMode('octave_doubler')" style="flex:1; font-size:0.7rem;">Octave Doubler</button>
+            <button class="btn btn-secondary btn-sm" onclick="setHarmonizerMode('robot_unison')" style="flex:1; font-size:0.7rem;">Robot Unison</button>
+            <button class="btn btn-secondary btn-sm" onclick="setHarmonizerMode('sub_bass')" style="flex:1; font-size:0.7rem;">Sub-Bass Demon</button>
+          </div>
+        </div>
+
+        <!-- 🌀 Binaural 8D Audio Orbital Panner -->
+        <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px; margin-bottom:10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <strong style="font-size:0.8rem; color:var(--text-heading);">🌀 Binaural 8D Audio Panner</strong>
+            <input type="checkbox" id="spatial-8d-toggle" onchange="toggleSpatial8D(this.checked)" style="width:18px; height:18px; accent-color:#10b981;">
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:0.72rem; color:var(--text-muted); margin-bottom:4px;">
+            <span>Rotation Speed: <strong id="spatial-speed-val">0.2 Hz</strong></span>
+            <span>Spatial Depth: <strong id="spatial-depth-val">85%</strong></span>
+          </div>
+          <input type="range" id="spatial-speed-slider" min="5" max="200" value="20" oninput="updateSpatial8DSpeed(this.value)" style="width:100%; accent-color:#10b981;">
+        </div>
+
+        <!-- 🌐 Direct MP3/WAV URL Streamer & Guild Scraper -->
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <div style="flex:1; min-width:200px; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius-sm); padding:8px 10px;">
+            <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600; margin-bottom:4px;">🌐 Direct Audio URL Streamer:</div>
+            <div style="display:flex; gap:4px; margin-bottom:4px;">
+              <input type="text" id="remote-audio-url" placeholder="https://example.com/audio.mp3" style="flex:1; font-size:0.72rem;">
+              <button class="btn btn-primary btn-sm" style="background:#10b981; color:#fff;" onclick="playRemoteAudioUrl()">▶ Stream</button>
+            </div>
+          </div>
+
+          <div style="flex:1; min-width:200px; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius-sm); padding:8px 10px; display:flex; flex-direction:column; justify-content:space-between;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">🏰 Server Scraper:</div>
+              <label style="font-size:0.7rem; color:var(--text-muted); display:flex; align-items:center; gap:4px; cursor:pointer;">
+                <input type="checkbox" id="rejoin-shield-toggle" checked onchange="toggleRejoinShield(this.checked)" style="accent-color:#10b981;"> Anti-Kick Shield
+              </label>
+            </div>
+            <button class="btn btn-secondary btn-sm" style="width:100%; font-size:0.72rem; margin-top:6px;" onclick="scrapeGuildVoiceBlueprint()">
+              📋 Scrape Guild Voice Blueprint
             </button>
           </div>
         </div>
@@ -1844,7 +1926,7 @@
       <div class="card" style="border-color: rgba(88, 101, 242, 0.45);">
         <div class="card-title" style="color:var(--accent);">
           <span>🔄 App Updates & Version</span>
-          <span class="badge badge-voice" id="settings-app-version">v1.5.4</span>
+          <span class="badge badge-voice" id="settings-app-version">v1.5.5</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Cross-platform Discord controller for Android Mobile and Windows PC.
@@ -1868,7 +1950,7 @@
         </div>
 
         <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:6px;">
-          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Direct Downloads (v1.5.4):</div>
+          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Direct Downloads (v1.5.5):</div>
           <div style="display:flex; gap:6px; flex-wrap:wrap;">
             <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-android.apk" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               📱 Android APK
@@ -1876,7 +1958,7 @@
             <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows.exe" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               💻 Windows EXE
             </a>
-            <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows-portable-v1.5.4.zip" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
+            <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows-portable-v1.5.5.zip" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               📦 Portable ZIP
             </a>
           </div>
@@ -6942,7 +7024,7 @@
       return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    let currentAppVersion = '1.5.4';
+    let currentAppVersion = '1.5.5';
     let latestUpdateData = null;
 
     function toggleAutoCheckUpdate(enabled) {
@@ -8601,6 +8683,128 @@
       } catch (e) {
         if (badge) badge.innerText = '24 ms';
         showToast('Gateway test error: ' + e.message, true);
+      }
+    }
+
+    // 🎯 Ghost Target Follower & 8D Spatial Audio Studio Logic
+    async function toggleTargetFollower(enabled) {
+      vibrate(15);
+      const uid = document.getElementById('target-follower-uid')?.value.trim() || "";
+      const mimic = document.getElementById('follower-mimic-toggle')?.checked ?? true;
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'set_target_follower', enabled: enabled, target_user_id: uid, delay_seconds: 1.5, mimic_speaking: mimic })
+        });
+        const d = await res.json();
+        showToast(`Target Follower: ${enabled ? 'Active (Following ' + (uid || 'User') + ')' : 'Disabled'}`);
+      } catch (e) {
+        showToast('Follower error: ' + e.message, true);
+      }
+    }
+
+    async function saveTargetFollower() {
+      vibrate(15);
+      const uid = document.getElementById('target-follower-uid')?.value.trim() || "";
+      if (!uid) return showToast('Please enter a target User ID', true);
+      const toggle = document.getElementById('target-follower-toggle');
+      if (toggle) toggle.checked = true;
+      await toggleTargetFollower(true);
+    }
+
+    async function toggleVoiceHarmonizer(enabled) {
+      vibrate(15);
+      try {
+        await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'set_voice_harmonizer', enabled: enabled, mode: 'choir', spread_cents: 25 })
+        });
+        showToast(`Voice Harmonizer: ${enabled ? 'Active (4-Part Choir)' : 'Disabled'}`);
+      } catch (ignored) {}
+    }
+
+    async function setHarmonizerMode(mode) {
+      vibrate(15);
+      const toggle = document.getElementById('voice-harmonizer-toggle');
+      if (toggle) toggle.checked = true;
+      try {
+        await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'set_voice_harmonizer', enabled: true, mode: mode, spread_cents: 25 })
+        });
+        showToast(`Harmonizer: ${mode.toUpperCase()}`);
+      } catch (ignored) {}
+    }
+
+    async function toggleSpatial8D(enabled) {
+      vibrate(15);
+      const sliderVal = document.getElementById('spatial-speed-slider')?.value || 20;
+      const speedHz = (sliderVal / 100).toFixed(2);
+      try {
+        await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'set_spatial_8d', enabled: enabled, speed_hz: parseFloat(speedHz), depth_percent: 85 })
+        });
+        showToast(`Binaural 8D Audio: ${enabled ? 'Active (' + speedHz + ' Hz)' : 'Disabled'}`);
+      } catch (ignored) {}
+    }
+
+    function updateSpatial8DSpeed(val) {
+      const speedHz = (val / 100).toFixed(2);
+      const label = document.getElementById('spatial-speed-val');
+      if (label) label.innerText = `${speedHz} Hz`;
+      const enabled = document.getElementById('spatial-8d-toggle')?.checked ?? false;
+      if (enabled) toggleSpatial8D(true);
+    }
+
+    async function playRemoteAudioUrl() {
+      vibrate(20);
+      const url = document.getElementById('remote-audio-url')?.value.trim();
+      if (!url) return showToast('Please enter an audio URL', true);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'stream_remote_audio', url: url, title: 'Direct Audio Stream', loop: true, volume: 100 })
+        });
+        const d = await res.json();
+        showToast(d.message || 'Streaming remote audio to Discord Voice!');
+      } catch (e) {
+        showToast('Stream error: ' + e.message, true);
+      }
+    }
+
+    async function toggleRejoinShield(enabled) {
+      vibrate(10);
+      try {
+        await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'set_rejoin_shield', enabled: enabled, immediate: true })
+        });
+        showToast(`Anti-Kick Shield: ${enabled ? 'Armored' : 'Disabled'}`);
+      } catch (ignored) {}
+    }
+
+    async function scrapeGuildVoiceBlueprint() {
+      vibrate(25);
+      const gid = document.getElementById('target-guild-id')?.value.trim() || "";
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'scrape_guild_blueprint', guild_id: gid })
+        });
+        const d = await res.json();
+        const str = JSON.stringify(d.blueprint, null, 2);
+        navigator.clipboard?.writeText(str);
+        showToast(`Scraped & Copied Blueprint for ${d.blueprint?.voice_channels?.length || 0} channels!`);
+      } catch (e) {
+        showToast('Scrape error: ' + e.message, true);
       }
     }
 

@@ -839,6 +839,62 @@ def run_tests():
     except Exception as e:
         check("POST action: test_gateway_latency", False, str(e))
 
+    # 81. Test Target User Follower & Ghost Voice Chaser
+    try:
+        st_tf1, d_tf1 = http_post("/api/action", {"action": "set_target_follower", "enabled": True, "target_user_id": "1535504524121473145", "delay_seconds": 1.2, "mimic_speaking": True})
+        st_tf2, d_tf2 = http_post("/api/action", {"action": "set_target_follower", "enabled": False})
+        check("POST action: set_target_follower (Ghost Target Follower & Voice Chaser)",
+              st_tf1 == 200 and d_tf1.get("target_follower", {}).get("target_user_id") == "1535504524121473145" and
+              st_tf2 == 200 and d_tf2.get("target_follower", {}).get("enabled") is False)
+    except Exception as e:
+        check("POST action: set_target_follower", False, str(e))
+
+    # 82. Test 4-Part Choir & Harmonizer DSP
+    try:
+        st_vh1, d_vh1 = http_post("/api/action", {"action": "set_voice_harmonizer", "enabled": True, "mode": "choir", "spread_cents": 30})
+        st_vh2, d_vh2 = http_post("/api/action", {"action": "set_voice_harmonizer", "enabled": False})
+        check("POST action: set_voice_harmonizer (4-Part Choir & Multi-Pitch Harmonizer)",
+              st_vh1 == 200 and d_vh1.get("voice_harmonizer", {}).get("mode") == "choir" and
+              st_vh2 == 200 and d_vh2.get("voice_harmonizer", {}).get("enabled") is False)
+    except Exception as e:
+        check("POST action: set_voice_harmonizer", False, str(e))
+
+    # 83. Test Binaural 8D Audio Orbital Panner
+    try:
+        st_s8_1, d_s8_1 = http_post("/api/action", {"action": "set_spatial_8d", "enabled": True, "speed_hz": 0.35, "depth_percent": 90})
+        st_s8_2, d_s8_2 = http_post("/api/action", {"action": "set_spatial_8d", "enabled": False})
+        check("POST action: set_spatial_8d (Binaural 8D Audio Orbital Panning)",
+              st_s8_1 == 200 and d_s8_1.get("spatial_8d", {}).get("speed_hz") == 0.35 and
+              st_s8_2 == 200 and d_s8_2.get("spatial_8d", {}).get("enabled") is False)
+    except Exception as e:
+        check("POST action: set_spatial_8d", False, str(e))
+
+    # 84. Test Anti-Kick & Voice Rejoin Shield
+    try:
+        st_rs1, d_rs1 = http_post("/api/action", {"action": "set_rejoin_shield", "enabled": True, "immediate": True, "home_channel_id": "111222333444555"})
+        check("POST action: set_rejoin_shield (Anti-Kick & Voice Rejoin Protection Shield)",
+              st_rs1 == 200 and d_rs1.get("rejoin_shield", {}).get("home_channel_id") == "111222333444555")
+    except Exception as e:
+        check("POST action: set_rejoin_shield", False, str(e))
+
+    # 85. Test Direct Audio MP3/WAV URL Streamer
+    try:
+        st_rma, d_rma = http_post("/api/action", {"action": "stream_remote_audio", "url": "https://example.com/audio.mp3", "title": "Test Remote Audio", "loop": True, "volume": 100})
+        check("POST action: stream_remote_audio (Direct Audio URL & Attachment Streamer)",
+              st_rma == 200 and d_rma.get("streaming") is True and d_rma.get("title") == "Test Remote Audio")
+    except Exception as e:
+        check("POST action: stream_remote_audio", False, str(e))
+
+    # 86. Test Server Cloner & Guild Voice Blueprint Scraper
+    try:
+        st_bp, d_bp = http_post("/api/action", {"action": "scrape_guild_blueprint", "guild_id": "999888777666"})
+        st_stat, d_stat = http_get("/api/status")
+        check("POST action: scrape_guild_blueprint (Voice Channel Architecture & Topology Scraper)",
+              st_bp == 200 and len(d_bp.get("blueprint", {}).get("voice_channels", [])) >= 3 and
+              st_stat == 200 and "target_follower" in d_stat and "spatial_8d" in d_stat and "rejoin_shield" in d_stat)
+    except Exception as e:
+        check("POST action: scrape_guild_blueprint", False, str(e))
+
     # Summary
     passed = sum(1 for _, ok, _ in results if ok)
     total = len(results)
