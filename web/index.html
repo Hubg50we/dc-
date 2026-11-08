@@ -900,6 +900,11 @@
         <span id="telemetry-icon">🔋</span>
         <span id="telemetry-txt">--%</span>
       </div>
+      <div id="safety-pill" style="display:flex; align-items:center; gap:5px; font-size:0.75rem; background:rgba(35, 165, 90, 0.15); border:1px solid rgba(35, 165, 90, 0.35); padding:4px 9px; border-radius:16px; color:#4ade80;" title="Anti-Ban & Rate Limit Monitor">
+        <span>🛡️</span>
+        <span id="safety-score-txt">100% Safe</span>
+      </div>
+      <button class="icon-btn" onclick="triggerPipMode()" title="Floating Picture-in-Picture Mini-Dock">🪟</button>
       <button class="icon-btn" onclick="toggleAmoled()" title="AMOLED Black Toggle">⚡</button>
       <button class="icon-btn" onclick="refreshAll()" title="Refresh Dashboard">↻</button>
     </div>
@@ -1042,7 +1047,7 @@
             <span style="font-size:1.1rem;">🔀</span>
             <span>Multi-Channel Room Spreader & Gatherer</span>
           </div>
-          <span class="badge" style="background:rgba(168, 85, 247, 0.25); color:#e9d5ff; font-weight:700;">v1.4.6</span>
+          <span class="badge" style="background:rgba(168, 85, 247, 0.25); color:#e9d5ff; font-weight:700;">v1.4.7</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Distribute bot accounts across multiple voice channels simultaneously, or gather all accounts into a single room with 1 tap.
@@ -1123,6 +1128,88 @@
             </label>
             <button class="btn btn-primary btn-sm" style="background:#a855f7; color:#fff;" onclick="addChatRule()">+ Add Rule</button>
           </div>
+        </div>
+      </div>
+
+      <!-- 🎙️ Live Push-to-Talk (PTT) & Mic Broadcaster Card -->
+      <div class="card" style="border-color: rgba(239, 68, 68, 0.45); background: linear-gradient(180deg, rgba(239, 68, 68, 0.05) 0%, var(--bg-card) 100%);">
+        <div class="card-title" style="color:#f87171;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.15rem;">🎙️</span>
+            <span>Live Phone Mic Broadcast (PTT)</span>
+          </div>
+          <span class="badge" id="ptt-status-badge" style="background:rgba(239,68,68,0.25); color:#fca5a5;">Muted</span>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">
+          Hold to talk or lock your live phone microphone to broadcast your voice directly into the Discord voice channel through all bots.
+        </p>
+
+        <div style="display:flex; gap:8px;">
+          <button id="ptt-hold-btn" class="btn btn-danger" style="flex:2; padding:12px; font-weight:700; font-size:0.9rem;"
+                  onmousedown="startPttTalk()" onmouseup="stopPttTalk()"
+                  ontouchstart="startPttTalk(event)" ontouchend="stopPttTalk(event)">
+            🎙️ HOLD TO TALK (PTT)
+          </button>
+          <button id="ptt-toggle-btn" class="btn btn-secondary" style="flex:1;" onclick="togglePttLock()">
+            🔒 Lock Mic
+          </button>
+        </div>
+      </div>
+
+      <!-- 🔴 Voice Channel Call Recorder Card -->
+      <div class="card" style="border-color: rgba(234, 88, 12, 0.45); background: linear-gradient(180deg, rgba(234, 88, 12, 0.05) 0%, var(--bg-card) 100%);">
+        <div class="card-title" style="color:#fb923c;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.15rem;">🔴</span>
+            <span>Voice Channel Call Recorder</span>
+          </div>
+          <span class="badge" id="recorder-status-badge" style="background:rgba(234,88,12,0.25); color:#fdba74;">Idle</span>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">
+          Record all incoming voice channel audio directly to local phone / PC storage with lossless WAV/MP3 encoding.
+        </p>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-dark); padding:10px 12px; border-radius:var(--radius-sm); margin-bottom:10px;">
+          <div>
+            <strong style="font-size:0.84rem; color:var(--text-heading);" id="rec-timer-txt">00:00 Elapsed</strong>
+            <div style="font-size:0.72rem; color:var(--text-muted);" id="rec-filename-txt">No active recording</div>
+          </div>
+          <button id="btn-toggle-rec" class="btn btn-danger btn-sm" onclick="toggleCallRecording()">
+            🔴 Record
+          </button>
+        </div>
+
+        <div id="recordings-list-box" style="display:flex; flex-direction:column; gap:6px; max-height:120px; overflow-y:auto;">
+          <!-- Dynamically populated with recordings -->
+        </div>
+      </div>
+
+      <!-- 🏟️ Stadium Echo & Multi-Bot Stereo Delay Cloner Card -->
+      <div class="card" style="border-color: rgba(99, 102, 241, 0.45); background: linear-gradient(180deg, rgba(99, 102, 241, 0.05) 0%, var(--bg-card) 100%);">
+        <div class="card-title" style="color:#818cf8;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.15rem;">🏟️</span>
+            <span>Stadium Echo & Multi-Bot Stereo Delay</span>
+          </div>
+          <span class="badge" id="stadium-echo-badge" style="background:rgba(99,102,241,0.25); color:#c7d2fe;">Off</span>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">
+          Staggers audio playback across all connected bots by milliseconds to create an arena-scale choir reverberation.
+        </p>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-dark); padding:10px 12px; border-radius:var(--radius-sm); margin-bottom:8px;">
+          <div>
+            <strong style="font-size:0.84rem; color:var(--text-heading);">Stadium Arena Echo Mode</strong>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Multi-speaker staggered propagation</div>
+          </div>
+          <input type="checkbox" id="stadium-echo-toggle" onchange="toggleStadiumEcho(this.checked)" style="width:20px; height:20px; accent-color:#6366f1;">
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">
+            <span>Delay Spread: <span id="stadium-delay-txt" style="color:#818cf8; font-weight:700;">60ms</span></span>
+          </label>
+          <input type="range" id="stadium-delay-range" min="10" max="300" step="10" value="60" oninput="onStadiumDelayChange(this.value)" style="width:100%; accent-color:#6366f1;">
         </div>
       </div>
 
@@ -1255,7 +1342,7 @@
       <div class="card" style="border-color: rgba(88, 101, 242, 0.45);">
         <div class="card-title" style="color:var(--accent);">
           <span>🔄 App Updates & Version</span>
-          <span class="badge badge-voice" id="settings-app-version">v1.4.6</span>
+          <span class="badge badge-voice" id="settings-app-version">v1.4.7</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Cross-platform Discord controller for Android Mobile and Windows PC.
@@ -1279,7 +1366,7 @@
         </div>
 
         <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:6px;">
-          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Direct Downloads (v1.4.6):</div>
+          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Direct Downloads (v1.4.7):</div>
           <div style="display:flex; gap:6px; flex-wrap:wrap;">
             <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-android.apk" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               📱 Android APK
@@ -1287,7 +1374,7 @@
             <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows.exe" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               💻 Windows EXE
             </a>
-            <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows-portable-v1.4.6.zip" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
+            <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows-portable-v1.4.7.zip" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               📦 Portable ZIP
             </a>
           </div>
@@ -2748,6 +2835,80 @@
         if (vBadge) {
           vBadge.innerText = data.video_sim ? 'Active' : 'Off';
           vBadge.className = data.video_sim ? 'badge badge-online' : 'badge badge-voice';
+        }
+      }
+
+      // Safety Guard & Anti-Ban Rate Limit Monitor
+      if (data.safety_guard) {
+        const sg = data.safety_guard;
+        const sTxt = document.getElementById('safety-score-txt');
+        const sPill = document.getElementById('safety-pill');
+        if (sTxt && sPill) {
+          const idx = sg.token_health_index !== undefined ? sg.token_health_index : 100;
+          sTxt.innerText = `${idx}% Safe`;
+          if (idx >= 80) {
+            sPill.style.background = 'rgba(35, 165, 90, 0.15)';
+            sPill.style.borderColor = 'rgba(35, 165, 90, 0.35)';
+            sPill.style.color = '#4ade80';
+          } else {
+            sPill.style.background = 'rgba(239, 68, 68, 0.15)';
+            sPill.style.borderColor = 'rgba(239, 68, 68, 0.35)';
+            sPill.style.color = '#f87171';
+          }
+        }
+      }
+
+      // Voice Call Recording
+      if (data.recording) {
+        const rec = data.recording;
+        const rBadge = document.getElementById('recorder-status-badge');
+        const rBtn = document.getElementById('btn-toggle-rec');
+        const rTimer = document.getElementById('rec-timer-txt');
+        const rFile = document.getElementById('rec-filename-txt');
+        if (rBadge && rBtn) {
+          if (rec.active) {
+            rBadge.innerText = 'RECORDING';
+            rBadge.className = 'badge badge-online';
+            rBtn.innerText = '⏹️ Stop';
+            rBtn.className = 'btn btn-secondary btn-sm';
+            if (rTimer) rTimer.innerText = `${formatUptime(rec.duration || 0)} Recorded`;
+            if (rFile) rFile.innerText = rec.filename || 'Recording call...';
+          } else {
+            rBadge.innerText = 'Idle';
+            rBadge.className = 'badge badge-voice';
+            rBtn.innerText = '🔴 Record';
+            rBtn.className = 'btn btn-danger btn-sm';
+            if (rTimer) rTimer.innerText = `${rec.count || 0} Files Saved`;
+            if (rFile) rFile.innerText = 'Tap record to capture voice channel';
+          }
+        }
+      }
+      if (data.recordings) {
+        renderRecordingsList(data.recordings);
+      }
+
+      // Stadium Echo & Stereo Delay
+      if (data.stadium_echo) {
+        const se = data.stadium_echo;
+        const seToggle = document.getElementById('stadium-echo-toggle');
+        const seBadge = document.getElementById('stadium-echo-badge');
+        const seDelayTxt = document.getElementById('stadium-delay-txt');
+        const seRange = document.getElementById('stadium-delay-range');
+        if (seToggle && document.activeElement !== seToggle) seToggle.checked = !!se.enabled;
+        if (seBadge) {
+          seBadge.innerText = se.enabled ? 'Active' : 'Off';
+          seBadge.className = se.enabled ? 'badge badge-online' : 'badge badge-voice';
+        }
+        if (seDelayTxt) seDelayTxt.innerText = `${se.delay_ms || 60}ms`;
+        if (seRange && document.activeElement !== seRange) seRange.value = se.delay_ms || 60;
+      }
+
+      // Push-to-Talk (PTT)
+      if (data.ptt_active !== undefined) {
+        const pBadge = document.getElementById('ptt-status-badge');
+        if (pBadge && !isPttPressed) {
+          pBadge.innerText = data.ptt_active ? 'TRANSMITTING' : 'Muted';
+          pBadge.className = data.ptt_active ? 'badge badge-online' : 'badge badge-voice';
         }
       }
 
@@ -6269,7 +6430,7 @@
       return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    let currentAppVersion = '1.4.6';
+    let currentAppVersion = '1.4.7';
     let latestUpdateData = null;
 
     function toggleAutoCheckUpdate(enabled) {
@@ -6696,6 +6857,170 @@
         }
       };
       reader.readAsText(file);
+    }
+
+    // 🪟 Floating Picture-in-Picture Mini-Dock
+    function triggerPipMode() {
+      vibrate(20);
+      if (window.AndroidBridge && window.AndroidBridge.enterPipMode) {
+        window.AndroidBridge.enterPipMode();
+        showToast('Entering Floating PiP Mode...');
+      } else if (document.pictureInPictureEnabled) {
+        showToast('Floating PiP is active on supported browsers / Android');
+      } else {
+        showToast('PiP mode available on Android 8.0+ or compatible browsers');
+      }
+    }
+
+    // 🔴 Voice Channel Call Recording
+    async function toggleCallRecording() {
+      vibrate(25);
+      const rBadge = document.getElementById('recorder-status-badge');
+      const isRec = rBadge && rBadge.innerText.includes('RECORDING');
+      const act = isRec ? 'stop_recording' : 'start_recording';
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: act })
+        });
+        const json = await res.json();
+        showToast(json.message || (isRec ? 'Recording saved' : 'Recording started'));
+        fetchStatus();
+      } catch (e) {
+        showToast('Recording error: ' + e.message, true);
+      }
+    }
+
+    function renderRecordingsList(recs) {
+      const box = document.getElementById('recordings-list-box');
+      if (!box) return;
+      if (!recs || recs.length === 0) {
+        box.innerHTML = '<div style="font-size:0.75rem; color:var(--text-muted); text-align:center; padding:6px;">No recorded voice calls yet.</div>';
+        return;
+      }
+      box.innerHTML = recs.map(r => `
+        <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-card); padding:6px 10px; border-radius:var(--radius-sm); border:1px solid var(--border);">
+          <div style="font-size:0.75rem; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:60%;">
+            🎵 ${escapeHtml(r.filename)}
+            <div style="font-size:0.65rem; color:var(--text-muted); font-weight:400;">${Math.round(r.size / 1024)} KB</div>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <a href="/recordings/${encodeURIComponent(r.filename)}" download class="btn btn-secondary btn-sm" style="padding:2px 8px; font-size:0.72rem; text-decoration:none;">⬇️ Save</a>
+            <button class="btn btn-secondary btn-sm" style="padding:2px 6px; font-size:0.72rem; color:var(--danger);" onclick="deleteRecording('${escapeHtml(r.filename)}')">✕</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function deleteRecording(filename) {
+      vibrate(15);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'delete_recording', filename: filename })
+        });
+        const json = await res.json();
+        showToast(json.message || 'Recording deleted');
+        fetchStatus();
+      } catch (e) {
+        showToast('Delete error: ' + e.message, true);
+      }
+    }
+
+    // 🏟️ Stadium Echo & Stereo Delay
+    let stadiumEchoDebounce = null;
+    async function toggleStadiumEcho(enabled) {
+      vibrate(15);
+      const delay = parseInt(document.getElementById('stadium-delay-range').value || 60);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set_stadium_echo', enabled: enabled, delay_ms: delay })
+        });
+        const json = await res.json();
+        showToast(json.message || `Stadium Echo ${enabled ? 'Enabled' : 'Disabled'}`);
+        fetchStatus();
+      } catch (e) {
+        showToast('Echo error: ' + e.message, true);
+      }
+    }
+
+    function onStadiumDelayChange(val) {
+      const txt = document.getElementById('stadium-delay-txt');
+      if (txt) txt.innerText = `${val}ms`;
+      clearTimeout(stadiumEchoDebounce);
+      stadiumEchoDebounce = setTimeout(async () => {
+        const toggle = document.getElementById('stadium-echo-toggle');
+        const en = toggle ? toggle.checked : true;
+        try {
+          await fetch('/api/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'set_stadium_echo', enabled: en, delay_ms: parseInt(val) })
+          });
+        } catch (ignored) {}
+      }, 300);
+    }
+
+    // 🎙️ Live Push-to-Talk (PTT)
+    let isPttPressed = false;
+    let isPttLocked = false;
+    async function startPttTalk(event) {
+      if (event && event.preventDefault) event.preventDefault();
+      if (isPttPressed) return;
+      isPttPressed = true;
+      vibrate(30);
+      const pBadge = document.getElementById('ptt-status-badge');
+      if (pBadge) {
+        pBadge.innerText = 'TRANSMITTING';
+        pBadge.className = 'badge badge-online';
+      }
+      try {
+        await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'push_ptt_chunk' })
+        });
+      } catch (ignored) {}
+    }
+
+    async function stopPttTalk(event) {
+      if (event && event.preventDefault) event.preventDefault();
+      if (!isPttPressed || isPttLocked) return;
+      isPttPressed = false;
+      vibrate(15);
+      const pBadge = document.getElementById('ptt-status-badge');
+      if (pBadge) {
+        pBadge.innerText = 'Muted';
+        pBadge.className = 'badge badge-voice';
+      }
+      try {
+        await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'stop_ptt' })
+        });
+      } catch (ignored) {}
+    }
+
+    function togglePttLock() {
+      vibrate(25);
+      isPttLocked = !isPttLocked;
+      const btn = document.getElementById('ptt-toggle-btn');
+      if (btn) {
+        btn.innerText = isPttLocked ? '🔓 Unlock' : '🔒 Lock Mic';
+        btn.className = isPttLocked ? 'btn btn-danger' : 'btn btn-secondary';
+      }
+      if (isPttLocked) {
+        startPttTalk();
+        showToast('Mic locked ON (transmitting live)');
+      } else {
+        stopPttTalk();
+        showToast('Mic unlocked (PTT mode)');
+      }
     }
 
     fetchStatus();

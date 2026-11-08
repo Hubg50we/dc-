@@ -196,6 +196,18 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    public void onUserLeaveHint() {
+        super.onUserLeaveHint();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                android.app.PictureInPictureParams.Builder pipBuilder = new android.app.PictureInPictureParams.Builder();
+                pipBuilder.setAspectRatio(new android.util.Rational(16, 9));
+                enterPictureInPictureMode(pipBuilder.build());
+            } catch (Exception ignored) {}
+        }
+    }
+
+    @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
@@ -443,6 +455,25 @@ public class MainActivity extends AppCompatActivity {
                     }
                 } catch (Exception e) {
                     Log.e(TAG, "loadInSandbox error", e);
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void enterPipMode() {
+            runOnUiThread(() -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    try {
+                        android.app.PictureInPictureParams.Builder pipBuilder = new android.app.PictureInPictureParams.Builder();
+                        android.util.Rational aspectRatio = new android.util.Rational(16, 9);
+                        pipBuilder.setAspectRatio(aspectRatio);
+                        enterPictureInPictureMode(pipBuilder.build());
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error entering PiP mode", e);
+                        enterPictureInPictureMode();
+                    }
+                } else {
+                    Toast.makeText(MainActivity.this, "Picture-in-Picture requires Android 8.0+", Toast.LENGTH_SHORT).show();
                 }
             });
         }

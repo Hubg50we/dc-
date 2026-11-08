@@ -100,7 +100,7 @@ public class DiscordService extends Service {
         PendingIntent disconnPending = PendingIntent.getService(this, 3, disconnIntent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
 
         return new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("dc- Discord Manager (v1.4.6)")
+                .setContentTitle("dc- Discord Manager (v1.4.7)")
                 .setContentText(text)
                 .setSmallIcon(R.drawable.ic_launcher)
                 .setContentIntent(pendingIntent)

@@ -584,6 +584,47 @@ def run_tests():
     except Exception as e:
         check("POST action: play_native_media / stop_native_media", False, str(e))
 
+    # 56. Test Voice Channel Call Recorder
+    try:
+        st_rec_start, d_rec_start = http_post("/api/action", {"action": "start_recording"})
+        fname = d_rec_start.get("filename")
+        st_rec_stop, d_rec_stop = http_post("/api/action", {"action": "stop_recording"})
+        st_recs, d_recs = http_post("/api/action", {"action": "get_recordings"})
+        if fname:
+            http_post("/api/action", {"action": "delete_recording", "filename": fname})
+        check("POST action: start_recording / stop_recording / get_recordings (Call Recorder)",
+              st_rec_start == 200 and d_rec_start.get("success") is True and
+              st_rec_stop == 200 and d_rec_stop.get("success") is True and
+              st_recs == 200 and isinstance(d_recs.get("recordings"), list))
+    except Exception as e:
+        check("POST action: call_recorder", False, str(e))
+
+    # 57. Test Smart Anti-Ban & Rate Limit Safety Guard
+    try:
+        st_saf, d_saf = http_post("/api/action", {"action": "get_safety_report"})
+        check("POST action: get_safety_report (Anti-Ban & Rate Limit Safety Index)",
+              st_saf == 200 and d_saf.get("success") is True and "token_health_index" in d_saf)
+    except Exception as e:
+        check("POST action: get_safety_report", False, str(e))
+
+    # 58. Test Stadium Echo & Multi-Bot Stereo Delay
+    try:
+        st_echo1, d_echo1 = http_post("/api/action", {"action": "set_stadium_echo", "enabled": True, "delay_ms": 75})
+        st_echo2, d_echo2 = http_post("/api/action", {"action": "set_stadium_echo", "enabled": False})
+        check("POST action: set_stadium_echo (Stadium Echo Multi-Speaker Propagation)",
+              st_echo1 == 200 and d_echo1.get("enabled") is True and d_echo1.get("delay_ms") == 75 and d_echo2.get("enabled") is False)
+    except Exception as e:
+        check("POST action: set_stadium_echo", False, str(e))
+
+    # 59. Test Live Push-to-Talk (PTT) Mic Broadcast
+    try:
+        st_ptt1, d_ptt1 = http_post("/api/action", {"action": "push_ptt_chunk"})
+        st_ptt2, d_ptt2 = http_post("/api/action", {"action": "stop_ptt"})
+        check("POST action: push_ptt_chunk / stop_ptt (Live Phone Mic Streamer)",
+              st_ptt1 == 200 and d_ptt1.get("active") is True and st_ptt2 == 200 and d_ptt2.get("active") is False)
+    except Exception as e:
+        check("POST action: ptt_broadcast", False, str(e))
+
     # Summary
     passed = sum(1 for _, ok, _ in results if ok)
     total = len(results)
