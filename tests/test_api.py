@@ -754,6 +754,29 @@ def run_tests():
     except Exception as e:
         check("POST action: plugins_config_install", False, str(e))
 
+    # 73. Test Vencord Theme Engine & Presets (set_theme, get_themes)
+    try:
+        st_thm1, d_thm1 = http_post("/api/action", {"action": "get_themes"})
+        st_thm2, d_thm2 = http_post("/api/action", {"action": "set_theme", "theme": "amoled_midnight"})
+        st_thm3, d_thm3 = http_post("/api/action", {"action": "set_theme", "theme": "default"})
+        check("POST action: set_theme / get_themes (Vencord AMOLED & Theme Presets)",
+              st_thm1 == 200 and len(d_thm1.get("themes", [])) >= 5 and
+              st_thm2 == 200 and d_thm2.get("active_theme") == "amoled_midnight" and
+              st_thm3 == 200 and d_thm3.get("active_theme") == "default")
+    except Exception as e:
+        check("POST action: set_theme / get_themes", False, str(e))
+
+    # 74. Test Vencord Live Custom CSS Injection (set_custom_css)
+    try:
+        sample_css = ":root { --brand-experiment: #a855f7 !important; } .vencord-banner { display: block; }"
+        st_css1, d_css1 = http_post("/api/action", {"action": "set_custom_css", "css": sample_css})
+        st_css2, d_css2 = http_post("/api/action", {"action": "set_custom_css", "css": ""})
+        check("POST action: set_custom_css (Vencord Live Custom CSS Injection)",
+              st_css1 == 200 and d_css1.get("custom_css") == sample_css and
+              st_css2 == 200 and d_css2.get("custom_css") == "")
+    except Exception as e:
+        check("POST action: set_custom_css", False, str(e))
+
     # Summary
     passed = sum(1 for _, ok, _ in results if ok)
     total = len(results)

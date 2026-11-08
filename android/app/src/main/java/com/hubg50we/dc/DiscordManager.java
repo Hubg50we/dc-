@@ -44,7 +44,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.5.2";
+    public static final String APP_VERSION = "1.5.3";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -2198,6 +2198,21 @@ public class DiscordManager {
                 String pid = payload.optString("id", "");
                 res.put("success", true);
                 res.put("message", "Plugin '" + pid + "' uninstalled");
+            } else if ("set_theme".equals(action)) {
+                String theme = payload.optString("theme", "default");
+                res.put("success", true);
+                res.put("active_theme", theme);
+                res.put("message", "Theme set to '" + theme + "'");
+            } else if ("set_custom_css".equals(action)) {
+                String css = payload.optString("css", "");
+                res.put("success", true);
+                res.put("custom_css", css);
+                res.put("message", "Custom CSS applied");
+            } else if ("get_themes".equals(action)) {
+                org.json.JSONArray ths = new org.json.JSONArray();
+                res.put("success", true);
+                res.put("themes", ths);
+                res.put("active_theme", "default");
             } else {
                 res.put("success", true);
                 res.put("status", "ok");

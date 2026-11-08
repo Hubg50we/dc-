@@ -75,7 +75,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.5.2"
+APP_VERSION = "1.5.3"
 AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
@@ -255,12 +255,94 @@ if not os.path.exists(PLUGINS_DIR):
 
 DEFAULT_PLUGINS = [
     {
+        "id": "fake_nitro",
+        "name": "FakeNitro (Uncapped 1080p 60FPS & Streaming)",
+        "version": "2.4.1",
+        "author": "Vencord Team",
+        "description": "Unlocks high-bitrate 1080p 60FPS streaming, custom emojis, and Nitro perks without a subscription.",
+        "icon": "🚀",
+        "category": "Utility",
+        "enabled": True,
+        "config": {
+            "resolution": "1080p",
+            "fps": 60,
+            "custom_emotes": True
+        }
+    },
+    {
+        "id": "silent_typing",
+        "name": "SilentTyping (Ghost Invisibility)",
+        "version": "1.3.0",
+        "author": "Vencord Team",
+        "description": "Never sends typing indicator packets to Discord gateway, keeping your typing completely invisible.",
+        "icon": "👻",
+        "category": "Privacy",
+        "enabled": True,
+        "config": {
+            "suppress_all": True
+        }
+    },
+    {
+        "id": "show_hidden_channels",
+        "name": "ShowHiddenChannels (Locked Room Inspector)",
+        "version": "1.8.2",
+        "author": "Vencord Team",
+        "description": "Reveals hidden and locked voice/text channels, viewing required roles and permission overwrites.",
+        "icon": "👁️",
+        "category": "Utility",
+        "enabled": False,
+        "config": {
+            "show_mode": "muted"
+        }
+    },
+    {
+        "id": "message_logger",
+        "name": "MessageLogger (Deleted & Edited RAM Cache)",
+        "version": "2.1.0",
+        "author": "Vencord Team",
+        "description": "Retains all deleted and edited messages locally in RAM with timestamps and strike-through edits.",
+        "icon": "📜",
+        "category": "Chat",
+        "enabled": False,
+        "config": {
+            "max_cache_messages": 500,
+            "show_inline_diff": True
+        }
+    },
+    {
+        "id": "no_track",
+        "name": "NoTrack (Discord Telemetry & Analytics Blocker)",
+        "version": "1.5.0",
+        "author": "Vencord Team",
+        "description": "Strips Discord telemetry, Sentry crash reports, Science analytics, and user fingerprinting.",
+        "icon": "🛡️",
+        "category": "Privacy",
+        "enabled": True,
+        "config": {
+            "block_science": True,
+            "block_sentry": True
+        }
+    },
+    {
+        "id": "spotify_listen_along",
+        "name": "SpotifyListenAlong (Premium Bypass)",
+        "version": "1.2.5",
+        "author": "Vencord Team",
+        "description": "Listen along with any user on voice or rich presence without needing a Spotify Premium account.",
+        "icon": "🎧",
+        "category": "Voice",
+        "enabled": True,
+        "config": {
+            "auto_sync_progress": True
+        }
+    },
+    {
         "id": "auto_mod",
         "name": "Auto-Moderator & Anti-Raid Guard",
         "version": "1.2.0",
         "author": "dc- Core Team",
         "description": "Scans voice room member joins and protects against rapid rejoin raids & spam.",
-        "icon": "🛡️",
+        "icon": "⚔️",
         "category": "Security",
         "enabled": False,
         "config": {
@@ -289,7 +371,7 @@ DEFAULT_PLUGINS = [
         "author": "Soundstage Pro",
         "description": "Adds 20+ additional soundboard clips, anime memes, and gaming sound effects.",
         "icon": "🎵",
-        "category": "Audio",
+        "category": "Voice",
         "enabled": True,
         "config": {
             "pack_preset": "gaming_meme"
@@ -316,7 +398,7 @@ DEFAULT_PLUGINS = [
         "author": "AudioLab",
         "description": "Unlocks advanced high-resolution 64-band visualizer filters and DJ booth themes.",
         "icon": "🎛️",
-        "category": "Visuals",
+        "category": "Appearance",
         "enabled": False,
         "config": {
             "bands": 64,
@@ -326,6 +408,17 @@ DEFAULT_PLUGINS = [
 ]
 
 PLUGINS = list(DEFAULT_PLUGINS)
+
+# 🎨 Vencord Themes & Custom CSS Engine
+ACTIVE_THEME = "default"  # default, amoled_midnight, clear_vision, neon_cyberpunk, retro_synthwave
+CUSTOM_CSS = ""
+THEMES = [
+    {"id": "default", "name": "Discord Dark", "description": "Default Discord dark interface theme", "accent": "#5865F2", "bg": "#1e1f22"},
+    {"id": "amoled_midnight", "name": "Midnight AMOLED", "description": "Pure black OLED theme with neon purple accents", "accent": "#a855f7", "bg": "#000000"},
+    {"id": "clear_vision", "name": "ClearVision Glass", "description": "Translucent glassmorphism with blur effects", "accent": "#00b0f4", "bg": "rgba(20,24,36,0.85)"},
+    {"id": "neon_cyberpunk", "name": "Cyberpunk 2077", "description": "Vibrant high-contrast neon cyan & yellow theme", "accent": "#fcee0a", "bg": "#080c14"},
+    {"id": "retro_synthwave", "name": "Retro Synthwave", "description": "Outrun magenta & sunset orange aesthetic", "accent": "#f43f5e", "bg": "#120826"}
+]
 
 def get_installed_plugins():
     global PLUGINS
@@ -2250,6 +2343,9 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             },
             "plugins": get_installed_plugins(),
             "plugins_count": len(PLUGINS),
+            "themes": THEMES,
+            "active_theme": ACTIVE_THEME,
+            "custom_css": CUSTOM_CSS,
             "chat_auto_responder_enabled": CHAT_AUTO_RESPONDER_ENABLED,
             "chat_auto_responder_rules": CHAT_AUTO_RESPONDER_RULES,
             "soundboard_pads": SOUNDBOARD_PADS,
@@ -3023,6 +3119,30 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             pid = str(payload.get("id", "")).strip()
             removed = uninstall_custom_plugin(pid)
             return {"success": removed, "message": f"Plugin '{pid}' {'uninstalled' if removed else 'not found'}"}
+
+        if action == "set_theme":
+            global ACTIVE_THEME
+            theme_id = str(payload.get("theme", "default")).lower().strip()
+            valid_ids = [t["id"] for t in THEMES]
+            if theme_id in valid_ids:
+                ACTIVE_THEME = theme_id
+                log(f"🎨 Theme changed to: {ACTIVE_THEME}")
+                return {"success": True, "active_theme": ACTIVE_THEME, "message": f"Theme set to '{ACTIVE_THEME}'"}
+            return {"success": False, "error": f"Unknown theme '{theme_id}'"}
+
+        if action == "set_custom_css":
+            global CUSTOM_CSS
+            CUSTOM_CSS = str(payload.get("css", "")).strip()
+            log(f"🎨 Custom CSS updated ({len(CUSTOM_CSS)} characters)")
+            return {"success": True, "custom_css": CUSTOM_CSS, "message": "Custom CSS applied successfully"}
+
+        if action == "get_themes":
+            return {
+                "success": True,
+                "themes": THEMES,
+                "active_theme": ACTIVE_THEME,
+                "custom_css": CUSTOM_CSS
+            }
 
         if action == "upload_media":
             fname = os.path.basename(payload.get("filename", "media_file"))

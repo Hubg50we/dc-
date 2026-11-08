@@ -1059,7 +1059,7 @@
             <span style="font-size:1.1rem;">🔀</span>
             <span>Multi-Channel Room Spreader & Gatherer</span>
           </div>
-          <span class="badge" style="background:rgba(168, 85, 247, 0.25); color:#e9d5ff; font-weight:700;">v1.5.2</span>
+          <span class="badge" style="background:rgba(168, 85, 247, 0.25); color:#e9d5ff; font-weight:700;">v1.5.3</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Distribute bot accounts across multiple voice channels simultaneously, or gather all accounts into a single room with 1 tap.
@@ -1537,24 +1537,49 @@
         </button>
       </div>
 
-      <!-- 🔌 Modular Plugins & Add-On Marketplace Card -->
+      <!-- ⚡ Vencord Plugin Hub & Theme Studio Card -->
       <div class="card" style="border-color: rgba(59, 130, 246, 0.45); background: linear-gradient(180deg, rgba(59, 130, 246, 0.05) 0%, var(--bg-card) 100%);">
         <div class="card-title" style="color:#60a5fa;">
           <div style="display:flex; align-items:center; gap:8px;">
-            <span style="font-size:1.15rem;">🔌</span>
-            <span>Modular Plugins & Add-On Marketplace</span>
+            <span style="font-size:1.15rem;">⚡</span>
+            <span>Vencord Plugin Hub & Theme Studio</span>
           </div>
           <div style="display:flex; align-items:center; gap:6px;">
-            <span class="badge" id="plugins-count-badge" style="background:rgba(59,130,246,0.25); color:#93c5fd; font-size:0.7rem;">5 Active</span>
+            <span class="badge" id="plugins-count-badge" style="background:rgba(59,130,246,0.25); color:#93c5fd; font-size:0.7rem;">Loading...</span>
             <button class="btn btn-secondary btn-sm" onclick="showInstallPluginModal()" style="padding:2px 8px; font-size:0.72rem;">+ Install</button>
           </div>
         </div>
-        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">
-          Extend bot capabilities with modular community add-ons, auto-moderation, webhook relays, and sound packs.
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
+          Client enhancements, privacy shields, streaming boosts, and UI themes inspired by <strong>Vencord</strong>.
         </p>
 
-        <div id="plugins-list-feed" style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px;">
-          <div style="color:var(--text-muted); font-size:0.78rem;">Loading installed plugins...</div>
+        <!-- Search Bar -->
+        <input type="text" id="vencord-plugin-search" placeholder="🔍 Search plugins (e.g. FakeNitro, SilentTyping, NoTrack)..." oninput="filterVencordPlugins(this.value)" style="width:100%; padding:7px 10px; margin-bottom:8px; border-radius:var(--radius-sm); background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:0.8rem;">
+
+        <!-- Category Filter Chips -->
+        <div class="preset-chips" id="vencord-filter-chips" style="margin-bottom:10px; display:flex; gap:4px; flex-wrap:wrap;">
+          <div class="chip active" onclick="setPluginCategory('all')" id="chip-cat-all">All</div>
+          <div class="chip" onclick="setPluginCategory('Utility')" id="chip-cat-Utility">Utility</div>
+          <div class="chip" onclick="setPluginCategory('Privacy')" id="chip-cat-Privacy">Privacy</div>
+          <div class="chip" onclick="setPluginCategory('Voice')" id="chip-cat-Voice">Voice</div>
+          <div class="chip" onclick="setPluginCategory('Chat')" id="chip-cat-Chat">Chat</div>
+          <div class="chip" onclick="setPluginCategory('Appearance')" id="chip-cat-Appearance">Appearance</div>
+        </div>
+
+        <div id="plugins-list-feed" style="display:flex; flex-direction:column; gap:8px; max-height:280px; overflow-y:auto; margin-bottom:10px; padding-right:2px;">
+          <div style="color:var(--text-muted); font-size:0.78rem;">Loading installed Vencord plugins...</div>
+        </div>
+
+        <!-- 🎨 Theme Presets Strip -->
+        <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius-sm); padding:8px 10px; margin-bottom:10px;">
+          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600; margin-bottom:6px;">🎨 Vencord Theme Presets:</div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <button class="btn btn-secondary btn-sm" onclick="switchTheme('default')" style="flex:1; font-size:0.72rem;">Discord Dark</button>
+            <button class="btn btn-secondary btn-sm" onclick="switchTheme('amoled_midnight')" style="flex:1; font-size:0.72rem;">Midnight AMOLED</button>
+            <button class="btn btn-secondary btn-sm" onclick="switchTheme('clear_vision')" style="flex:1; font-size:0.72rem;">ClearVision</button>
+            <button class="btn btn-secondary btn-sm" onclick="switchTheme('neon_cyberpunk')" style="flex:1; font-size:0.72rem;">Cyberpunk</button>
+            <button class="btn btn-secondary btn-sm" onclick="switchTheme('retro_synthwave')" style="flex:1; font-size:0.72rem;">Synthwave</button>
+          </div>
         </div>
 
         <div style="display:flex; gap:6px;">
@@ -1563,6 +1588,18 @@
           </button>
           <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="showInstallPluginModal()">
             📥 Install Manifest
+          </button>
+          <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="toggleCustomCssModal()">
+            📝 Custom CSS
+          </button>
+        </div>
+
+        <!-- Custom CSS Editor Modal / Box -->
+        <div id="custom-css-container" style="display:none; margin-top:8px; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius-sm); padding:8px;">
+          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600; margin-bottom:4px;">Live Custom CSS Injector:</div>
+          <textarea id="custom-css-input" rows="4" placeholder=":root { --accent: #ff007f; }" style="width:100%; font-family:monospace; font-size:0.75rem; background:#0b0c10; border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text); padding:6px; resize:vertical;"></textarea>
+          <button class="btn btn-primary btn-sm" style="width:100%; margin-top:6px;" onclick="applyCustomCss()">
+            ✨ Apply Custom CSS
           </button>
         </div>
       </div>
@@ -1696,7 +1733,7 @@
       <div class="card" style="border-color: rgba(88, 101, 242, 0.45);">
         <div class="card-title" style="color:var(--accent);">
           <span>🔄 App Updates & Version</span>
-          <span class="badge badge-voice" id="settings-app-version">v1.5.2</span>
+          <span class="badge badge-voice" id="settings-app-version">v1.5.3</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Cross-platform Discord controller for Android Mobile and Windows PC.
@@ -1720,7 +1757,7 @@
         </div>
 
         <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:6px;">
-          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Direct Downloads (v1.5.2):</div>
+          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Direct Downloads (v1.5.3):</div>
           <div style="display:flex; gap:6px; flex-wrap:wrap;">
             <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-android.apk" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               📱 Android APK
@@ -1728,7 +1765,7 @@
             <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows.exe" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               💻 Windows EXE
             </a>
-            <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows-portable-v1.5.2.zip" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
+            <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows-portable-v1.5.3.zip" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               📦 Portable ZIP
             </a>
           </div>
@@ -6794,7 +6831,7 @@
       return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    let currentAppVersion = '1.5.2';
+    let currentAppVersion = '1.5.3';
     let latestUpdateData = null;
 
     function toggleAutoCheckUpdate(enabled) {
@@ -8115,30 +8152,72 @@
       showToast('Transcript feed cleared');
     }
 
-    // 🔌 Modular Plugin Functions
+    // ⚡ Vencord Plugin Hub & Theme Engine Functions
+    let allVencordPlugins = [];
+    let currentVencordCategory = 'all';
+    let currentVencordSearch = '';
+
     function renderPluginsList(plugins, count) {
       if (!plugins) return;
+      allVencordPlugins = plugins;
       const badge = document.getElementById('plugins-count-badge');
-      if (badge && count !== undefined) {
+      if (badge) {
         const activeCount = plugins.filter(p => p.enabled).length;
         badge.innerText = `${activeCount}/${plugins.length} Active`;
       }
+      applyVencordFilters();
+    }
+
+    function setPluginCategory(cat) {
+      currentVencordCategory = cat;
+      const chips = document.querySelectorAll('#vencord-filter-chips .chip');
+      chips.forEach(c => c.classList.remove('active'));
+      const activeChip = document.getElementById(`chip-cat-${cat}`);
+      if (activeChip) activeChip.classList.add('active');
+      applyVencordFilters();
+    }
+
+    function filterVencordPlugins(query) {
+      currentVencordSearch = (query || '').toLowerCase().trim();
+      applyVencordFilters();
+    }
+
+    function applyVencordFilters() {
       const feed = document.getElementById('plugins-list-feed');
       if (!feed) return;
 
-      feed.innerHTML = plugins.map(p => `
+      let filtered = allVencordPlugins;
+      if (currentVencordCategory !== 'all') {
+        filtered = filtered.filter(p => (p.category || '').toLowerCase() === currentVencordCategory.toLowerCase());
+      }
+      if (currentVencordSearch) {
+        filtered = filtered.filter(p => 
+          (p.name || '').toLowerCase().includes(currentVencordSearch) ||
+          (p.description || '').toLowerCase().includes(currentVencordSearch) ||
+          (p.id || '').toLowerCase().includes(currentVencordSearch)
+        );
+      }
+
+      if (filtered.length === 0) {
+        feed.innerHTML = `<div style="color:var(--text-muted); font-size:0.78rem; font-style:italic; padding:8px;">No matching plugins found for "${escapeHtml(currentVencordSearch)}".</div>`;
+        return;
+      }
+
+      feed.innerHTML = filtered.map(p => `
         <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius-sm); padding:8px 10px; display:flex; justify-content:space-between; align-items:center;">
           <div style="flex:1; padding-right:8px;">
             <div style="display:flex; align-items:center; gap:6px;">
-              <span style="font-size:1rem;">${escapeHtml(p.icon || '🔌')}</span>
+              <span style="font-size:1.05rem;">${escapeHtml(p.icon || '⚡')}</span>
               <strong style="font-size:0.84rem; color:var(--text-heading);">${escapeHtml(p.name)}</strong>
               <span class="badge" style="background:rgba(255,255,255,0.08); font-size:0.65rem;">v${escapeHtml(p.version)}</span>
+              <span class="badge" style="background:rgba(99,102,241,0.18); color:#a5b4fc; font-size:0.65rem;">${escapeHtml(p.category || 'Utility')}</span>
             </div>
             <div style="font-size:0.73rem; color:var(--text-muted); margin-top:2px;">
               ${escapeHtml(p.description)}
             </div>
           </div>
           <div style="display:flex; align-items:center; gap:8px;">
+            <button class="btn btn-secondary btn-sm" onclick="configurePluginModal('${escapeHtml(p.id)}')" style="padding:2px 6px; font-size:0.75rem;" title="Configure Plugin">⚙️</button>
             <span class="badge ${p.enabled ? 'badge-online' : 'badge-voice'}" style="font-size:0.7rem;">${p.enabled ? 'ON' : 'OFF'}</span>
             <input type="checkbox" ${p.enabled ? 'checked' : ''} onchange="togglePlugin('${escapeHtml(p.id)}', this.checked)" style="width:18px; height:18px; accent-color:#3b82f6;">
           </div>
@@ -8162,6 +8241,27 @@
       }
     }
 
+    async function configurePluginModal(pluginId) {
+      const p = allVencordPlugins.find(item => item.id === pluginId);
+      if (!p) return;
+      const currentJson = JSON.stringify(p.config || {}, null, 2);
+      const newJson = prompt(`Edit JSON configuration for ${p.name}:`, currentJson);
+      if (!newJson) return;
+      try {
+        const parsed = JSON.parse(newJson);
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'configure_plugin', id: pluginId, config: parsed })
+        });
+        const d = await res.json();
+        showToast(d.message || 'Plugin configured');
+        fetchStatus();
+      } catch (e) {
+        showToast('Invalid JSON: ' + e.message, true);
+      }
+    }
+
     async function fetchPlugins() {
       vibrate(10);
       try {
@@ -8173,7 +8273,7 @@
         const d = await res.json();
         if (d.plugins) {
           renderPluginsList(d.plugins, d.count);
-          showToast(`Loaded ${d.plugins.length} installed plugins`);
+          showToast(`Loaded ${d.plugins.length} Vencord plugins`);
         }
       } catch (e) {
         showToast('Fetch plugins error: ' + e.message, true);
@@ -8191,7 +8291,7 @@
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({
             action: 'install_plugin',
-            plugin: { id: id, name: name, description: desc || "Custom user plugin", version: "1.0.0", author: "User", enabled: true }
+            plugin: { id: id, name: name, description: desc || "Custom user plugin", version: "1.0.0", author: "User", enabled: true, category: "Custom" }
           })
         });
         const d = await res.json();
@@ -8199,6 +8299,62 @@
         fetchStatus();
       } catch (e) {
         showToast('Install plugin error: ' + e.message, true);
+      }
+    }
+
+    // 🎨 Theme & Custom CSS Engine
+    const VENCORD_THEMES = {
+      default: "",
+      amoled_midnight: ":root { --bg-dark: #000000 !important; --bg-card: #080808 !important; --border: #1a1a1a !important; --accent: #a855f7 !important; }",
+      clear_vision: ":root { --bg-dark: rgba(15, 23, 42, 0.85) !important; --bg-card: rgba(30, 41, 59, 0.65) !important; --border: rgba(255,255,255,0.12) !important; --accent: #38bdf8 !important; } .card { backdrop-filter: blur(12px) !important; }",
+      neon_cyberpunk: ":root { --bg-dark: #050811 !important; --bg-card: #0b1220 !important; --border: #00f0ff !important; --accent: #fcee0a !important; --text-heading: #00f0ff !important; }",
+      retro_synthwave: ":root { --bg-dark: #12072b !important; --bg-card: #1f0d45 !important; --border: #ff2a85 !important; --accent: #05d9e8 !important; --text-heading: #ff2a85 !important; }"
+    };
+
+    function applyLiveThemeCss(cssText) {
+      let tag = document.getElementById('vencord-custom-css-root');
+      if (!tag) {
+        tag = document.createElement('style');
+        tag.id = 'vencord-custom-css-root';
+        document.head.appendChild(tag);
+      }
+      tag.innerHTML = cssText;
+    }
+
+    async function switchTheme(themeId) {
+      vibrate(15);
+      const themeCss = VENCORD_THEMES[themeId] || "";
+      const customCss = document.getElementById('custom-css-input')?.value || "";
+      applyLiveThemeCss(themeCss + "\n" + customCss);
+      try {
+        await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'set_theme', theme: themeId })
+        });
+        showToast(`Theme switched to: ${themeId}`);
+      } catch (ignored) {}
+    }
+
+    function toggleCustomCssModal() {
+      const box = document.getElementById('custom-css-container');
+      if (box) box.style.display = box.style.display === 'none' ? 'block' : 'none';
+    }
+
+    async function applyCustomCss() {
+      vibrate(20);
+      const css = document.getElementById('custom-css-input')?.value || "";
+      applyLiveThemeCss(css);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'set_custom_css', css: css })
+        });
+        const d = await res.json();
+        showToast(d.message || 'Custom CSS applied!');
+      } catch (e) {
+        showToast('CSS error: ' + e.message, true);
       }
     }
 
