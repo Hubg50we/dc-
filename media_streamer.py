@@ -6,9 +6,13 @@ AES-256-GCM AEAD encryption, and RFC 6184 / RFC 7587 standard conformance.
 
 import asyncio
 import base64
+import collections
 import json
+import os
 import socket
 import struct
+import subprocess
+import sys
 import threading
 import time
 import websockets
@@ -191,6 +195,101 @@ class DiscordMediaConnection:
         self._video_thread = None
         self._audio_thread = None
 
+        self.desktop_capture_active = False
+        self.desktop_capture_proc = None
+        self.desktop_capture_thread = None
+        self.frame_queue = collections.deque(maxlen=15)
+
+    def set_desktop_capture(self, enabled=True):
+        self.desktop_capture_active = bool(enabled)
+        if self.desktop_capture_active:
+            self._start_desktop_capture()
+        else:
+            self._stop_desktop_capture()
+
+    def _start_desktop_capture(self):
+        self._stop_desktop_capture()
+        cmd = None
+        if sys.platform == "win32":
+            cmd = [
+                "ffmpeg", "-hide_banner", "-loglevel", "error",
+                "-f", "gdigrab", "-framerate", str(self.fps),
+                "-offset_x", "0", "-offset_y", "0",
+                "-video_size", "1280x720", "-i", "desktop",
+                "-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency",
+                "-b:v", "2500k", "-pix_fmt", "yuv420p", "-g", str(self.fps),
+                "-f", "h264", "pipe:1"
+            ]
+        elif sys.platform.startswith("linux"):
+            cmd = [
+                "ffmpeg", "-hide_banner", "-loglevel", "error",
+                "-f", "x11grab", "-framerate", str(self.fps),
+                "-video_size", "1280x720", "-i", ":0.0",
+                "-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency",
+                "-b:v", "2500k", "-pix_fmt", "yuv420p", "-g", str(self.fps),
+                "-f", "h264", "pipe:1"
+            ]
+        if not cmd:
+            self.log("[!] Desktop screen capture not supported on this platform - using visualizer")
+            return
+
+        try:
+            creationflags = 0
+            if sys.platform == "win32":
+                creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+            self.desktop_capture_proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                bufsize=10**6,
+                creationflags=creationflags
+            )
+            self.log("🖥️ Live Desktop Screen Capture Process Launched (H.264 Pipe)")
+
+            def _reader():
+                buf = b""
+                proc = self.desktop_capture_proc
+                while self.running and self.desktop_capture_active and proc and proc.poll() is None:
+                    try:
+                        chunk = proc.stdout.read(4096)
+                        if not chunk:
+                            break
+                        buf += chunk
+                        while True:
+                            p1 = buf.find(b"\x00\x00\x01")
+                            p2 = buf.find(b"\x00\x00\x00\x01")
+                            if p1 == -1 and p2 == -1:
+                                if len(buf) > 65536:
+                                    buf = buf[-8:]
+                                break
+                            pos = p1 if (p1 != -1 and (p2 == -1 or p1 < p2)) else p2
+                            lead = 3 if pos == p1 else 4
+                            n1 = buf.find(b"\x00\x00\x01", pos + lead)
+                            n2 = buf.find(b"\x00\x00\x00\x01", pos + lead)
+                            if n1 == -1 and n2 == -1:
+                                break
+                            next_pos = n1 if (n1 != -1 and (n2 == -1 or n1 < n2)) else n2
+                            nal = buf[pos + lead:next_pos]
+                            buf = buf[next_pos:]
+                            if nal:
+                                packets = packetize_nal(nal, is_last_nal=True)
+                                self.frame_queue.append(packets)
+                    except Exception:
+                        break
+            self.desktop_capture_thread = threading.Thread(target=_reader, daemon=True)
+            self.desktop_capture_thread.start()
+        except Exception as e:
+            self.log(f"[!] Desktop capture could not start ({e}) - continuing with visualizer")
+
+    def _stop_desktop_capture(self):
+        if self.desktop_capture_proc:
+            try:
+                self.desktop_capture_proc.kill()
+            except Exception:
+                pass
+            self.desktop_capture_proc = None
+        self.frame_queue.clear()
+
     def set_visualizer(self, mode):
         self.visualizer_mode = (mode or "spectrum").lower()
         self.log(f"Audio Visualizer Mode set to: {self.visualizer_mode.upper()}")
@@ -232,6 +331,7 @@ class DiscordMediaConnection:
     async def stop(self):
         self.running = False
         self.connected = False
+        self._stop_desktop_capture()
         if self.ws:
             try:
                 await self.ws.close()
@@ -451,8 +551,11 @@ class DiscordMediaConnection:
             try:
                 interval = self.frame_interval
                 delta = self.ts_delta
-                # Procedural Spectrum & Equalizer Frame Modulation
-                if self.visualizer_mode == "smpte":
+                # Priority 1: Real Desktop Screen Capture (if active and frame buffered)
+                if self.desktop_capture_active and len(self.frame_queue) > 0:
+                    packets = self.frame_queue.popleft()
+                # Priority 2: Procedural Spectrum & Equalizer Frame Modulation
+                elif self.visualizer_mode == "smpte":
                     packets = PRE_PACKETIZED_SMPTE
                 elif self.visualizer_mode == "testsrc":
                     packets = PRE_PACKETIZED_TESTSRC

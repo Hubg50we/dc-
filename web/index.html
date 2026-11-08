@@ -1221,7 +1221,7 @@
       <div class="card" style="border-color: rgba(88, 101, 242, 0.45);">
         <div class="card-title" style="color:var(--accent);">
           <span>🔄 App Updates & Version</span>
-          <span class="badge badge-voice" id="settings-app-version">v1.4.3</span>
+          <span class="badge badge-voice" id="settings-app-version">v1.4.4</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Cross-platform Discord controller for Android Mobile and Windows PC.
@@ -1245,7 +1245,7 @@
         </div>
 
         <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:6px;">
-          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Direct Downloads (v1.4.3):</div>
+          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Direct Downloads (v1.4.4):</div>
           <div style="display:flex; gap:6px; flex-wrap:wrap;">
             <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-android.apk" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               📱 Android APK
@@ -1253,7 +1253,7 @@
             <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows.exe" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               💻 Windows EXE
             </a>
-            <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows-portable-v1.4.3.zip" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
+            <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows-portable-v1.4.4.zip" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               📦 Portable ZIP
             </a>
           </div>
@@ -1539,6 +1539,23 @@
           </div>
         </div>
 
+        <!-- 🖥️ Live Desktop Screen Capture (PC Monitor Grab) -->
+        <div id="sec-desktop-screen" style="background:var(--bg-dark); padding:10px 12px; border-radius:var(--radius-sm); margin-bottom:10px; border:1px solid rgba(168, 85, 247, 0.45);">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:1.1rem; color:#c084fc;">🖥️</span>
+              <div>
+                <strong style="font-size:0.84rem; color:var(--text-heading);">Real Desktop Screen Share (DXGI/FFmpeg)</strong>
+                <div style="font-size:0.72rem; color:var(--text-muted);">Stream your actual PC monitor to Discord Go Live in real-time</div>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span class="badge badge-voice" id="desktop-capture-status-badge">Off</span>
+              <input type="checkbox" id="desktop-screen-toggle" onchange="toggleDesktopScreenCapture(this.checked)" style="width:18px; height:18px; accent-color:#c084fc;">
+            </div>
+          </div>
+        </div>
+
         <!-- Go Live Stream Overlay & Dynamic Watermark -->
         <div id="sec-overlay" style="background:var(--bg-dark); padding:10px 12px; border-radius:var(--radius-sm); margin-bottom:10px; border:1px solid rgba(234, 179, 8, 0.45);">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
@@ -1600,7 +1617,10 @@
 
           <!-- Video URL / Link Input -->
           <div class="field-group" style="margin-bottom:6px;">
-            <input type="text" id="streambot-url-input" placeholder="Paste YouTube link, TikTok video, MP4/M3U8 link, or movie path..." style="width:100%; font-size:0.8rem; margin-bottom:4px;">
+            <div style="display:flex; gap:6px; margin-bottom:4px;">
+              <input type="text" id="streambot-url-input" placeholder="Paste YouTube link, TikTok video, MP4/M3U8 link, or movie path..." style="flex:1; font-size:0.8rem;">
+              <button class="btn btn-secondary btn-sm" onclick="extractSocialMediaUrl()" title="Auto-Extract Direct Stream (YouTube / TikTok / SoundCloud)" style="white-space:nowrap; padding:4px 8px; font-size:0.75rem;">🔍 Extract</button>
+            </div>
             <div style="display:flex; gap:6px;">
               <input type="text" id="streambot-title-input" placeholder="Title (optional)" style="flex:2; font-size:0.78rem;">
               <button class="btn btn-primary btn-sm" style="flex:1; background:#a855f7; color:#fff;" onclick="streambotPlayInput()">▶️ Play</button>
@@ -1885,66 +1905,49 @@
           <!-- Live Neon Audio Frequency Spectrum Visualizer -->
           <canvas id="audio-spectrum-canvas" width="300" height="40" style="width:100%; height:40px; border-radius:var(--radius-sm); background:#06060c; border:1px solid rgba(244,63,94,0.25); margin-bottom:8px; display:block;"></canvas>
 
-          <!-- Voice Changer & Pitch Shifter Selector -->
-          <div style="display:flex; gap:4px; align-items:center; margin-bottom:8px; flex-wrap:wrap;">
-            <span style="font-size:0.72rem; color:var(--text-muted); margin-right:4px;">Voice FX:</span>
-            <button class="preset-chip active" id="vfx-normal" style="font-size:0.7rem; padding:3px 7px;" onclick="setVoiceFx('normal')">🎙️ Normal</button>
-            <button class="preset-chip" id="vfx-demon" style="font-size:0.7rem; padding:3px 7px;" onclick="setVoiceFx('demon')">👹 Demon</button>
-            <button class="preset-chip" id="vfx-chipmunk" style="font-size:0.7rem; padding:3px 7px;" onclick="setVoiceFx('chipmunk')">🐿️ Chipmunk</button>
-            <button class="preset-chip" id="vfx-robot" style="font-size:0.7rem; padding:3px 7px;" onclick="setVoiceFx('robot')">🤖 Robot</button>
-            <button class="preset-chip" id="vfx-megaphone" style="font-size:0.7rem; padding:3px 7px;" onclick="setVoiceFx('megaphone')">📢 Megaphone</button>
+          <!-- 🎚️ Dynamic Audio DSP & Voice EQ -->
+          <div style="background:rgba(0,0,0,0.3); border:1px solid rgba(244,63,94,0.3); border-radius:var(--radius-sm); padding:8px 10px; margin-bottom:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <span style="font-size:0.75rem; font-weight:700; color:var(--text-heading);">🎚️ Live Audio DSP & Dynamic EQ</span>
+              <span class="badge badge-voice" id="dsp-preset-badge" style="text-transform:uppercase;">FLAT</span>
+            </div>
+            <!-- DSP Preset Chips -->
+            <div style="display:flex; gap:4px; margin-bottom:8px; flex-wrap:wrap;">
+              <button class="preset-chip active" id="dsp-flat" style="font-size:0.7rem; padding:3px 7px;" onclick="changeAudioDspPreset('flat')">Flat</button>
+              <button class="preset-chip" id="dsp-bass_heavy" style="font-size:0.7rem; padding:3px 7px;" onclick="changeAudioDspPreset('bass_heavy')">🔊 Bass (+12dB)</button>
+              <button class="preset-chip" id="dsp-nightcore" style="font-size:0.7rem; padding:3px 7px;" onclick="changeAudioDspPreset('nightcore')">✨ Nightcore (1.3x)</button>
+              <button class="preset-chip" id="dsp-deep_voice" style="font-size:0.7rem; padding:3px 7px;" onclick="changeAudioDspPreset('deep_voice')">👹 Deep (0.8x)</button>
+              <button class="preset-chip" id="dsp-radio" style="font-size:0.7rem; padding:3px 7px;" onclick="changeAudioDspPreset('radio')">📻 Radio</button>
+            </div>
+            <!-- Sliders -->
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-size:0.72rem; margin-bottom:6px;">
+              <div>
+                <div style="display:flex; justify-content:space-between; color:var(--text-muted); margin-bottom:2px;">
+                  <span>Bass Boost:</span>
+                  <span id="dsp-bass-val" style="font-weight:700; color:var(--text);">+0 dB</span>
+                </div>
+                <input type="range" id="dsp-bass-slider" min="0" max="20" value="0" oninput="updateDspSliders()" onchange="saveAudioDsp()" style="width:100%; accent-color:#f43f5e;">
+              </div>
+              <div>
+                <div style="display:flex; justify-content:space-between; color:var(--text-muted); margin-bottom:2px;">
+                  <span>Pitch Shift:</span>
+                  <span id="dsp-pitch-val" style="font-weight:700; color:var(--text);">1.00x</span>
+                </div>
+                <input type="range" id="dsp-pitch-slider" min="50" max="200" value="100" oninput="updateDspSliders()" onchange="saveAudioDsp()" style="width:100%; accent-color:#f43f5e;">
+              </div>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.72rem; color:var(--text-muted);">
+              <span>Dynamic Audio Normalizer & Limiter</span>
+              <input type="checkbox" id="dsp-normalizer-toggle" checked onchange="saveAudioDsp()" style="width:16px; height:16px; accent-color:#f43f5e;">
+            </div>
           </div>
 
-          <!-- 12-Pad Soundboard Grid -->
+          <!-- 12-Pad Soundboard Grid (Dynamic Multi-Pad Engine with Custom Upload Assignment) -->
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <span style="font-size:0.72rem; color:var(--text-muted); font-weight:600;">12-Pad Instant Soundboard (Click pad to play • ✏️ to bind custom audio)</span>
+          </div>
           <div id="soundboard-pads-grid" style="display:grid; grid-template-columns: repeat(4, 1fr); gap:6px; margin-bottom:10px;">
-            <div class="sound-pad-btn" onclick="triggerSoundPad('airhorn')">
-              <span class="sound-pad-emoji">📢</span>
-              <span class="sound-pad-title">Airhorn</span>
-            </div>
-            <div class="sound-pad-btn" onclick="triggerSoundPad('vine_boom')">
-              <span class="sound-pad-emoji">💥</span>
-              <span class="sound-pad-title">Vine Boom</span>
-            </div>
-            <div class="sound-pad-btn" onclick="triggerSoundPad('bruh')">
-              <span class="sound-pad-emoji">🗿</span>
-              <span class="sound-pad-title">Bruh</span>
-            </div>
-            <div class="sound-pad-btn" onclick="triggerSoundPad('metal_pipe')">
-              <span class="sound-pad-emoji">🪈</span>
-              <span class="sound-pad-title">Metal Pipe</span>
-            </div>
-            <div class="sound-pad-btn" onclick="triggerSoundPad('applause')">
-              <span class="sound-pad-emoji">👏</span>
-              <span class="sound-pad-title">Applause</span>
-            </div>
-            <div class="sound-pad-btn" onclick="triggerSoundPad('gg')">
-              <span class="sound-pad-emoji">🏆</span>
-              <span class="sound-pad-title">Good Game</span>
-            </div>
-            <div class="sound-pad-btn" onclick="triggerSoundPad('sad_trombone')">
-              <span class="sound-pad-emoji">🎺</span>
-              <span class="sound-pad-title">Trombone</span>
-            </div>
-            <div class="sound-pad-btn" onclick="triggerSoundPad('drum_roll')">
-              <span class="sound-pad-emoji">🥁</span>
-              <span class="sound-pad-title">Drum Roll</span>
-            </div>
-            <div class="sound-pad-btn" onclick="triggerSoundPad('what')">
-              <span class="sound-pad-emoji">❓</span>
-              <span class="sound-pad-title">What?!</span>
-            </div>
-            <div class="sound-pad-btn" onclick="triggerSoundPad('wow')">
-              <span class="sound-pad-emoji">✨</span>
-              <span class="sound-pad-title">Anime Wow</span>
-            </div>
-            <div class="sound-pad-btn" onclick="triggerSoundPad('scream')">
-              <span class="sound-pad-emoji">😱</span>
-              <span class="sound-pad-title">Scream FX</span>
-            </div>
-            <div class="sound-pad-btn" onclick="triggerSoundPad('discord_ping')">
-              <span class="sound-pad-emoji">🔔</span>
-              <span class="sound-pad-title">Discord Ping</span>
-            </div>
+            <!-- Populated dynamically via renderSoundboardPads -->
           </div>
 
           <!-- Direct Voice Clip Microphone Recorder & Streamer -->
@@ -2835,6 +2838,9 @@
       renderSpotifyState(data);
       renderVisualizerMode(data.visualizer_mode);
       renderStreamOverlayState(data);
+      renderDesktopCaptureState(data.desktop_screen_capture);
+      renderSoundboardPads(data.soundboard_pads, data.uploaded_media);
+      renderAudioDspState(data.audio_dsp);
       renderChatAutoResponder(data);
       updateActiveBadges();
     }
@@ -4888,6 +4894,66 @@
     }
 
     // ==========================================
+    // 🖥️ REAL DESKTOP SCREEN SHARE (DXGI/FFmpeg)
+    // ==========================================
+    async function toggleDesktopScreenCapture(enabled) {
+      vibrate(25);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set_desktop_screen_capture', enabled: enabled })
+        });
+        const json = await res.json();
+        showToast(json.message || `Desktop Screen Capture ${enabled ? 'Enabled' : 'Disabled'}`);
+        renderDesktopCaptureState(enabled);
+        fetchStatus();
+      } catch (e) {
+        showToast('Desktop capture error: ' + e.message, true);
+      }
+    }
+
+    function renderDesktopCaptureState(enabled) {
+      const toggle = document.getElementById('desktop-screen-toggle');
+      const badge = document.getElementById('desktop-capture-status-badge');
+      if (toggle) toggle.checked = !!enabled;
+      if (badge) {
+        badge.innerText = enabled ? 'LIVE 🖥️' : 'Off';
+        badge.className = enabled ? 'badge badge-online' : 'badge badge-voice';
+      }
+    }
+
+    // ==========================================
+    // 📱 SOCIAL MEDIA URL EXTRACTOR (YouTube/TikTok/SoundCloud)
+    // ==========================================
+    async function extractSocialMediaUrl() {
+      vibrate(20);
+      const urlInput = document.getElementById('streambot-url-input');
+      const url = urlInput ? urlInput.value.trim() : '';
+      if (!url) return showToast('Please paste a video or audio URL first', true);
+
+      showToast('Extracting stream info...');
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'extract_media', url: url })
+        });
+        const json = await res.json();
+        if (json.success && json.info) {
+          const info = json.info;
+          const titleInput = document.getElementById('streambot-title-input');
+          if (titleInput) titleInput.value = info.title || '';
+          showToast(`Extracted: [${info.extractor || 'Web'}] ${info.title}`);
+        } else {
+          showToast(json.error || 'Could not extract direct stream', true);
+        }
+      } catch (e) {
+        showToast('Extract error: ' + e.message, true);
+      }
+    }
+
+    // ==========================================
     // 🎨 GO LIVE STREAM OVERLAY & WATERMARK
     // ==========================================
     async function toggleStreamOverlay(enabled) {
@@ -5060,6 +5126,157 @@
     // ==========================================
     // 🎛️ 12-PAD SOUNDBOARD & MIC RECORDER
     // ==========================================
+    let currentUploadedMediaList = [];
+
+    function renderSoundboardPads(pads, uploadedMedia) {
+      if (uploadedMedia) currentUploadedMediaList = uploadedMedia;
+      const grid = document.getElementById('soundboard-pads-grid');
+      if (!grid || !pads || !pads.length) return;
+
+      let html = '';
+      pads.forEach(p => {
+        const isCustom = !!p.custom_file;
+        const displayName = p.custom_name || p.name;
+        html += `
+          <div class="sound-pad-btn ${isCustom ? 'custom-bound' : ''}" onclick="triggerSoundPad('${p.id}')">
+            <span class="sound-pad-assign-btn" onclick="openPadAssignModal(event, '${p.id}', '${p.name}')" title="Assign custom uploaded audio file">✏️</span>
+            <span class="sound-pad-emoji">${p.emoji || '🔊'}</span>
+            <span class="sound-pad-title">${escapeHtml(displayName)}</span>
+          </div>
+        `;
+      });
+      grid.innerHTML = html;
+    }
+
+    function openPadAssignModal(e, padId, padName) {
+      e.stopPropagation();
+      vibrate(15);
+      if (!currentUploadedMediaList || !currentUploadedMediaList.length) {
+        return showToast('No uploaded files found. Upload audio in Local Media Player first!', true);
+      }
+      const fileOptions = currentUploadedMediaList.map(f => f.filename).join('\n• ');
+      const chosen = prompt(`Assign Uploaded Audio File to [${padName}]:\n\nAvailable files:\n• ${fileOptions}\n\nType filename to bind (or type 'reset' to restore default):`);
+      if (!chosen) return;
+      if (chosen.trim().toLowerCase() === 'reset') {
+        resetSoundboardPad(padId);
+      } else {
+        const found = currentUploadedMediaList.find(f => f.filename.toLowerCase() === chosen.trim().toLowerCase());
+        const targetFile = found ? found.filename : chosen.trim();
+        const customName = prompt(`Display Name for this button (optional):`, targetFile) || targetFile;
+        assignSoundboardPad(padId, targetFile, customName);
+      }
+    }
+
+    async function assignSoundboardPad(padId, filename, customName) {
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'assign_soundboard_pad', id: padId, custom_file: filename, custom_name: customName })
+        });
+        const json = await res.json();
+        showToast(json.message || 'Pad updated');
+        fetchStatus();
+      } catch (e) {
+        showToast('Assign error: ' + e.message, true);
+      }
+    }
+
+    async function resetSoundboardPad(padId) {
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'reset_soundboard_pad', id: padId })
+        });
+        const json = await res.json();
+        showToast(json.message || 'Pad reset to default');
+        fetchStatus();
+      } catch (e) {
+        showToast('Reset error: ' + e.message, true);
+      }
+    }
+
+    // ==========================================
+    // 🎚️ DYNAMIC AUDIO DSP & VOICE EQ
+    // ==========================================
+    let currentDspPreset = 'flat';
+
+    function changeAudioDspPreset(preset) {
+      vibrate(20);
+      currentDspPreset = preset;
+      if (preset === 'bass_heavy') {
+        document.getElementById('dsp-bass-slider').value = 12;
+        document.getElementById('dsp-pitch-slider').value = 100;
+      } else if (preset === 'nightcore') {
+        document.getElementById('dsp-bass-slider').value = 4;
+        document.getElementById('dsp-pitch-slider').value = 130;
+      } else if (preset === 'deep_voice') {
+        document.getElementById('dsp-bass-slider').value = 8;
+        document.getElementById('dsp-pitch-slider').value = 80;
+      } else if (preset === 'radio') {
+        document.getElementById('dsp-bass-slider').value = 0;
+        document.getElementById('dsp-pitch-slider').value = 105;
+      } else {
+        document.getElementById('dsp-bass-slider').value = 0;
+        document.getElementById('dsp-pitch-slider').value = 100;
+      }
+      updateDspSliders();
+      saveAudioDsp();
+    }
+
+    function updateDspSliders() {
+      const bass = document.getElementById('dsp-bass-slider').value;
+      const pitch = (document.getElementById('dsp-pitch-slider').value / 100).toFixed(2);
+      const bassVal = document.getElementById('dsp-bass-val');
+      const pitchVal = document.getElementById('dsp-pitch-val');
+      if (bassVal) bassVal.innerText = `+${bass} dB`;
+      if (pitchVal) pitchVal.innerText = `${pitch}x`;
+    }
+
+    async function saveAudioDsp() {
+      const bass = parseInt(document.getElementById('dsp-bass-slider').value || '0', 10);
+      const pitch = parseFloat((document.getElementById('dsp-pitch-slider').value / 100).toFixed(2));
+      const normalizer = document.getElementById('dsp-normalizer-toggle').checked;
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'set_audio_dsp',
+            bass_boost: bass,
+            pitch_shift: pitch,
+            normalizer: normalizer,
+            preset: currentDspPreset
+          })
+        });
+        const json = await res.json();
+        showToast(json.message || 'Audio DSP applied');
+      } catch (e) {
+        showToast('DSP error: ' + e.message, true);
+      }
+    }
+
+    function renderAudioDspState(dsp) {
+      if (!dsp) return;
+      currentDspPreset = dsp.preset || 'flat';
+      const badge = document.getElementById('dsp-preset-badge');
+      if (badge) badge.innerText = currentDspPreset.toUpperCase();
+
+      ['flat', 'bass_heavy', 'nightcore', 'deep_voice', 'radio'].forEach(p => {
+        const btn = document.getElementById('dsp-' + p);
+        if (btn) btn.classList.toggle('active', p === currentDspPreset);
+      });
+
+      const bassSlider = document.getElementById('dsp-bass-slider');
+      const pitchSlider = document.getElementById('dsp-pitch-slider');
+      const normToggle = document.getElementById('dsp-normalizer-toggle');
+
+      if (bassSlider && dsp.bass_boost !== undefined) bassSlider.value = dsp.bass_boost;
+      if (pitchSlider && dsp.pitch_shift !== undefined) pitchSlider.value = Math.round(dsp.pitch_shift * 100);
+      if (normToggle && dsp.normalizer !== undefined) normToggle.checked = !!dsp.normalizer;
+      updateDspSliders();
+    }
     async function triggerSoundPad(padId) {
       vibrate(30);
       try {
@@ -5932,7 +6149,7 @@
       return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    let currentAppVersion = '1.4.3';
+    let currentAppVersion = '1.4.4';
     let latestUpdateData = null;
 
     function toggleAutoCheckUpdate(enabled) {

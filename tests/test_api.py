@@ -461,6 +461,61 @@ def run_tests():
     except Exception as e:
         check("POST action: broadcast_voice_clip", False, str(e))
 
+    # 47. Test Desktop Screen Capture (DXGI / FFmpeg Pipeline)
+    try:
+        st_dc1, d_dc1 = http_post("/api/action", {"action": "set_desktop_screen_capture", "enabled": True})
+        st_dc2, d_dc2 = http_post("/api/action", {"action": "set_desktop_screen_capture", "enabled": False})
+        check("POST action: set_desktop_screen_capture (Live Windows Desktop / Screen Grab)",
+              st_dc1 == 200 and d_dc1.get("enabled") is True and d_dc2.get("enabled") is False)
+    except Exception as e:
+        check("POST action: set_desktop_screen_capture", False, str(e))
+
+    # 48. Test Social Media & URL Direct Extractor (YouTube, TikTok, SoundCloud)
+    try:
+        st_ext, d_ext = http_post("/api/action", {
+            "action": "extract_media",
+            "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+        })
+        check("POST action: extract_media (Direct Stream & Social Audio Extractor)",
+              st_ext == 200 and d_ext.get("success") is True and "info" in d_ext)
+    except Exception as e:
+        check("POST action: extract_media", False, str(e))
+
+    # 49. Test Custom Soundboard Pad Assignment & Reset
+    try:
+        st_as, d_as = http_post("/api/action", {
+            "action": "assign_soundboard_pad",
+            "id": "vine_boom",
+            "custom_file": "my_custom_sfx.mp3",
+            "custom_name": "Custom Meme FX"
+        })
+        st_rs, d_rs = http_post("/api/action", {
+            "action": "reset_soundboard_pad",
+            "id": "vine_boom"
+        })
+        check("POST action: assign_soundboard_pad / reset_soundboard_pad (Custom Sound Binding)",
+              st_as == 200 and d_as.get("success") is True and d_rs.get("success") is True)
+    except Exception as e:
+        check("POST action: assign_soundboard_pad", False, str(e))
+
+    # 50. Test Dynamic Audio DSP & Voice EQ (Bass Boost, Pitch Shift, Normalizer)
+    try:
+        st_dsp1, d_dsp1 = http_post("/api/action", {
+            "action": "set_audio_dsp",
+            "bass_boost": 12,
+            "pitch_shift": 1.25,
+            "normalizer": True,
+            "preset": "bass_heavy"
+        })
+        st_dsp2, d_dsp2 = http_post("/api/action", {
+            "action": "set_audio_dsp",
+            "preset": "flat"
+        })
+        check("POST action: set_audio_dsp (Live DSP, Bass Boost, Pitch Shift & Limiter)",
+              st_dsp1 == 200 and d_dsp1.get("bass_boost") == 12 and d_dsp2.get("preset") == "flat")
+    except Exception as e:
+        check("POST action: set_audio_dsp", False, str(e))
+
     # Summary
     passed = sum(1 for _, ok, _ in results if ok)
     total = len(results)

@@ -75,7 +75,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.4.3"
+APP_VERSION = "1.4.4"
 AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
@@ -117,6 +117,13 @@ VISUALIZER_MODE = "spectrum"  # "spectrum", "bars", "testsrc", "smpte"
 STREAM_OVERLAY_ENABLED = False
 STREAM_OVERLAY_TITLE = "🔴 LIVE: 24/7 Music Lounge"
 STREAM_OVERLAY_TICKER = "Welcome to the Voice Channel • Quality Sound • dc- Pro"
+DESKTOP_SCREEN_CAPTURE = False
+
+# Dynamic Audio DSP & Voice EQ Settings
+AUDIO_BASS_BOOST = 0      # 0 to 20 dB
+AUDIO_PITCH_SHIFT = 1.0   # 0.5x to 2.0x
+AUDIO_NORMALIZER = True   # Dynamic audio loudness compression / limiter
+AUDIO_EQ_PRESET = "flat"  # "flat", "bass_heavy", "nightcore", "deep_voice", "radio"
 
 CHAT_AUTO_RESPONDER_ENABLED = False
 CHAT_AUTO_RESPONDER_RULES = [
@@ -126,19 +133,68 @@ CHAT_AUTO_RESPONDER_RULES = [
 ]
 
 SOUNDBOARD_PADS = [
-    {"id": "airhorn", "name": "Airhorn 📢", "emoji": "📢", "flags": 5, "duration": 3.0},
-    {"id": "vine_boom", "name": "Vine Boom 💥", "emoji": "💥", "flags": 5, "duration": 2.5},
-    {"id": "bruh", "name": "Bruh 🗿", "emoji": "🗿", "flags": 5, "duration": 2.0},
-    {"id": "metal_pipe", "name": "Metal Pipe 🪈", "emoji": "🪈", "flags": 5, "duration": 3.0},
-    {"id": "applause", "name": "Applause 👏", "emoji": "👏", "flags": 5, "duration": 4.0},
-    {"id": "gg", "name": "Good Game 🏆", "emoji": "🏆", "flags": 5, "duration": 2.5},
-    {"id": "sad_trombone", "name": "Sad Trombone 🎺", "emoji": "🎺", "flags": 5, "duration": 3.5},
-    {"id": "drum_roll", "name": "Drum Roll 🥁", "emoji": "🥁", "flags": 5, "duration": 4.0},
-    {"id": "what", "name": "What?! ❓", "emoji": "❓", "flags": 5, "duration": 2.0},
-    {"id": "wow", "name": "Anime Wow ✨", "emoji": "✨", "flags": 5, "duration": 2.5},
-    {"id": "scream", "name": "Scream FX 😱", "emoji": "😱", "flags": 5, "duration": 3.0},
-    {"id": "discord_ping", "name": "Discord Ping 🔔", "emoji": "🔔", "flags": 5, "duration": 1.5}
+    {"id": "airhorn", "name": "Airhorn 📢", "emoji": "📢", "flags": 5, "duration": 3.0, "custom_file": "", "custom_name": ""},
+    {"id": "vine_boom", "name": "Vine Boom 💥", "emoji": "💥", "flags": 5, "duration": 2.5, "custom_file": "", "custom_name": ""},
+    {"id": "bruh", "name": "Bruh 🗿", "emoji": "🗿", "flags": 5, "duration": 2.0, "custom_file": "", "custom_name": ""},
+    {"id": "metal_pipe", "name": "Metal Pipe 🪈", "emoji": "🪈", "flags": 5, "duration": 3.0, "custom_file": "", "custom_name": ""},
+    {"id": "applause", "name": "Applause 👏", "emoji": "👏", "flags": 5, "duration": 4.0, "custom_file": "", "custom_name": ""},
+    {"id": "gg", "name": "Good Game 🏆", "emoji": "🏆", "flags": 5, "duration": 2.5, "custom_file": "", "custom_name": ""},
+    {"id": "sad_trombone", "name": "Sad Trombone 🎺", "emoji": "🎺", "flags": 5, "duration": 3.5, "custom_file": "", "custom_name": ""},
+    {"id": "drum_roll", "name": "Drum Roll 🥁", "emoji": "🥁", "flags": 5, "duration": 4.0, "custom_file": "", "custom_name": ""},
+    {"id": "what", "name": "What?! ❓", "emoji": "❓", "flags": 5, "duration": 2.0, "custom_file": "", "custom_name": ""},
+    {"id": "wow", "name": "Anime Wow ✨", "emoji": "✨", "flags": 5, "duration": 2.5, "custom_file": "", "custom_name": ""},
+    {"id": "scream", "name": "Scream FX 😱", "emoji": "😱", "flags": 5, "duration": 3.0, "custom_file": "", "custom_name": ""},
+    {"id": "discord_ping", "name": "Discord Ping 🔔", "emoji": "🔔", "flags": 5, "duration": 1.5, "custom_file": "", "custom_name": ""}
 ]
+
+def extract_media_info(url):
+    """
+    Directly extracts metadata & stream URL from YouTube, TikTok, SoundCloud, Twitter/X, etc.
+    Works natively on standalone mobile/desktop using yt-dlp CLI with fallback to oEmbed.
+    """
+    url = str(url).strip()
+    if not url:
+        return None
+    try:
+        res = subprocess.run(
+            ["yt-dlp", "--dump-single-json", "--no-warnings", "--no-playlist", "--quiet", url],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=12
+        )
+        if res.returncode == 0 and res.stdout.strip():
+            info = json.loads(res.stdout)
+            direct_url = info.get("url")
+            if not direct_url and "formats" in info:
+                for f in reversed(info["formats"]):
+                    if f.get("acodec") != "none":
+                        direct_url = f.get("url")
+                        break
+            return {
+                "title": info.get("title", "Online Media Stream"),
+                "author": info.get("uploader") or info.get("creator") or info.get("channel") or "Web Creator",
+                "duration": int(info.get("duration") or 0),
+                "thumbnail": info.get("thumbnail", ""),
+                "direct_url": direct_url or url,
+                "webpage_url": info.get("webpage_url", url),
+                "extractor": info.get("extractor_key", "Social Media")
+            }
+    except Exception:
+        pass
+
+    meta = resolve_youtube_metadata(url)
+    if meta:
+        return {
+            "title": meta.get("title", "Online Media Stream"),
+            "author": meta.get("author", "Online Media"),
+            "duration": 0,
+            "thumbnail": "",
+            "direct_url": url,
+            "webpage_url": url,
+            "extractor": "YouTube/oEmbed"
+        }
+    return None
 
 async def send_chat_message(token, channel_id, message_text):
     if not token or not channel_id or not message_text:
@@ -940,6 +996,8 @@ async def run_account(aid):
                                 s_conn.set_visualizer(VISUALIZER_MODE)
                                 if STREAM_OVERLAY_ENABLED:
                                     s_conn.set_overlay(STREAM_OVERLAY_TITLE, STREAM_OVERLAY_TICKER)
+                                if DESKTOP_SCREEN_CAPTURE:
+                                    s_conn.set_desktop_capture(True)
                                 cur_ch = acc.get("voice_channel")
                                 def _make_stream_spk_cb(ch):
                                     def _on_spk(uid, spk):
@@ -1696,6 +1754,13 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             "stream_overlay_enabled": STREAM_OVERLAY_ENABLED,
             "stream_overlay_title": STREAM_OVERLAY_TITLE,
             "stream_overlay_ticker": STREAM_OVERLAY_TICKER,
+            "desktop_screen_capture": DESKTOP_SCREEN_CAPTURE,
+            "audio_dsp": {
+                "bass_boost": AUDIO_BASS_BOOST,
+                "pitch_shift": AUDIO_PITCH_SHIFT,
+                "normalizer": AUDIO_NORMALIZER,
+                "preset": AUDIO_EQ_PRESET
+            },
             "chat_auto_responder_enabled": CHAT_AUTO_RESPONDER_ENABLED,
             "chat_auto_responder_rules": CHAT_AUTO_RESPONDER_RULES,
             "soundboard_pads": SOUNDBOARD_PADS,
@@ -1784,8 +1849,86 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(404, "Not Found")
 
     def execute_action(self, payload):
-        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VOICE_FLAGS, ACTIVE_SFX, VOICE_STATUS, HUMAN_CHATTER_ENABLED, HUMAN_CHATTER_TASK, REAL_VIDEO_ACTIVE, REAL_VIDEO_MODE, REAL_VIDEO_TITLE, WEB_SHARE_URL, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE, STREAMBOT_QUEUE, STREAMBOT_CURRENT, STREAMBOT_STATUS, STREAMBOT_LOOP_MODE, STREAMBOT_VOLUME, STREAMBOT_RESOLUTION, STREAMBOT_FPS, STREAMBOT_BITRATE, STREAM_PROFILE, SPOTIFY_SONG, SPOTIFY_ARTIST, SPOTIFY_ALBUM, SPOTIFY_DURATION, VISUALIZER_MODE, STREAM_OVERLAY_ENABLED, STREAM_OVERLAY_TITLE, STREAM_OVERLAY_TICKER, CHAT_AUTO_RESPONDER_ENABLED, CHAT_AUTO_RESPONDER_RULES
+        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VOICE_FLAGS, ACTIVE_SFX, VOICE_STATUS, HUMAN_CHATTER_ENABLED, HUMAN_CHATTER_TASK, REAL_VIDEO_ACTIVE, REAL_VIDEO_MODE, REAL_VIDEO_TITLE, WEB_SHARE_URL, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE, STREAMBOT_QUEUE, STREAMBOT_CURRENT, STREAMBOT_STATUS, STREAMBOT_LOOP_MODE, STREAMBOT_VOLUME, STREAMBOT_RESOLUTION, STREAMBOT_FPS, STREAMBOT_BITRATE, STREAM_PROFILE, SPOTIFY_SONG, SPOTIFY_ARTIST, SPOTIFY_ALBUM, SPOTIFY_DURATION, VISUALIZER_MODE, STREAM_OVERLAY_ENABLED, STREAM_OVERLAY_TITLE, STREAM_OVERLAY_TICKER, CHAT_AUTO_RESPONDER_ENABLED, CHAT_AUTO_RESPONDER_RULES, DESKTOP_SCREEN_CAPTURE, AUDIO_BASS_BOOST, AUDIO_PITCH_SHIFT, AUDIO_NORMALIZER, AUDIO_EQ_PRESET
         action = payload.get("action", "")
+
+        if action == "set_desktop_screen_capture":
+            DESKTOP_SCREEN_CAPTURE = bool(payload.get("enabled", True))
+            for a in ACCOUNTS.values():
+                sc = a.get("stream_conn")
+                if sc:
+                    sc.set_desktop_capture(DESKTOP_SCREEN_CAPTURE)
+            log(f"🖥️ Live Desktop Screen Capture {'Enabled' if DESKTOP_SCREEN_CAPTURE else 'Disabled'}")
+            return {
+                "success": True,
+                "enabled": DESKTOP_SCREEN_CAPTURE,
+                "message": f"Desktop Screen Capture {'Enabled' if DESKTOP_SCREEN_CAPTURE else 'Disabled'}"
+            }
+
+        if action == "extract_media":
+            target_url = str(payload.get("url", "")).strip()
+            info = extract_media_info(target_url)
+            if info:
+                return {"success": True, "info": info, "message": f"Extracted: {info.get('title')}"}
+            return {"success": False, "error": "Could not extract media info from URL"}
+
+        if action == "assign_soundboard_pad":
+            pad_id = str(payload.get("id", "")).strip()
+            c_file = str(payload.get("custom_file", "")).strip()
+            c_name = str(payload.get("custom_name", "")).strip()
+            for p in SOUNDBOARD_PADS:
+                if p["id"] == pad_id:
+                    p["custom_file"] = c_file
+                    if c_name:
+                        p["custom_name"] = c_name
+                    log(f"🎛️ Soundboard Pad [{pad_id}] assigned to '{c_file}' ({p.get('custom_name') or p['name']})")
+                    return {"success": True, "pad": p, "pads": SOUNDBOARD_PADS, "message": f"Assigned '{c_file}' to {p['name']}"}
+            return {"success": False, "error": f"Pad {pad_id} not found"}
+
+        if action == "reset_soundboard_pad":
+            pad_id = str(payload.get("id", "")).strip()
+            for p in SOUNDBOARD_PADS:
+                if p["id"] == pad_id:
+                    p["custom_file"] = ""
+                    p["custom_name"] = ""
+                    log(f"🎛️ Soundboard Pad [{pad_id}] reset to default")
+                    return {"success": True, "pad": p, "pads": SOUNDBOARD_PADS, "message": f"Reset {p['name']} to default"}
+            return {"success": False, "error": f"Pad {pad_id} not found"}
+
+        if action == "set_audio_dsp":
+            if "bass_boost" in payload:
+                AUDIO_BASS_BOOST = max(0, min(20, int(payload.get("bass_boost", 0))))
+            if "pitch_shift" in payload:
+                AUDIO_PITCH_SHIFT = max(0.5, min(2.0, float(payload.get("pitch_shift", 1.0))))
+            if "normalizer" in payload:
+                AUDIO_NORMALIZER = bool(payload.get("normalizer", True))
+            if "preset" in payload:
+                pr = str(payload.get("preset", "flat")).lower()
+                AUDIO_EQ_PRESET = pr
+                if pr == "bass_heavy":
+                    AUDIO_BASS_BOOST = 12
+                    AUDIO_PITCH_SHIFT = 1.0
+                elif pr == "nightcore":
+                    AUDIO_BASS_BOOST = 4
+                    AUDIO_PITCH_SHIFT = 1.3
+                elif pr == "deep_voice":
+                    AUDIO_BASS_BOOST = 8
+                    AUDIO_PITCH_SHIFT = 0.8
+                elif pr == "radio":
+                    AUDIO_BASS_BOOST = 0
+                    AUDIO_PITCH_SHIFT = 1.05
+                elif pr == "flat":
+                    AUDIO_BASS_BOOST = 0
+                    AUDIO_PITCH_SHIFT = 1.0
+            log(f"🎚️ Audio DSP: Bass=+{AUDIO_BASS_BOOST}dB, Pitch={AUDIO_PITCH_SHIFT}x, Norm={AUDIO_NORMALIZER}, Preset={AUDIO_EQ_PRESET}")
+            return {
+                "success": True,
+                "bass_boost": AUDIO_BASS_BOOST,
+                "pitch_shift": AUDIO_PITCH_SHIFT,
+                "normalizer": AUDIO_NORMALIZER,
+                "preset": AUDIO_EQ_PRESET,
+                "message": f"Audio DSP updated ({AUDIO_EQ_PRESET.upper()})"
+            }
 
         if action == "set_visualizer_mode":
             mode = str(payload.get("mode", "spectrum")).lower().strip()
@@ -1851,7 +1994,8 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         if action == "play_soundboard_pad":
             pad_id = str(payload.get("id", "")).strip()
             pad = next((p for p in SOUNDBOARD_PADS if p["id"] == pad_id), None)
-            name = pad["name"] if pad else (pad_id or "SFX Pad")
+            name = (pad.get("custom_name") or pad["name"]) if pad else (pad_id or "SFX Pad")
+            custom_file = pad.get("custom_file", "") if pad else ""
             duration = pad["duration"] if pad else float(payload.get("duration", 3.0))
             flags = pad["flags"] if pad else int(payload.get("flags", 5))
 
@@ -1862,8 +2006,9 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 a["voice_flags"] = flags
                 a["active_sfx"] = name
 
-            sb_res = send_to_streambot("/api/play", {"url": f"sfx/{pad_id}.mp3", "title": name})
-            log(f"🎛️ Soundboard Pad Activated: [{name}] ({duration}s)")
+            stream_target = f"uploads/{custom_file}" if custom_file else f"sfx/{pad_id}.mp3"
+            sb_res = send_to_streambot("/api/play", {"url": stream_target, "title": name})
+            log(f"🎛️ Soundboard Pad Activated: [{name}] ({duration}s){' [Custom File]' if custom_file else ''}")
 
             if MAIN_LOOP and MAIN_LOOP.is_running():
                 async def _auto_stop_pad():
@@ -2823,10 +2968,10 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             sim_voice = bool(payload.get("sim_voice", True))
 
             if (not title or not author) and u:
-                meta = resolve_youtube_metadata(u)
-                if meta:
-                    title = title or meta["title"]
-                    author = author or meta["author"]
+                info = extract_media_info(u)
+                if info:
+                    title = title or info.get("title")
+                    author = author or info.get("author")
             title = title or "YouTube Video"
             author = author or "YouTube"
 
