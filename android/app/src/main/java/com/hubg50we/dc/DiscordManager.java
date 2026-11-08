@@ -44,7 +44,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.5.5";
+    public static final String APP_VERSION = "1.5.6";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -3773,7 +3773,21 @@ public class DiscordManager {
                 JSONObject data = new JSONObject();
                 data.put("address", myIp);
                 data.put("port", myPort);
-                data.put("mode", "aead_aes256_gcm_rtpsize");
+                data.put("mode", "aead_aes256_gcm");
+                JSONArray codecs = new JSONArray();
+                JSONObject opusCodec = new JSONObject();
+                opusCodec.put("name", "opus");
+                opusCodec.put("type", "audio");
+                opusCodec.put("priority", 1000);
+                opusCodec.put("payload_type", 120);
+                codecs.put(opusCodec);
+                JSONObject h264Codec = new JSONObject();
+                h264Codec.put("name", "H264");
+                h264Codec.put("type", "video");
+                h264Codec.put("priority", 1000);
+                h264Codec.put("payload_type", 103);
+                codecs.put(h264Codec);
+                data.put("codecs", codecs);
                 d.put("data", data);
                 op1.put("d", d);
                 voiceWs.send(op1.toString());
@@ -3828,7 +3842,7 @@ public class DiscordManager {
         }
 
         private void startAudioLoop() {
-            if (running) return;
+            if (audioThread != null && audioThread.isAlive()) return;
             running = true;
             audioThread = new Thread(() -> {
                 int seq = 0;
@@ -3847,11 +3861,8 @@ public class DiscordManager {
                         byte[] opusPayload = null;
                         if (pcmChunk != null) {
                             opusPayload = encoder.encodePcm(pcmChunk);
-                        } else if (account.speaking) {
-                            opusPayload = silenceOpus;
                         } else {
-                            Thread.sleep(20);
-                            continue;
+                            opusPayload = silenceOpus;
                         }
 
                         // 12-byte RTP Header

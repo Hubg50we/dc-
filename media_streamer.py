@@ -520,7 +520,7 @@ class DiscordMediaConnection:
                         my_ip, my_port = await self._discover_udp()
                         self.log(f"UDP Discovery Successful: {my_ip}:{my_port}")
 
-                        # Op 1: SELECT_PROTOCOL
+                        # Op 1: SELECT_PROTOCOL (Standard AEAD AES-256-GCM + Dual Codec Negotiation)
                         select_proto = {
                             "op": 1,
                             "d": {
@@ -528,7 +528,11 @@ class DiscordMediaConnection:
                                 "data": {
                                     "address": my_ip,
                                     "port": my_port,
-                                    "mode": "aead_aes256_gcm_rtpsize"
+                                    "mode": "aead_aes256_gcm",
+                                    "codecs": [
+                                        {"name": "opus", "type": "audio", "priority": 1000, "payload_type": 120},
+                                        {"name": "H264", "type": "video", "priority": 1000, "payload_type": 103}
+                                    ]
                                 }
                             }
                         }

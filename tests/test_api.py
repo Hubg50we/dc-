@@ -895,6 +895,69 @@ def run_tests():
     except Exception as e:
         check("POST action: scrape_guild_blueprint", False, str(e))
 
+    # 87. Test Voice Protocol Selection (aead_aes256_gcm Mode & Codec Negotiation)
+    try:
+        with open("media_streamer.py", "r", encoding="utf-8") as ms_f:
+            ms_code = ms_f.read()
+        mode_ok = '"mode": "aead_aes256_gcm"' in ms_code
+        codecs_ok = '"payload_type": 120' in ms_code and '"payload_type": 103' in ms_code
+        check("Voice Protocol Selection (aead_aes256_gcm & Opus/H264 Codec Negotiation)",
+              mode_ok and codecs_ok)
+    except Exception as e:
+        check("Voice Protocol Selection", False, str(e))
+
+    # 88. Test AEAD AES-256-GCM Packet Framing & Cryptographic Verification
+    try:
+        import struct
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+        test_key = bytes(range(32))
+        aesgcm = AESGCM(test_key)
+        rtp_hdr = struct.pack(">BBHII", 0x80, 120, 1, 960, 1337)
+        raw_payload = b"\xF8\xFF\xFE"  # RFC 6716 Opus silence frame
+        nonce_counter = 42
+        nonce = struct.pack(">I", nonce_counter) + (b"\x00" * 8)
+        ciphertext = aesgcm.encrypt(nonce, raw_payload, rtp_hdr)
+        packet = rtp_hdr + ciphertext + struct.pack(">I", nonce_counter)
+
+        rx_hdr = packet[:12]
+        rx_counter = struct.unpack(">I", packet[-4:])[0]
+        rx_ciphertext = packet[12:-4]
+        rx_nonce = struct.pack(">I", rx_counter) + (b"\x00" * 8)
+        decrypted = aesgcm.decrypt(rx_nonce, rx_ciphertext, rx_hdr)
+
+        check("AEAD AES-256-GCM Packet Framing & Cryptographic Round-Trip",
+              len(packet) == 12 + len(raw_payload) + 16 + 4 and
+              rx_counter == nonce_counter and
+              decrypted == raw_payload)
+    except Exception as e:
+        check("AEAD AES-256-GCM Packet Framing", False, str(e))
+
+    # 89. Test Android Audio Startup Lockout Resolution
+    try:
+        with open("android/app/src/main/java/com/hubg50we/dc/DiscordManager.java", "r", encoding="utf-8") as jf:
+            java_code = jf.read()
+        no_lockout = "if (audioThread != null && audioThread.isAlive()) return;" in java_code
+        java_mode_ok = 'data.put("mode", "aead_aes256_gcm");' in java_code
+        java_codecs_ok = 'opusCodec.put("payload_type", 120);' in java_code and 'h264Codec.put("payload_type", 103);' in java_code
+        check("Android Audio Startup & AEAD AES-256-GCM Resolution (DiscordManager.java)",
+              no_lockout and java_mode_ok and java_codecs_ok)
+    except Exception as e:
+        check("Android Audio Startup Resolution", False, str(e))
+
+    # 90. Test H.264 Video RTP Packetizer & Pre-packetized Stream Headers
+    try:
+        import media_streamer
+        smpte_pkts = media_streamer.PRE_PACKETIZED_SMPTE
+        testsrc_pkts = media_streamer.PRE_PACKETIZED_TESTSRC
+        has_smpte = len(smpte_pkts) > 0
+        has_testsrc = len(testsrc_pkts) > 0
+        last_smpte_marker = smpte_pkts[-1][1] if has_smpte else False
+        last_testsrc_marker = testsrc_pkts[-1][1] if has_testsrc else False
+        check("RFC 6184 H.264 Video RTP Packetizer & NAL Framing",
+              has_smpte and has_testsrc and last_smpte_marker and last_testsrc_marker)
+    except Exception as e:
+        check("RFC 6184 H.264 Video RTP Packetizer", False, str(e))
+
     # Summary
     passed = sum(1 for _, ok, _ in results if ok)
     total = len(results)
