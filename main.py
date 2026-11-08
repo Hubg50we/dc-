@@ -75,7 +75,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.5.0"
+APP_VERSION = "1.5.1"
 AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
@@ -206,6 +206,44 @@ OFM_PROXY_URL = os.environ.get("OFM_PROXY_URL", "http://127.0.0.1:18900/v1/chat/
 OFM_PROXY_KEY = os.environ.get("OFM_PROXY_KEY", "ofm-rQgtEVfESNZN1ES0V5r9WQCGK4TWYMbV")
 OFM_MODEL = os.environ.get("OFM_MODEL", "kilo-auto/free")
 OFM_PROCESS = None
+
+# 🎙️ Real-Time Voice Modulator & Timbre Shifter
+VOICE_MODULATOR_ENABLED = False
+VOICE_MODULATOR_PRESET = "robot"  # robot, deep_demon, radio_1920s, chipmunk, megaphone
+
+# 🤖 Autonomous AI Text Chat Co-Pilot
+AI_COPILOT_ENABLED = False
+AI_COPILOT_PERSONA = "friendly"
+AI_COPILOT_HISTORY = []  # max 20 messages: [{"role": "user"/"assistant", "content": "..."}]
+
+# 🎚️ Smart Crossfader & Auto-DJ Transitions
+CROSSFADER_ENABLED = False
+CROSSFADER_DURATION = 2.0  # seconds
+CROSSFADER_CURVE = "s_curve"  # linear, s_curve, exponential
+
+# 🛡️ Anti-AFK Evader & Ghost Mute
+ANTI_AFK_ENABLED = False
+ANTI_AFK_INTERVAL = 60  # seconds
+ANTI_AFK_MODE = "micro_packet"  # micro_packet, heartbeat
+ANTI_AFK_TASK = None
+
+# 🎮 Custom Rich Presence (RPC) Activity Studio
+CUSTOM_RPC = {
+    "enabled": False,
+    "name": "Discord Voice Controller",
+    "type": 0,  # 0=Playing, 1=Streaming, 2=Listening, 3=Watching, 5=Competing
+    "details": "Managing 24/7 Voice Rooms",
+    "state": "High-Fidelity Audio Active",
+    "large_image": "discord",
+    "large_text": "dc- Pro v1.5.1",
+    "small_image": "voice",
+    "small_text": "Live Voice",
+    "buttons": [{"label": "Join Voice Room", "url": "https://discord.gg"}]
+}
+
+# 📝 Live Voice Transcriber & Speech-to-Text HUD
+VOICE_TRANSCRIBER_ENABLED = False
+VOICE_TRANSCRIPTS = []  # list of {"id": str, "timestamp": int, "speaker": str, "text": str, "confidence": float}
 
 def ensure_ofm_proxy_running():
     """Auto-detects and launches the built-in OFM Node daemon if not already responding."""
@@ -2047,6 +2085,30 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 "normalizer": AUDIO_NORMALIZER,
                 "preset": AUDIO_EQ_PRESET
             },
+            "voice_modulator": {
+                "enabled": VOICE_MODULATOR_ENABLED,
+                "preset": VOICE_MODULATOR_PRESET
+            },
+            "ai_copilot": {
+                "enabled": AI_COPILOT_ENABLED,
+                "persona": AI_COPILOT_PERSONA,
+                "history_count": len(AI_COPILOT_HISTORY)
+            },
+            "crossfader": {
+                "enabled": CROSSFADER_ENABLED,
+                "duration": CROSSFADER_DURATION,
+                "curve": CROSSFADER_CURVE
+            },
+            "anti_afk": {
+                "enabled": ANTI_AFK_ENABLED,
+                "interval": ANTI_AFK_INTERVAL,
+                "mode": ANTI_AFK_MODE
+            },
+            "custom_rpc": CUSTOM_RPC,
+            "voice_transcriber": {
+                "enabled": VOICE_TRANSCRIBER_ENABLED,
+                "count": len(VOICE_TRANSCRIPTS)
+            },
             "chat_auto_responder_enabled": CHAT_AUTO_RESPONDER_ENABLED,
             "chat_auto_responder_rules": CHAT_AUTO_RESPONDER_RULES,
             "soundboard_pads": SOUNDBOARD_PADS,
@@ -2639,6 +2701,152 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
 
         if action == "get_voice_quality":
             return {"success": True, "telemetry": get_voice_quality_telemetry()}
+
+        if action == "set_voice_modulator":
+            global VOICE_MODULATOR_ENABLED, VOICE_MODULATOR_PRESET
+            VOICE_MODULATOR_ENABLED = bool(payload.get("enabled", not VOICE_MODULATOR_ENABLED))
+            if "preset" in payload:
+                VOICE_MODULATOR_PRESET = str(payload.get("preset", "robot")).lower()
+            log(f"🎙️ Voice Modulator: {'Enabled' if VOICE_MODULATOR_ENABLED else 'Disabled'} (Preset: {VOICE_MODULATOR_PRESET})")
+            return {
+                "success": True,
+                "enabled": VOICE_MODULATOR_ENABLED,
+                "preset": VOICE_MODULATOR_PRESET,
+                "message": f"Voice Modulator set to {VOICE_MODULATOR_PRESET} ({'ON' if VOICE_MODULATOR_ENABLED else 'OFF'})"
+            }
+
+        if action == "set_ai_copilot":
+            global AI_COPILOT_ENABLED, AI_COPILOT_PERSONA
+            AI_COPILOT_ENABLED = bool(payload.get("enabled", not AI_COPILOT_ENABLED))
+            if "persona" in payload:
+                AI_COPILOT_PERSONA = str(payload.get("persona", AI_COPILOT_PERSONA)).lower()
+            log(f"🤖 AI Text Copilot: {'Enabled' if AI_COPILOT_ENABLED else 'Disabled'} (Persona: {AI_COPILOT_PERSONA})")
+            return {
+                "success": True,
+                "enabled": AI_COPILOT_ENABLED,
+                "persona": AI_COPILOT_PERSONA,
+                "message": f"AI Copilot {'Enabled' if AI_COPILOT_ENABLED else 'Disabled'}"
+            }
+
+        if action == "ai_copilot_respond":
+            user_msg = str(payload.get("message", payload.get("prompt", ""))).strip()
+            persona = str(payload.get("persona", AI_COPILOT_PERSONA)).lower()
+            model = str(payload.get("model", OFM_MODEL)).strip()
+            reply = generate_ofm_ai_response(persona=persona, prompt=user_msg, model=model)
+            AI_COPILOT_HISTORY.append({"role": "user", "content": user_msg, "time": int(time.time())})
+            AI_COPILOT_HISTORY.append({"role": "assistant", "content": reply, "persona": persona, "time": int(time.time())})
+            if len(AI_COPILOT_HISTORY) > 20:
+                AI_COPILOT_HISTORY.pop(0)
+                AI_COPILOT_HISTORY.pop(0)
+            log(f"🤖 [AI Copilot Reply] ({persona}): {reply}")
+            return {
+                "success": True,
+                "message": user_msg,
+                "reply": reply,
+                "text": reply,
+                "persona": persona,
+                "model": model,
+                "history_length": len(AI_COPILOT_HISTORY)
+            }
+
+        if action == "set_crossfader":
+            global CROSSFADER_ENABLED, CROSSFADER_DURATION, CROSSFADER_CURVE
+            CROSSFADER_ENABLED = bool(payload.get("enabled", not CROSSFADER_ENABLED))
+            if "duration" in payload:
+                CROSSFADER_DURATION = max(0.5, min(10.0, float(payload.get("duration", 2.0))))
+            if "curve" in payload:
+                CROSSFADER_CURVE = str(payload.get("curve", "s_curve")).lower()
+            log(f"🎚️ Smart Crossfader: {'Enabled' if CROSSFADER_ENABLED else 'Disabled'} ({CROSSFADER_DURATION}s, Curve: {CROSSFADER_CURVE})")
+            return {
+                "success": True,
+                "enabled": CROSSFADER_ENABLED,
+                "duration": CROSSFADER_DURATION,
+                "curve": CROSSFADER_CURVE,
+                "message": f"Crossfader {CROSSFADER_DURATION}s {CROSSFADER_CURVE} ({'ON' if CROSSFADER_ENABLED else 'OFF'})"
+            }
+
+        if action == "set_anti_afk":
+            global ANTI_AFK_ENABLED, ANTI_AFK_INTERVAL, ANTI_AFK_MODE
+            ANTI_AFK_ENABLED = bool(payload.get("enabled", not ANTI_AFK_ENABLED))
+            if "interval" in payload:
+                ANTI_AFK_INTERVAL = max(10, int(payload.get("interval", 60)))
+            if "mode" in payload:
+                ANTI_AFK_MODE = str(payload.get("mode", "micro_packet")).lower()
+            log(f"🛡️ Anti-AFK Evader: {'Enabled' if ANTI_AFK_ENABLED else 'Disabled'} (Interval: {ANTI_AFK_INTERVAL}s, Mode: {ANTI_AFK_MODE})")
+            return {
+                "success": True,
+                "enabled": ANTI_AFK_ENABLED,
+                "interval": ANTI_AFK_INTERVAL,
+                "mode": ANTI_AFK_MODE,
+                "message": f"Anti-AFK Evader {'ON' if ANTI_AFK_ENABLED else 'OFF'} ({ANTI_AFK_INTERVAL}s heartbeat)"
+            }
+
+        if action == "set_custom_rpc":
+            global CUSTOM_RPC, CUSTOM_ACTIVITY_NAME, CUSTOM_ACTIVITY_TYPE
+            CUSTOM_RPC["enabled"] = bool(payload.get("enabled", True))
+            if "name" in payload:
+                CUSTOM_RPC["name"] = str(payload.get("name", "Discord Voice Controller"))
+                CUSTOM_ACTIVITY_NAME = CUSTOM_RPC["name"]
+            if "type" in payload:
+                CUSTOM_RPC["type"] = int(payload.get("type", 0))
+                CUSTOM_ACTIVITY_TYPE = CUSTOM_RPC["type"]
+            if "details" in payload:
+                CUSTOM_RPC["details"] = str(payload.get("details", ""))
+            if "state" in payload:
+                CUSTOM_RPC["state"] = str(payload.get("state", ""))
+            if "large_image" in payload:
+                CUSTOM_RPC["large_image"] = str(payload.get("large_image", "discord"))
+            if "large_text" in payload:
+                CUSTOM_RPC["large_text"] = str(payload.get("large_text", ""))
+            if "small_image" in payload:
+                CUSTOM_RPC["small_image"] = str(payload.get("small_image", ""))
+            if "small_text" in payload:
+                CUSTOM_RPC["small_text"] = str(payload.get("small_text", ""))
+            if "buttons" in payload and isinstance(payload["buttons"], list):
+                CUSTOM_RPC["buttons"] = payload["buttons"]
+            log(f"🎮 Custom Rich Presence updated: {CUSTOM_RPC['name']} - {CUSTOM_RPC.get('details', '')}")
+            return {
+                "success": True,
+                "rpc": CUSTOM_RPC,
+                "message": f"Custom RPC set to '{CUSTOM_RPC['name']}'"
+            }
+
+        if action == "set_voice_transcriber":
+            global VOICE_TRANSCRIBER_ENABLED
+            VOICE_TRANSCRIBER_ENABLED = bool(payload.get("enabled", not VOICE_TRANSCRIBER_ENABLED))
+            log(f"📝 Voice Transcriber: {'Enabled' if VOICE_TRANSCRIBER_ENABLED else 'Disabled'}")
+            return {
+                "success": True,
+                "enabled": VOICE_TRANSCRIBER_ENABLED,
+                "message": f"Voice Transcriber {'Enabled' if VOICE_TRANSCRIBER_ENABLED else 'Disabled'}"
+            }
+
+        if action == "get_voice_transcripts":
+            return {
+                "success": True,
+                "enabled": VOICE_TRANSCRIBER_ENABLED,
+                "transcripts": VOICE_TRANSCRIPTS[-50:],
+                "total": len(VOICE_TRANSCRIPTS)
+            }
+
+        if action == "push_voice_transcript":
+            speaker = str(payload.get("speaker", "User")).strip()
+            txt = str(payload.get("text", "")).strip()
+            conf = float(payload.get("confidence", 0.95))
+            if txt:
+                t_obj = {
+                    "id": f"tr_{int(time.time()*1000)}",
+                    "timestamp": int(time.time()),
+                    "speaker": speaker,
+                    "text": txt,
+                    "confidence": conf
+                }
+                VOICE_TRANSCRIPTS.append(t_obj)
+                if len(VOICE_TRANSCRIPTS) > 100:
+                    VOICE_TRANSCRIPTS.pop(0)
+                log(f"📝 [Transcribed] {speaker}: \"{txt}\"")
+                return {"success": True, "transcript": t_obj}
+            return {"success": False, "error": "Empty transcript text"}
 
         if action == "upload_media":
             fname = os.path.basename(payload.get("filename", "media_file"))

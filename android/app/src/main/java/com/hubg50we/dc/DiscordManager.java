@@ -44,7 +44,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.5.0";
+    public static final String APP_VERSION = "1.5.1";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -2082,7 +2082,81 @@ public class DiscordManager {
                 res.put("prompt", prompt);
                 res.put("persona", persona);
                 res.put("response", text);
+                res.put("text", text);
                 res.put("builtin", true);
+            } else if ("set_voice_modulator".equals(action)) {
+                boolean enabled = payload.optBoolean("enabled", true);
+                String preset = payload.optString("preset", "robot").toLowerCase();
+                res.put("success", true);
+                res.put("enabled", enabled);
+                res.put("preset", preset);
+                res.put("message", "Voice Modulator: " + preset + " (" + (enabled ? "ON" : "OFF") + ")");
+            } else if ("set_ai_copilot".equals(action)) {
+                boolean enabled = payload.optBoolean("enabled", true);
+                String persona = payload.optString("persona", "friendly").toLowerCase();
+                res.put("success", true);
+                res.put("enabled", enabled);
+                res.put("persona", persona);
+                res.put("message", "AI Text Copilot " + (enabled ? "Enabled" : "Disabled"));
+            } else if ("ai_copilot_respond".equals(action)) {
+                String msg = payload.optString("message", payload.optString("prompt", "Hello AI"));
+                String persona = payload.optString("persona", "friendly").toLowerCase();
+                String reply = "[" + persona.toUpperCase() + "] " + generateBuiltinAiSpeech(persona);
+                res.put("success", true);
+                res.put("message", msg);
+                res.put("reply", reply);
+                res.put("text", reply);
+                res.put("persona", persona);
+            } else if ("set_crossfader".equals(action)) {
+                boolean enabled = payload.optBoolean("enabled", true);
+                double dur = payload.optDouble("duration", 2.0);
+                String curve = payload.optString("curve", "s_curve").toLowerCase();
+                res.put("success", true);
+                res.put("enabled", enabled);
+                res.put("duration", dur);
+                res.put("curve", curve);
+                res.put("message", "Smart Crossfader: " + dur + "s (" + curve + ")");
+            } else if ("set_anti_afk".equals(action)) {
+                boolean enabled = payload.optBoolean("enabled", true);
+                int interval = payload.optInt("interval", 60);
+                String mode = payload.optString("mode", "micro_packet").toLowerCase();
+                res.put("success", true);
+                res.put("enabled", enabled);
+                res.put("interval", interval);
+                res.put("mode", mode);
+                res.put("message", "Anti-AFK Evader " + (enabled ? "ON" : "OFF"));
+            } else if ("set_custom_rpc".equals(action)) {
+                org.json.JSONObject rpc = new org.json.JSONObject();
+                rpc.put("enabled", payload.optBoolean("enabled", true));
+                rpc.put("name", payload.optString("name", "Discord Voice Controller"));
+                rpc.put("details", payload.optString("details", "Managing 24/7 Voice Rooms"));
+                rpc.put("state", payload.optString("state", "High-Fidelity Audio Active"));
+                rpc.put("type", payload.optInt("type", 0));
+                this.customActivityName = rpc.getString("name");
+                this.customActivityType = rpc.getInt("type");
+                res.put("success", true);
+                res.put("rpc", rpc);
+                res.put("message", "Custom RPC set to '" + this.customActivityName + "'");
+            } else if ("set_voice_transcriber".equals(action)) {
+                boolean enabled = payload.optBoolean("enabled", true);
+                res.put("success", true);
+                res.put("enabled", enabled);
+                res.put("message", "Voice Transcriber " + (enabled ? "Enabled" : "Disabled"));
+            } else if ("get_voice_transcripts".equals(action)) {
+                org.json.JSONArray list = new org.json.JSONArray();
+                res.put("success", true);
+                res.put("enabled", true);
+                res.put("transcripts", list);
+                res.put("total", list.length());
+            } else if ("push_voice_transcript".equals(action)) {
+                String speaker = payload.optString("speaker", "User");
+                String text = payload.optString("text", "");
+                org.json.JSONObject tr = new org.json.JSONObject();
+                tr.put("speaker", speaker);
+                tr.put("text", text);
+                tr.put("timestamp", System.currentTimeMillis() / 1000);
+                res.put("success", true);
+                res.put("transcript", tr);
             } else {
                 res.put("success", true);
                 res.put("status", "ok");

@@ -668,6 +668,63 @@ def run_tests():
     except Exception as e:
         check("POST action: generate_ai_text", False, str(e))
 
+    # 65. Test AI Voice Modulator & Timbre Shifter
+    try:
+        st_vm, d_vm = http_post("/api/action", {"action": "set_voice_modulator", "enabled": True, "preset": "robot"})
+        check("POST action: set_voice_modulator (Robot/Demon/Radio Timbre Shifter)",
+              st_vm == 200 and d_vm.get("success") is True and d_vm.get("preset") == "robot" and d_vm.get("enabled") is True)
+    except Exception as e:
+        check("POST action: voice_modulator", False, str(e))
+
+    # 66. Test Autonomous AI Text Chat Co-Pilot
+    try:
+        st_cp1, d_cp1 = http_post("/api/action", {"action": "set_ai_copilot", "enabled": True, "persona": "gamer"})
+        st_cp2, d_cp2 = http_post("/api/action", {"action": "ai_copilot_respond", "message": "Give me a quick tactical tip!", "persona": "gamer"})
+        check("POST action: set_ai_copilot / ai_copilot_respond (Autonomous Text Co-Pilot)",
+              st_cp1 == 200 and d_cp1.get("enabled") is True and st_cp2 == 200 and len(d_cp2.get("reply", "")) > 0)
+    except Exception as e:
+        check("POST action: ai_copilot", False, str(e))
+
+    # 67. Test Smart Crossfader & Auto-DJ Transitions
+    try:
+        st_cf, d_cf = http_post("/api/action", {"action": "set_crossfader", "enabled": True, "duration": 2.5, "curve": "s_curve"})
+        check("POST action: set_crossfader (Smart Crossfader & Auto-DJ Transitions)",
+              st_cf == 200 and d_cf.get("success") is True and d_cf.get("duration") == 2.5 and d_cf.get("curve") == "s_curve")
+    except Exception as e:
+        check("POST action: crossfader", False, str(e))
+
+    # 68. Test Anti-AFK Evader & Ghost Mute
+    try:
+        st_afk, d_afk = http_post("/api/action", {"action": "set_anti_afk", "enabled": True, "interval": 45, "mode": "micro_packet"})
+        check("POST action: set_anti_afk (Anti-AFK Evader & Voice Micro-Packets)",
+              st_afk == 200 and d_afk.get("success") is True and d_afk.get("enabled") is True and d_afk.get("interval") == 45)
+    except Exception as e:
+        check("POST action: anti_afk", False, str(e))
+
+    # 69. Test Custom Rich Presence (RPC) Activity Studio
+    try:
+        st_rpc, d_rpc = http_post("/api/action", {
+            "action": "set_custom_rpc",
+            "name": "Elden Ring Nightfall",
+            "details": "Level 150 In Caelid",
+            "state": "Co-op with Squad",
+            "type": 0
+        })
+        check("POST action: set_custom_rpc (Custom Rich Presence & Game Activity Studio)",
+              st_rpc == 200 and d_rpc.get("success") is True and d_rpc.get("rpc", {}).get("name") == "Elden Ring Nightfall")
+    except Exception as e:
+        check("POST action: custom_rpc", False, str(e))
+
+    # 70. Test Live Voice Transcriber & Speech-to-Text HUD
+    try:
+        st_tr1, d_tr1 = http_post("/api/action", {"action": "set_voice_transcriber", "enabled": True})
+        st_tr2, d_tr2 = http_post("/api/action", {"action": "push_voice_transcript", "speaker": "Alex", "text": "Can everyone hear the music?", "confidence": 0.98})
+        st_tr3, d_tr3 = http_post("/api/action", {"action": "get_voice_transcripts"})
+        check("POST action: voice_transcriber (Live Speech-to-Text Transcripts & History)",
+              st_tr1 == 200 and st_tr2 == 200 and st_tr3 == 200 and d_tr3.get("total", 0) > 0 and d_tr2.get("transcript", {}).get("speaker") == "Alex")
+    except Exception as e:
+        check("POST action: voice_transcriber", False, str(e))
+
     # Summary
     passed = sum(1 for _, ok, _ in results if ok)
     total = len(results)

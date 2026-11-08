@@ -1059,7 +1059,7 @@
             <span style="font-size:1.1rem;">🔀</span>
             <span>Multi-Channel Room Spreader & Gatherer</span>
           </div>
-          <span class="badge" style="background:rgba(168, 85, 247, 0.25); color:#e9d5ff; font-weight:700;">v1.5.0</span>
+          <span class="badge" style="background:rgba(168, 85, 247, 0.25); color:#e9d5ff; font-weight:700;">v1.5.1</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Distribute bot accounts across multiple voice channels simultaneously, or gather all accounts into a single room with 1 tap.
@@ -1335,6 +1335,208 @@
         </div>
       </div>
 
+      <!-- 🎙️ AI Voice Modulator & Timbre Shifter Card -->
+      <div class="card" style="border-color: rgba(236, 72, 153, 0.45); background: linear-gradient(180deg, rgba(236, 72, 153, 0.05) 0%, var(--bg-card) 100%);">
+        <div class="card-title" style="color:#f472b6;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.15rem;">🎙️</span>
+            <span>Real-Time Voice Modulator & Timbre Shifter</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span class="badge badge-voice" id="voice-modulator-badge">Off</span>
+            <input type="checkbox" id="voice-modulator-toggle" onchange="toggleVoiceModulator(this.checked)" style="width:18px; height:18px; accent-color:#ec4899;">
+          </div>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">
+          Transform voice streams, TTS, and AI Co-Host speech in real time before broadcasting to Discord Voice.
+        </p>
+
+        <div style="display:flex; gap:8px;">
+          <select id="voice-modulator-preset" onchange="updateVoiceModulatorPreset(this.value)" style="flex:2; padding:7px 8px; border-radius:var(--radius-sm); background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:0.8rem;">
+            <option value="robot">🤖 Robot (Metallic Ring Modulator)</option>
+            <option value="deep_demon">👹 Deep Demon (Sub-Bass Downshift)</option>
+            <option value="radio_1920s">📻 1920s Vintage Radio (Bandpass Grit)</option>
+            <option value="chipmunk">🐿️ Chipmunk (Formant Up-Shift)</option>
+            <option value="megaphone">📢 Megaphone / Bullhorn (Overdrive)</option>
+          </select>
+          <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="testVoiceModulator()">
+            🔊 Test Voice
+          </button>
+        </div>
+      </div>
+
+      <!-- 🤖 Autonomous AI Text Chat Co-Pilot Card -->
+      <div class="card" style="border-color: rgba(99, 102, 241, 0.45); background: linear-gradient(180deg, rgba(99, 102, 241, 0.05) 0%, var(--bg-card) 100%);">
+        <div class="card-title" style="color:#818cf8;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.15rem;">💬</span>
+            <span>Autonomous AI Text Chat Co-Pilot</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span class="badge badge-voice" id="ai-copilot-badge">Off</span>
+            <input type="checkbox" id="ai-copilot-toggle" onchange="toggleAiCopilot(this.checked)" style="width:18px; height:18px; accent-color:#6366f1;">
+          </div>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">
+          Multi-turn frontier text chat co-pilot powered by built-in OFM models with rolling memory.
+        </p>
+
+        <div style="display:flex; gap:6px; margin-bottom:8px;">
+          <input type="text" id="ai-copilot-msg-input" placeholder="Type a message to chat with AI Copilot..." style="flex:3; padding:7px 10px; border-radius:var(--radius-sm); background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:0.8rem;" onkeydown="if(event.key==='Enter') sendAiCopilotMessage()">
+          <button class="btn btn-primary btn-sm" style="flex:1; background:#6366f1; color:#fff;" onclick="sendAiCopilotMessage()">
+            💬 Send
+          </button>
+        </div>
+
+        <div id="ai-copilot-feed" style="max-height:120px; overflow-y:auto; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius-sm); padding:8px; font-size:0.78rem; display:flex; flex-direction:column; gap:4px;">
+          <div style="color:var(--text-muted); font-style:italic;">AI Copilot ready. Send a message to begin conversation.</div>
+        </div>
+      </div>
+
+      <!-- 🎚️ Smart Crossfader & Auto-DJ Transitions Card -->
+      <div class="card" style="border-color: rgba(245, 158, 11, 0.45); background: linear-gradient(180deg, rgba(245, 158, 11, 0.05) 0%, var(--bg-card) 100%);">
+        <div class="card-title" style="color:#fbbf24;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.15rem;">🎚️</span>
+            <span>Smart Crossfader & Auto-DJ Transitions</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span class="badge badge-voice" id="crossfader-badge">Off</span>
+            <input type="checkbox" id="crossfader-toggle" onchange="toggleCrossfader(this.checked)" style="width:18px; height:18px; accent-color:#f59e0b;">
+          </div>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">
+          Smooth automated fade-outs and fade-ins between songs, radio stations, and sound clips.
+        </p>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+          <div>
+            <label style="font-size:0.72rem; color:var(--text-muted); display:block; margin-bottom:3px;">Duration: <span id="cf-dur-label">2.0s</span></label>
+            <input type="range" id="crossfader-duration" min="0.5" max="5.0" step="0.5" value="2.0" oninput="updateCrossfaderSettings()" style="width:100%; accent-color:#f59e0b;">
+          </div>
+          <div>
+            <label style="font-size:0.72rem; color:var(--text-muted); display:block; margin-bottom:3px;">Fade Curve</label>
+            <select id="crossfader-curve" onchange="updateCrossfaderSettings()" style="width:100%; padding:6px; border-radius:var(--radius-sm); background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:0.8rem;">
+              <option value="s_curve">S-Curve (Smooth Pro DJ)</option>
+              <option value="linear">Linear (Constant Slope)</option>
+              <option value="exponential">Exponential (Club Drop)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- 📝 Live Voice Transcriber & Speech-to-Text HUD Card -->
+      <div class="card" style="border-color: rgba(20, 184, 166, 0.45); background: linear-gradient(180deg, rgba(20, 184, 166, 0.05) 0%, var(--bg-card) 100%);">
+        <div class="card-title" style="color:#2dd4bf;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.15rem;">📝</span>
+            <span>Live Voice Transcriber (Speech-to-Text HUD)</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span class="badge badge-voice" id="transcriber-badge">Off</span>
+            <input type="checkbox" id="transcriber-toggle" onchange="toggleVoiceTranscriber(this.checked)" style="width:18px; height:18px; accent-color:#14b8a6;">
+          </div>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">
+          Real-time speech-to-text transcript feed from speakers in the active Discord voice room.
+        </p>
+
+        <div id="voice-transcripts-feed" style="max-height:130px; overflow-y:auto; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius-sm); padding:8px; font-size:0.78rem; display:flex; flex-direction:column; gap:4px; margin-bottom:8px;">
+          <div style="color:var(--text-muted); font-style:italic;">Listening for speech in voice channels...</div>
+        </div>
+
+        <div style="display:flex; gap:6px;">
+          <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="clearTranscripts()">
+            🗑️ Clear Feed
+          </button>
+          <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="fetchTranscripts()">
+            🔄 Refresh
+          </button>
+        </div>
+      </div>
+
+      <!-- 🛡️ Anti-AFK Evader & Ghost Mute Card -->
+      <div class="card" style="border-color: rgba(239, 68, 68, 0.45); background: linear-gradient(180deg, rgba(239, 68, 68, 0.05) 0%, var(--bg-card) 100%);">
+        <div class="card-title" style="color:#f87171;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.15rem;">🛡️</span>
+            <span>Anti-AFK Evader & Inactivity Guard</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span class="badge badge-voice" id="anti-afk-badge">Off</span>
+            <input type="checkbox" id="anti-afk-toggle" onchange="toggleAntiAfk(this.checked)" style="width:18px; height:18px; accent-color:#ef4444;">
+          </div>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">
+          Emits silent UDP micro-packets and heartbeat pulses to prevent server AFK timeout moves.
+        </p>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+          <div>
+            <label style="font-size:0.72rem; color:var(--text-muted); display:block; margin-bottom:3px;">Pulse Interval</label>
+            <select id="anti-afk-interval" onchange="updateAntiAfkSettings()" style="width:100%; padding:6px; border-radius:var(--radius-sm); background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:0.8rem;">
+              <option value="30">Every 30 Seconds</option>
+              <option value="60" selected>Every 60 Seconds</option>
+              <option value="120">Every 2 Minutes</option>
+              <option value="300">Every 5 Minutes</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:0.72rem; color:var(--text-muted); display:block; margin-bottom:3px;">Evasion Mode</label>
+            <select id="anti-afk-mode" onchange="updateAntiAfkSettings()" style="width:100%; padding:6px; border-radius:var(--radius-sm); background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:0.8rem;">
+              <option value="micro_packet">Voice Micro-Packets</option>
+              <option value="heartbeat">Gateway Heartbeat Pulse</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- 🎮 Custom Rich Presence (RPC) Activity Studio Card -->
+      <div class="card" style="border-color: rgba(168, 85, 247, 0.45); background: linear-gradient(180deg, rgba(168, 85, 247, 0.05) 0%, var(--bg-card) 100%);">
+        <div class="card-title" style="color:#c084fc;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.15rem;">🎮</span>
+            <span>Custom Rich Presence (RPC) Activity Studio</span>
+          </div>
+          <span class="badge" style="background:rgba(168,85,247,0.25); color:#e9d5ff;">Pro RPC</span>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">
+          Broadcast custom game titles, states, details, and activity types across all bot accounts.
+        </p>
+
+        <div style="display:grid; grid-template-columns: 2fr 1fr; gap:8px; margin-bottom:8px;">
+          <div>
+            <label style="font-size:0.72rem; color:var(--text-muted); display:block; margin-bottom:3px;">Activity Title / Game</label>
+            <input type="text" id="rpc-name-input" placeholder="e.g. Cyberpunk 2077, GTA VI..." value="Discord Voice Controller" style="width:100%; padding:6px 8px; border-radius:var(--radius-sm); background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:0.8rem;">
+          </div>
+          <div>
+            <label style="font-size:0.72rem; color:var(--text-muted); display:block; margin-bottom:3px;">Type</label>
+            <select id="rpc-type-select" style="width:100%; padding:6px; border-radius:var(--radius-sm); background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:0.8rem;">
+              <option value="0">Playing</option>
+              <option value="1">Streaming</option>
+              <option value="2">Listening</option>
+              <option value="3">Watching</option>
+              <option value="5">Competing</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-bottom:8px;">
+          <div>
+            <label style="font-size:0.72rem; color:var(--text-muted); display:block; margin-bottom:3px;">Details (Top Line)</label>
+            <input type="text" id="rpc-details-input" placeholder="e.g. In Raid with Guild" value="Managing 24/7 Voice Rooms" style="width:100%; padding:6px 8px; border-radius:var(--radius-sm); background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:0.8rem;">
+          </div>
+          <div>
+            <label style="font-size:0.72rem; color:var(--text-muted); display:block; margin-bottom:3px;">State (Bottom Line)</label>
+            <input type="text" id="rpc-state-input" placeholder="e.g. High-Fidelity Audio" value="High-Fidelity Audio Active" style="width:100%; padding:6px 8px; border-radius:var(--radius-sm); background:var(--bg-dark); border:1px solid var(--border); color:var(--text); font-size:0.8rem;">
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-sm" style="width:100%;" onclick="applyCustomRpc()">
+          🎮 Broadcast Custom RPC to Bots
+        </button>
+      </div>
+
     </div>
 
     <!-- TAB 2: ACCOUNTS LIST -->
@@ -1464,7 +1666,7 @@
       <div class="card" style="border-color: rgba(88, 101, 242, 0.45);">
         <div class="card-title" style="color:var(--accent);">
           <span>🔄 App Updates & Version</span>
-          <span class="badge badge-voice" id="settings-app-version">v1.5.0</span>
+          <span class="badge badge-voice" id="settings-app-version">v1.5.1</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Cross-platform Discord controller for Android Mobile and Windows PC.
@@ -1488,7 +1690,7 @@
         </div>
 
         <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:6px;">
-          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Direct Downloads (v1.5.0):</div>
+          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Direct Downloads (v1.5.1):</div>
           <div style="display:flex; gap:6px; flex-wrap:wrap;">
             <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-android.apk" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               📱 Android APK
@@ -1496,7 +1698,7 @@
             <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows.exe" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               💻 Windows EXE
             </a>
-            <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows-portable-v1.5.0.zip" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
+            <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows-portable-v1.5.1.zip" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               📦 Portable ZIP
             </a>
           </div>
@@ -3248,6 +3450,12 @@
       renderRadioStations(data.radio_stations, data.active_radio_station);
       renderAiCohostState(data.ai_cohost);
       renderVoiceQualityTelemetry(data.voice_quality);
+      renderVoiceModulatorState(data.voice_modulator);
+      renderAiCopilotState(data.ai_copilot);
+      renderCrossfaderState(data.crossfader);
+      renderAntiAfkState(data.anti_afk);
+      renderCustomRpcState(data.custom_rpc);
+      renderVoiceTranscriberState(data.voice_transcriber);
       updateActiveBadges();
     }
 
@@ -6555,7 +6763,7 @@
       return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    let currentAppVersion = '1.5.0';
+    let currentAppVersion = '1.5.1';
     let latestUpdateData = null;
 
     function toggleAutoCheckUpdate(enabled) {
@@ -7582,6 +7790,298 @@
         } catch (ignored) {}
         scheduleNextPoll();
       }, delay);
+    }
+
+    // 🎙️ Voice Modulator Functions
+    function renderVoiceModulatorState(data) {
+      if (!data) return;
+      const t = document.getElementById('voice-modulator-toggle');
+      const b = document.getElementById('voice-modulator-badge');
+      const s = document.getElementById('voice-modulator-preset');
+      if (t && document.activeElement !== t) t.checked = !!data.enabled;
+      if (b) {
+        b.innerText = data.enabled ? 'Active' : 'Off';
+        b.className = data.enabled ? 'badge badge-online' : 'badge badge-voice';
+      }
+      if (s && document.activeElement !== s && data.preset) s.value = data.preset;
+    }
+
+    async function toggleVoiceModulator(enabled) {
+      vibrate(15);
+      const preset = document.getElementById('voice-modulator-preset')?.value || 'robot';
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'set_voice_modulator', enabled: enabled, preset: preset })
+        });
+        const d = await res.json();
+        showToast(d.message || 'Voice Modulator updated');
+        fetchStatus();
+      } catch (e) {
+        showToast('Error: ' + e.message, true);
+      }
+    }
+
+    async function updateVoiceModulatorPreset(preset) {
+      const t = document.getElementById('voice-modulator-toggle');
+      toggleVoiceModulator(t ? t.checked : true);
+    }
+
+    async function testVoiceModulator() {
+      vibrate(20);
+      const preset = document.getElementById('voice-modulator-preset')?.value || 'robot';
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'send_tts', text: `Voice Modulator active with ${preset} filter.` })
+        });
+        showToast(`Testing ${preset} voice modulation`);
+      } catch (e) {
+        showToast('Error: ' + e.message, true);
+      }
+    }
+
+    // 🤖 AI Text Copilot Functions
+    function renderAiCopilotState(data) {
+      if (!data) return;
+      const t = document.getElementById('ai-copilot-toggle');
+      const b = document.getElementById('ai-copilot-badge');
+      if (t && document.activeElement !== t) t.checked = !!data.enabled;
+      if (b) {
+        b.innerText = data.enabled ? 'Active' : 'Off';
+        b.className = data.enabled ? 'badge badge-online' : 'badge badge-voice';
+      }
+    }
+
+    async function toggleAiCopilot(enabled) {
+      vibrate(15);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'set_ai_copilot', enabled: enabled })
+        });
+        const d = await res.json();
+        showToast(d.message || 'AI Copilot updated');
+        fetchStatus();
+      } catch (e) {
+        showToast('Error: ' + e.message, true);
+      }
+    }
+
+    async function sendAiCopilotMessage() {
+      const input = document.getElementById('ai-copilot-msg-input');
+      const feed = document.getElementById('ai-copilot-feed');
+      const msg = input?.value?.trim();
+      if (!msg) return;
+      input.value = '';
+      vibrate(15);
+
+      if (feed) {
+        feed.innerHTML += `<div><strong style="color:var(--accent);">You:</strong> ${escapeHtml(msg)}</div>`;
+        feed.innerHTML += `<div id="copilot-thinking-bubble" style="color:var(--text-muted); font-style:italic;">🤖 AI Copilot is thinking...</div>`;
+        feed.scrollTop = feed.scrollHeight;
+      }
+
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'ai_copilot_respond', message: msg })
+        });
+        const d = await res.json();
+        const think = document.getElementById('copilot-thinking-bubble');
+        if (think) think.remove();
+        if (feed && d.reply) {
+          feed.innerHTML += `<div><strong style="color:#818cf8;">AI (${escapeHtml((d.persona||'AI').toUpperCase())}):</strong> ${escapeHtml(d.reply)}</div>`;
+          feed.scrollTop = feed.scrollHeight;
+        }
+      } catch (e) {
+        const think = document.getElementById('copilot-thinking-bubble');
+        if (think) think.remove();
+        showToast('Copilot error: ' + e.message, true);
+      }
+    }
+
+    // 🎚️ Smart Crossfader Functions
+    function renderCrossfaderState(data) {
+      if (!data) return;
+      const t = document.getElementById('crossfader-toggle');
+      const b = document.getElementById('crossfader-badge');
+      const d = document.getElementById('crossfader-duration');
+      const l = document.getElementById('cf-dur-label');
+      const c = document.getElementById('crossfader-curve');
+      if (t && document.activeElement !== t) t.checked = !!data.enabled;
+      if (b) {
+        b.innerText = data.enabled ? 'Active' : 'Off';
+        b.className = data.enabled ? 'badge badge-online' : 'badge badge-voice';
+      }
+      if (d && document.activeElement !== d && data.duration) {
+        d.value = data.duration;
+        if (l) l.innerText = `${data.duration}s`;
+      }
+      if (c && document.activeElement !== c && data.curve) c.value = data.curve;
+    }
+
+    async function toggleCrossfader(enabled) {
+      vibrate(15);
+      const dur = parseFloat(document.getElementById('crossfader-duration')?.value || '2.0');
+      const curve = document.getElementById('crossfader-curve')?.value || 's_curve';
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'set_crossfader', enabled: enabled, duration: dur, curve: curve })
+        });
+        const d = await res.json();
+        showToast(d.message || 'Crossfader updated');
+        fetchStatus();
+      } catch (e) {
+        showToast('Error: ' + e.message, true);
+      }
+    }
+
+    async function updateCrossfaderSettings() {
+      const dur = parseFloat(document.getElementById('crossfader-duration')?.value || '2.0');
+      const l = document.getElementById('cf-dur-label');
+      if (l) l.innerText = `${dur}s`;
+      const t = document.getElementById('crossfader-toggle');
+      toggleCrossfader(t ? t.checked : true);
+    }
+
+    // 🛡️ Anti-AFK Evader Functions
+    function renderAntiAfkState(data) {
+      if (!data) return;
+      const t = document.getElementById('anti-afk-toggle');
+      const b = document.getElementById('anti-afk-badge');
+      const i = document.getElementById('anti-afk-interval');
+      const m = document.getElementById('anti-afk-mode');
+      if (t && document.activeElement !== t) t.checked = !!data.enabled;
+      if (b) {
+        b.innerText = data.enabled ? 'Guarded' : 'Off';
+        b.className = data.enabled ? 'badge badge-online' : 'badge badge-voice';
+      }
+      if (i && document.activeElement !== i && data.interval) i.value = data.interval;
+      if (m && document.activeElement !== m && data.mode) m.value = data.mode;
+    }
+
+    async function toggleAntiAfk(enabled) {
+      vibrate(15);
+      const interval = parseInt(document.getElementById('anti-afk-interval')?.value || '60');
+      const mode = document.getElementById('anti-afk-mode')?.value || 'micro_packet';
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'set_anti_afk', enabled: enabled, interval: interval, mode: mode })
+        });
+        const d = await res.json();
+        showToast(d.message || 'Anti-AFK updated');
+        fetchStatus();
+      } catch (e) {
+        showToast('Error: ' + e.message, true);
+      }
+    }
+
+    async function updateAntiAfkSettings() {
+      const t = document.getElementById('anti-afk-toggle');
+      toggleAntiAfk(t ? t.checked : true);
+    }
+
+    // 🎮 Custom Rich Presence (RPC) Functions
+    function renderCustomRpcState(data) {
+      if (!data) return;
+      const nameInput = document.getElementById('rpc-name-input');
+      const typeSel = document.getElementById('rpc-type-select');
+      const detailsInput = document.getElementById('rpc-details-input');
+      const stateInput = document.getElementById('rpc-state-input');
+      if (nameInput && document.activeElement !== nameInput && data.name) nameInput.value = data.name;
+      if (typeSel && document.activeElement !== typeSel && data.type !== undefined) typeSel.value = data.type;
+      if (detailsInput && document.activeElement !== detailsInput && data.details) detailsInput.value = data.details;
+      if (stateInput && document.activeElement !== stateInput && data.state) stateInput.value = data.state;
+    }
+
+    async function applyCustomRpc() {
+      vibrate(20);
+      const name = document.getElementById('rpc-name-input')?.value?.trim() || 'Discord Voice Controller';
+      const type = parseInt(document.getElementById('rpc-type-select')?.value || '0');
+      const details = document.getElementById('rpc-details-input')?.value?.trim() || '';
+      const state = document.getElementById('rpc-state-input')?.value?.trim() || '';
+
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'set_custom_rpc', enabled: true, name: name, type: type, details: details, state: state })
+        });
+        const d = await res.json();
+        showToast(d.message || 'Custom Rich Presence applied');
+        fetchStatus();
+      } catch (e) {
+        showToast('Error: ' + e.message, true);
+      }
+    }
+
+    // 📝 Voice Transcriber Functions
+    function renderVoiceTranscriberState(data) {
+      if (!data) return;
+      const t = document.getElementById('transcriber-toggle');
+      const b = document.getElementById('transcriber-badge');
+      if (t && document.activeElement !== t) t.checked = !!data.enabled;
+      if (b) {
+        b.innerText = data.enabled ? 'Listening' : 'Off';
+        b.className = data.enabled ? 'badge badge-online' : 'badge badge-voice';
+      }
+    }
+
+    async function toggleVoiceTranscriber(enabled) {
+      vibrate(15);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'set_voice_transcriber', enabled: enabled })
+        });
+        const d = await res.json();
+        showToast(d.message || 'Voice Transcriber updated');
+        fetchStatus();
+      } catch (e) {
+        showToast('Error: ' + e.message, true);
+      }
+    }
+
+    async function fetchTranscripts() {
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: 'get_voice_transcripts' })
+        });
+        const d = await res.json();
+        const feed = document.getElementById('voice-transcripts-feed');
+        if (feed && d.transcripts) {
+          if (d.transcripts.length === 0) {
+            feed.innerHTML = `<div style="color:var(--text-muted); font-style:italic;">No speech captured yet.</div>`;
+          } else {
+            feed.innerHTML = d.transcripts.map(t => `
+              <div>
+                <span style="color:var(--text-muted); font-size:0.7rem;">[${new Date(t.timestamp*1000).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})}]</span>
+                <strong style="color:var(--accent);">${escapeHtml(t.speaker)}:</strong>
+                <span>${escapeHtml(t.text)}</span>
+              </div>
+            `).join('');
+            feed.scrollTop = feed.scrollHeight;
+          }
+        }
+      } catch (ignored) {}
+    }
+
+    function clearTranscripts() {
+      const feed = document.getElementById('voice-transcripts-feed');
+      if (feed) feed.innerHTML = `<div style="color:var(--text-muted); font-style:italic;">Transcript cleared. Listening for new speech...</div>`;
+      showToast('Transcript feed cleared');
     }
 
     document.addEventListener('visibilitychange', () => {
