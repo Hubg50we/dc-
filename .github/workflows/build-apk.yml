@@ -47,7 +47,7 @@ jobs:
       - name: Generate Wrapper and Build APK
         working-directory: android
         run: |
-          gradle wrapper --gradle-version 8.5
+          gradle wrapper --gradle-version 8.5 --no-validate-url || gradle wrapper --gradle-version 8.5 || true
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
 
