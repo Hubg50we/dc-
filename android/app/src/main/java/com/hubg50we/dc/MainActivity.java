@@ -8,6 +8,9 @@ import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.pm.ShortcutInfo;
+import android.content.pm.ShortcutManager;
+import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -39,6 +42,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -186,6 +190,80 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+
+        setupDynamicShortcuts();
+        handleShortcutIntent(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleShortcutIntent(intent);
+    }
+
+    private void handleShortcutIntent(Intent intent) {
+        if (intent == null || intent.getAction() == null) return;
+        String act = intent.getAction();
+        if ("ACTION_SHORTCUT_JOIN".equals(act)) {
+            Intent s = new Intent(this, DiscordService.class);
+            s.setAction("ACTION_JOIN_VOICE");
+            startService(s);
+            Toast.makeText(this, "🔊 Joining all bots to voice...", Toast.LENGTH_SHORT).show();
+        } else if ("ACTION_SHORTCUT_MUTE".equals(act)) {
+            Intent s = new Intent(this, DiscordService.class);
+            s.setAction("ACTION_MUTE_ALL");
+            startService(s);
+            Toast.makeText(this, "🔇 Muting all accounts...", Toast.LENGTH_SHORT).show();
+        } else if ("ACTION_SHORTCUT_DISCONNECT".equals(act)) {
+            Intent s = new Intent(this, DiscordService.class);
+            s.setAction("ACTION_DISCONNECT_ALL");
+            startService(s);
+            Toast.makeText(this, "🛑 Disconnecting all accounts...", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void setupDynamicShortcuts() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
+            try {
+                ShortcutManager shortcutManager = getSystemService(ShortcutManager.class);
+                if (shortcutManager != null) {
+                    Intent joinIntent = new Intent(this, MainActivity.class);
+                    joinIntent.setAction("ACTION_SHORTCUT_JOIN");
+
+                    ShortcutInfo joinShortcut = new ShortcutInfo.Builder(this, "shortcut_join")
+                            .setShortLabel("Join Voice")
+                            .setLongLabel("Join All Bots to Voice")
+                            .setIcon(Icon.createWithResource(this, R.drawable.ic_launcher))
+                            .setIntent(joinIntent)
+                            .build();
+
+                    Intent muteIntent = new Intent(this, MainActivity.class);
+                    muteIntent.setAction("ACTION_SHORTCUT_MUTE");
+
+                    ShortcutInfo muteShortcut = new ShortcutInfo.Builder(this, "shortcut_mute")
+                            .setShortLabel("Mute All")
+                            .setLongLabel("Mute All Connected Bots")
+                            .setIcon(Icon.createWithResource(this, R.drawable.ic_launcher))
+                            .setIntent(muteIntent)
+                            .build();
+
+                    Intent discIntent = new Intent(this, MainActivity.class);
+                    discIntent.setAction("ACTION_SHORTCUT_DISCONNECT");
+
+                    ShortcutInfo discShortcut = new ShortcutInfo.Builder(this, "shortcut_disconnect")
+                            .setShortLabel("Disconnect")
+                            .setLongLabel("Disconnect All Accounts")
+                            .setIcon(Icon.createWithResource(this, R.drawable.ic_launcher))
+                            .setIntent(discIntent)
+                            .build();
+
+                    shortcutManager.setDynamicShortcuts(Arrays.asList(joinShortcut, muteShortcut, discShortcut));
+                }
+            } catch (Exception e) {
+                Log.w(TAG, "Failed to initialize launcher shortcuts", e);
+            }
+        }
     }
 
     private WebResourceResponse handleApi(WebResourceRequest request, String path) {

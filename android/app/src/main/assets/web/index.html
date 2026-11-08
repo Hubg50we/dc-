@@ -1042,7 +1042,7 @@
             <span style="font-size:1.1rem;">🔀</span>
             <span>Multi-Channel Room Spreader & Gatherer</span>
           </div>
-          <span class="badge" style="background:rgba(168, 85, 247, 0.25); color:#e9d5ff; font-weight:700;">v1.4.5</span>
+          <span class="badge" style="background:rgba(168, 85, 247, 0.25); color:#e9d5ff; font-weight:700;">v1.4.6</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Distribute bot accounts across multiple voice channels simultaneously, or gather all accounts into a single room with 1 tap.
@@ -1255,7 +1255,7 @@
       <div class="card" style="border-color: rgba(88, 101, 242, 0.45);">
         <div class="card-title" style="color:var(--accent);">
           <span>🔄 App Updates & Version</span>
-          <span class="badge badge-voice" id="settings-app-version">v1.4.5</span>
+          <span class="badge badge-voice" id="settings-app-version">v1.4.6</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Cross-platform Discord controller for Android Mobile and Windows PC.
@@ -1279,7 +1279,7 @@
         </div>
 
         <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:6px;">
-          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Direct Downloads (v1.4.5):</div>
+          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Direct Downloads (v1.4.6):</div>
           <div style="display:flex; gap:6px; flex-wrap:wrap;">
             <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-android.apk" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               📱 Android APK
@@ -1287,13 +1287,53 @@
             <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows.exe" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               💻 Windows EXE
             </a>
-            <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows-portable-v1.4.5.zip" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
+            <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows-portable-v1.4.6.zip" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               📦 Portable ZIP
             </a>
           </div>
         </div>
 
         <div id="update-check-result" style="display:none; margin-top:8px; padding:10px; border-radius:8px; font-size:0.82rem;"></div>
+      </div>
+
+      <!-- 📱 Android OS Native Integration Card -->
+      <div class="card" style="border-color: rgba(34, 197, 94, 0.45); background: linear-gradient(180deg, rgba(34, 197, 94, 0.05) 0%, var(--bg-card) 100%);">
+        <div class="card-title" style="color:#4ade80;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.1rem;">📱</span>
+            <span>Android OS Native Integration</span>
+          </div>
+          <span class="badge" style="background:rgba(34, 197, 94, 0.25); color:#86efac; font-weight:700;">PRO</span>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">
+          Hardware-level system hooks to keep your Discord voice connection unbreakable 24/7 on Android.
+        </p>
+
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-dark); padding:10px 12px; border-radius:var(--radius-sm);">
+            <div>
+              <strong style="font-size:0.84rem; color:var(--text-heading);">🔄 Boot Auto-Start (Reboot Proof)</strong>
+              <div style="font-size:0.72rem; color:var(--text-muted);">Automatically resumes Discord bots when phone restarts</div>
+            </div>
+            <span class="badge" style="background:rgba(34, 197, 94, 0.2); color:#4ade80;">Enabled</span>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-dark); padding:10px 12px; border-radius:var(--radius-sm);">
+            <div>
+              <strong style="font-size:0.84rem; color:var(--text-heading);">🎛️ Quick Settings Dropdown Tile</strong>
+              <div style="font-size:0.72rem; color:var(--text-muted);">Swipe down status bar to toggle Connect & Disconnect</div>
+            </div>
+            <span class="badge" style="background:rgba(59, 130, 246, 0.2); color:#93c5fd;">Active Tile</span>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-dark); padding:10px 12px; border-radius:var(--radius-sm);">
+            <div>
+              <strong style="font-size:0.84rem; color:var(--text-heading);">⚡ Launcher App Shortcuts</strong>
+              <div style="font-size:0.72rem; color:var(--text-muted);">Long-press app icon on home screen for 1-tap Join/Mute</div>
+            </div>
+            <span class="badge" style="background:rgba(168, 85, 247, 0.2); color:#c084fc;">3 Shortcuts</span>
+          </div>
+        </div>
       </div>
 
       <!-- 💾 1-Click Profile Backup & Migration Card -->
@@ -6229,7 +6269,7 @@
       return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    let currentAppVersion = '1.4.5';
+    let currentAppVersion = '1.4.6';
     let latestUpdateData = null;
 
     function toggleAutoCheckUpdate(enabled) {

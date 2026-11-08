@@ -50,6 +50,10 @@ public class DiscordService extends Service {
                 org.json.JSONObject p = new org.json.JSONObject();
                 try { p.put("action", "leave"); p.put("percent", 100); } catch (Exception ignored) {}
                 dm.handleAction(p);
+            } else if ("ACTION_JOIN_VOICE".equals(act) || "ACTION_AUTO_START".equals(act)) {
+                org.json.JSONObject p = new org.json.JSONObject();
+                try { p.put("action", "move"); p.put("percent", 100); } catch (Exception ignored) {}
+                dm.handleAction(p);
             }
         }
         Notification notification = buildNotification("dc- Voice Manager Running in Background");
@@ -96,7 +100,7 @@ public class DiscordService extends Service {
         PendingIntent disconnPending = PendingIntent.getService(this, 3, disconnIntent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
 
         return new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("dc- Discord Manager (v1.4.5)")
+                .setContentTitle("dc- Discord Manager (v1.4.6)")
                 .setContentText(text)
                 .setSmallIcon(R.drawable.ic_launcher)
                 .setContentIntent(pendingIntent)
