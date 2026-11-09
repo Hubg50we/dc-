@@ -7,6 +7,7 @@ import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Base64;
 import android.util.Log;
 
 import org.json.JSONArray;
@@ -3367,7 +3368,7 @@ public static class AudioSynthesizer {
             String[] parts = csv.split(",");
             for (String p : parts) {
                 if (!p.isEmpty()) {
-                    list.add(Base64.decode(p, Base64.DEFAULT));
+                    list.add(android.util.Base64.decode(p, android.util.Base64.DEFAULT));
                 }
             }
             return list;
