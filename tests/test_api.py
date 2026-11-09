@@ -958,6 +958,76 @@ def run_tests():
     except Exception as e:
         check("RFC 6184 H.264 Video RTP Packetizer", False, str(e))
 
+    # 91. Test Audio / SFX Soundboard Dispatch to Active Voice Connection
+    try:
+        import media_streamer
+        sfx_keys = list(media_streamer.SFX_PACKETS_MAP.keys())
+        has_sfx = "airhorn" in sfx_keys and "scream" in sfx_keys and "bruh" in sfx_keys and "vineboom" in sfx_keys
+        airhorn_frames = media_streamer.SFX_PACKETS_MAP.get("airhorn", [])
+        valid_frames = len(airhorn_frames) > 0 and all(isinstance(f, bytes) and len(f) > 0 for f in airhorn_frames)
+
+        # Mock Voice Connection
+        class MockVoiceConn:
+            def __init__(self):
+                self.sfx_played = []
+                self.streams = []
+                self.stopped = False
+            def play_sfx(self, name, duration=0.0):
+                self.sfx_played.append(name)
+                return True
+            def stream_native_audio(self, source, title=None):
+                self.streams.append((source, title))
+                return True
+            def stop_audio(self):
+                self.stopped = True
+
+        mock_vc = MockVoiceConn()
+        mock_acc = {"token": "test_token", "voice_conn": mock_vc}
+        main.ACCOUNTS["test_token"] = mock_acc
+
+        st_sfx, d_sfx = http_post("/api/action", {"action": "play_sfx", "sfx_name": "airhorn"})
+        st_stop, d_stop = http_post("/api/action", {"action": "stop_sfx"})
+
+        check("Audio / SFX Soundboard RFC 6716 Dispatch to Voice Connection",
+              has_sfx and valid_frames and st_sfx == 200 and d_sfx.get("success") is True and
+              mock_vc.sfx_played == ["airhorn"] and mock_vc.stopped is True)
+    except Exception as e:
+        check("Audio / SFX Soundboard RFC 6716 Dispatch to Voice Connection", False, str(e))
+
+    # 92. Test Custom Audio & Remote Stream Dispatch to Voice Connection
+    try:
+        st_custom, d_custom = http_post("/api/action", {"action": "stream_custom_audio", "source": "sine_tone", "title": "Sine Wave"})
+        st_remote, d_remote = http_post("/api/action", {"action": "stream_remote_audio", "url": "http://stream.example.com/audio.mp3", "title": "Web Radio"})
+        st_yt, d_yt = http_post("/api/action", {"action": "play_youtube", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"})
+
+        # Clean up mock account
+        main.ACCOUNTS.pop("test_token", None)
+
+        check("Custom & Remote Audio / YouTube Real-Time Dispatch to Voice Connection",
+              st_custom == 200 and d_custom.get("success") is True and
+              st_remote == 200 and d_remote.get("success") is True and
+              st_yt == 200 and d_yt.get("success") is True and
+              len(mock_vc.streams) == 3 and "lavfi:sine" in mock_vc.streams[0][0])
+    except Exception as e:
+        check("Custom & Remote Audio / YouTube Real-Time Dispatch to Voice Connection", False, str(e))
+
+    # 93. Test Android RFC 6716 AudioSynthesizer Pre-Encoded Soundboard Packets
+    try:
+        with open("android/app/src/main/java/com/hubg50we/dc/DiscordManager.java", "r", encoding="utf-8") as jf:
+            java_mgr = jf.read()
+        has_airhorn_b64 = "AIRHORN_B64" in java_mgr
+        has_scream_b64 = "SCREAM_B64" in java_mgr
+        has_bruh_b64 = "BRUH_B64" in java_mgr
+        has_vineboom_b64 = "VINEBOOM_B64" in java_mgr
+        has_get_opus = "public static List<byte[]> getOpusPackets(String sound)" in java_mgr
+        no_corrupt_fallback = "createFallbackOpusFrame" not in java_mgr
+
+        check("Android RFC 6716 AudioSynthesizer Pre-Encoded Soundboard Packets (DiscordManager.java)",
+              has_airhorn_b64 and has_scream_b64 and has_bruh_b64 and has_vineboom_b64 and
+              has_get_opus and no_corrupt_fallback)
+    except Exception as e:
+        check("Android RFC 6716 AudioSynthesizer Pre-Encoded Soundboard Packets", False, str(e))
+
     # Summary
     passed = sum(1 for _, ok, _ in results if ok)
     total = len(results)

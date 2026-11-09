@@ -150,6 +150,20 @@ for nal in [SPS, PPS]:
     PRE_PACKETIZED_TESTSRC.extend(packetize_nal(nal, is_last_nal=False))
 PRE_PACKETIZED_TESTSRC.extend(packetize_nal(TESTSRC_IDR, is_last_nal=True))
 
+# Load pre-encoded RFC 6716 Opus SFX packets (airhorn, scream, bruh, vineboom)
+SFX_PACKETS_MAP = {}
+try:
+    _sfx_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sfx_packets.json")
+    if not os.path.exists(_sfx_path):
+        _sfx_path = os.path.join(os.getcwd(), "sfx_packets.json")
+    if os.path.exists(_sfx_path):
+        with open(_sfx_path, "r", encoding="utf-8") as _f:
+            _raw_sfx = json.load(_f)
+            for _k, _pkts in _raw_sfx.items():
+                SFX_PACKETS_MAP[_k] = [base64.b64decode(_p) for _p in _pkts]
+except Exception:
+    pass
+
 
 class DiscordMediaConnection:
     """
@@ -198,11 +212,11 @@ class DiscordMediaConnection:
         self.desktop_capture_active = False
         self.desktop_capture_proc = None
         self.desktop_capture_thread = None
-        self.frame_queue = collections.deque(maxlen=15)
+        self.frame_queue = collections.deque(maxlen=60)
 
         self.audio_pipe_proc = None
         self.audio_pipe_thread = None
-        self.audio_queue = collections.deque(maxlen=30)
+        self.audio_queue = collections.deque(maxlen=500)
         self.active_media_source = ""
 
     def set_desktop_capture(self, enabled=True):
@@ -295,6 +309,47 @@ class DiscordMediaConnection:
             self.desktop_capture_proc = None
         self.frame_queue.clear()
 
+    def play_sfx(self, sound, duration=0.0):
+        """Plays real soundboard SFX packets or synthesizes on the fly."""
+        self._stop_native_audio()
+        snd = str(sound or "scream").lower().strip()
+        # 1. Check pre-encoded RFC 6716 Opus frames (zero CPU overhead)
+        for key, pkts in SFX_PACKETS_MAP.items():
+            if key in snd:
+                self.audio_queue.extend(pkts)
+                self.log(f"Queued {len(pkts)} RFC 6716 Opus frames for SFX: [{key.upper()}]")
+                return
+
+        # 2. Check local sound files in uploads/
+        local_dir = os.path.join(os.getcwd(), "uploads")
+        for ext in (".mp3", ".wav", ".ogg", ".aac"):
+            target = os.path.join(local_dir, f"{snd}{ext}")
+            if os.path.exists(target):
+                self.stream_native_audio(target)
+                return
+
+        # 3. Dynamic synthesis fallback via FFmpeg
+        dur = duration if duration > 0 else 3.0
+        if "airhorn" in snd:
+            src = f"lavfi:sine=frequency=466.16:duration={dur}"
+        elif "scream" in snd:
+            src = f"lavfi:anoisesrc=d={dur}:c=pink:r=48000,volume=3"
+        elif "bruh" in snd:
+            src = f"lavfi:sine=frequency=180:duration={dur}"
+        elif "vine" in snd or "boom" in snd:
+            src = f"lavfi:sine=frequency=60:duration={dur},volume=4"
+        elif "siren" in snd:
+            src = f"lavfi:sine=frequency=880:duration={dur}"
+        else:
+            src = f"lavfi:sine=frequency=440:duration={dur}"
+        self.stream_native_audio(src)
+
+    def stop_audio(self):
+        """Stops current audio playback and flushes queue."""
+        self._stop_native_audio()
+        self.audio_queue.clear()
+        self.log("Audio playback stopped.")
+
     def stream_native_audio(self, source, audio_filter=""):
         """
         Extracts and streams real 48kHz Opus audio packets from any file or URL.
@@ -303,18 +358,27 @@ class DiscordMediaConnection:
         self._stop_native_audio()
         self.active_media_source = source
 
-        cmd = [
-            "ffmpeg", "-hide_banner", "-loglevel", "error",
-            "-re", "-i", source,
-            "-vn"
-        ]
-        if audio_filter:
-            cmd.extend(["-af", audio_filter])
-        cmd.extend([
-            "-c:a", "libopus", "-b:a", "96k", "-vbr", "on",
-            "-application", "audio", "-frame_duration", "20",
-            "-f", "opus", "pipe:1"
-        ])
+        if source.startswith("lavfi:"):
+            cmd = [
+                "ffmpeg", "-hide_banner", "-loglevel", "error",
+                "-re", "-f", "lavfi", "-i", source[6:],
+                "-vn", "-c:a", "libopus", "-b:a", "96k", "-vbr", "on",
+                "-application", "audio", "-frame_duration", "20",
+                "-f", "opus", "pipe:1"
+            ]
+        else:
+            cmd = [
+                "ffmpeg", "-hide_banner", "-loglevel", "error",
+                "-re", "-i", source,
+                "-vn"
+            ]
+            if audio_filter:
+                cmd.extend(["-af", audio_filter])
+            cmd.extend([
+                "-c:a", "libopus", "-b:a", "96k", "-vbr", "on",
+                "-application", "audio", "-frame_duration", "20",
+                "-f", "opus", "pipe:1"
+            ])
 
         try:
             creationflags = 0

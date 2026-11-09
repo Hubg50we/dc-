@@ -75,7 +75,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.5.6"
+APP_VERSION = "1.5.7"
 AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
@@ -3555,6 +3555,12 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             vol = int(payload.get("volume", 100))
             if not url:
                 return {"success": False, "error": "Audio URL required"}
+            SPEAKING_SIM = True
+            for a in ACCOUNTS.values():
+                a["speaking"] = True
+                vc = a.get("voice_conn")
+                if vc and hasattr(vc, "stream_native_audio"):
+                    vc.stream_native_audio(url)
             log(f"🌐 Streaming Remote Audio: '{title}' ({url})")
             return {"success": True, "streaming": True, "url": url, "title": title, "loop": loop, "volume": vol}
 
@@ -3783,7 +3789,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             return {"success": True, "voice_flags": VOICE_FLAGS, "message": f"Voice flags updated to {VOICE_FLAGS}"}
 
         if action == "play_sfx":
-            sound = str(payload.get("sound", "scream")).lower()
+            sound = str(payload.get("sound", payload.get("sfx_name", "scream"))).lower()
             flags = int(payload.get("flags", VOICE_FLAGS))
             duration = float(payload.get("duration", 4.0))
             ACTIVE_SFX = sound
@@ -3792,6 +3798,9 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 a["speaking"] = True
                 a["voice_flags"] = flags
                 a["active_sfx"] = sound
+                vc = a.get("voice_conn")
+                if vc and hasattr(vc, "play_sfx"):
+                    vc.play_sfx(sound, duration)
             sb_res = send_to_streambot("/api/sfx", {"sound": sound})
             log(f"🔊 Soundboard SFX activated: [{sound.upper()}] with flags={flags} duration={duration}s")
             return {"success": True, "active_sfx": ACTIVE_SFX, "voice_flags": flags, "duration": duration, "streambot": sb_res, "message": f"Playing {sound.upper()} on voice"}
@@ -3802,6 +3811,9 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             for a in ACCOUNTS.values():
                 a["speaking"] = False
                 a["active_sfx"] = ""
+                vc = a.get("voice_conn")
+                if vc and hasattr(vc, "stop_audio"):
+                    vc.stop_audio()
             send_to_streambot("/api/stop")
             log("🔊 Soundboard SFX stopped")
             return {"success": True, "active_sfx": "", "message": "SFX stopped"}
@@ -3884,6 +3896,12 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 a["speaking"] = True
                 a["voice_flags"] = flags
                 a["active_sfx"] = title
+                vc = a.get("voice_conn")
+                if vc and hasattr(vc, "stream_native_audio"):
+                    target_source = url or os.path.join(UPLOADS_DIR, title)
+                    if not os.path.exists(target_source) and not target_source.startswith("http"):
+                        target_source = f"lavfi:sine=frequency=440:duration={duration}"
+                    vc.stream_native_audio(target_source)
             sb_res = send_to_streambot("/api/play", {"url": url or "videos/test.mp4", "title": title})
             log(f"🎵 Custom Audio Stream: \"{title}\" (Flags: {flags}, Duration: {duration}s)")
             return {"success": True, "title": title, "url": url, "duration": duration, "voice_flags": flags, "streambot": sb_res, "message": f"Streaming custom audio: {title}"}
@@ -3991,6 +4009,9 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 a["video"] = True
                 a["screenshare"] = True
                 a["speaking"] = True
+                vc = a.get("voice_conn")
+                if vc and hasattr(vc, "stream_native_audio"):
+                    vc.stream_native_audio(url)
             if MAIN_LOOP and MAIN_LOOP.is_running():
                 asyncio.run_coroutine_threadsafe(self._run_video(100, True), MAIN_LOOP)
                 asyncio.run_coroutine_threadsafe(self._run_screenshare(100, True), MAIN_LOOP)
@@ -4013,6 +4034,9 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             SPEAKING_SIM = False
             for a in ACCOUNTS.values():
                 a["speaking"] = False
+                vc = a.get("voice_conn")
+                if vc and hasattr(vc, "stop_audio"):
+                    vc.stop_audio()
             send_to_streambot("/api/stop")
             if MAIN_LOOP and MAIN_LOOP.is_running():
                 async def _pause_stream():
@@ -4037,6 +4061,9 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 SPEAKING_SIM = True
                 for a in ACCOUNTS.values():
                     a["speaking"] = True
+                    vc = a.get("voice_conn")
+                    if vc and hasattr(vc, "stream_native_audio"):
+                        vc.stream_native_audio(STREAMBOT_CURRENT["url"])
                 send_to_streambot("/api/play", {"url": STREAMBOT_CURRENT["url"], "title": STREAMBOT_CURRENT["title"]})
                 if MAIN_LOOP and MAIN_LOOP.is_running():
                     async def _resume_stream():
@@ -4069,6 +4096,9 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 a["video"] = False
                 a["screenshare"] = False
                 a["speaking"] = False
+                vc = a.get("voice_conn")
+                if vc and hasattr(vc, "stop_audio"):
+                    vc.stop_audio()
             if MAIN_LOOP and MAIN_LOOP.is_running():
                 asyncio.run_coroutine_threadsafe(self._run_video(100, False), MAIN_LOOP)
                 asyncio.run_coroutine_threadsafe(self._run_screenshare(100, False), MAIN_LOOP)
@@ -4489,6 +4519,12 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             YOUTUBE_TITLE = title
             YOUTUBE_AUTHOR = author
             YOUTUBE_MODE = mode
+            if u:
+                for a in ACCOUNTS.values():
+                    a["speaking"] = True
+                    vc = a.get("voice_conn")
+                    if vc and hasattr(vc, "stream_native_audio"):
+                        vc.stream_native_audio(u)
             send_to_streambot("/api/play", {"url": u, "title": title})
 
             if MAIN_LOOP and MAIN_LOOP.is_running():
@@ -4535,6 +4571,10 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             YOUTUBE_TITLE = ""
             YOUTUBE_AUTHOR = ""
             SPEAKING_SIM = False
+            for a in ACCOUNTS.values():
+                vc = a.get("voice_conn")
+                if vc and hasattr(vc, "stop_audio"):
+                    vc.stop_audio()
             send_to_streambot("/api/stop")
             if MAIN_LOOP and MAIN_LOOP.is_running():
                 async def _clear_yt():
