@@ -206,6 +206,7 @@ class DiscordMediaConnection:
         self.overlay_ticker = ""
 
         self.speaker_callback = None
+        self.chosen_mode = "aead_aes256_gcm_rtpsize"
         self._video_thread = None
         self._audio_thread = None
 
@@ -550,7 +551,7 @@ class DiscordMediaConnection:
 
                         hb_task = asyncio.create_task(_heartbeat_loop())
 
-                        # Op 0: IDENTIFY with max_dave_protocol_version=0
+                        # Op 0: IDENTIFY with max_dave_protocol_version=1 (prevents close code 4017)
                         streams_list = [{"type": "screen", "rid": "100", "quality": 100}] if self.is_stream else []
                         identify = {
                             "op": 0,
@@ -561,7 +562,7 @@ class DiscordMediaConnection:
                                 "token": self.token,
                                 "video": True,
                                 "streams": streams_list,
-                                "max_dave_protocol_version": 0
+                                "max_dave_protocol_version": 1
                             }
                         }
                         await ws.send(json.dumps(identify))
@@ -578,13 +579,23 @@ class DiscordMediaConnection:
                             self.video_ssrc = self.audio_ssrc + 1
                             self.rtx_ssrc = self.audio_ssrc + 2
 
-                        self.log(f"READY: AudioSSRC={self.audio_ssrc}, VideoSSRC={self.video_ssrc}, IP={self.ip}:{self.port}")
+                        modes = d.get("modes", [])
+                        if "aead_aes256_gcm_rtpsize" in modes:
+                            self.chosen_mode = "aead_aes256_gcm_rtpsize"
+                        elif "aead_aes256_gcm" in modes:
+                            self.chosen_mode = "aead_aes256_gcm"
+                        elif "aead_xchacha20_poly1305_rtpsize" in modes:
+                            self.chosen_mode = "aead_xchacha20_poly1305_rtpsize"
+                        else:
+                            self.chosen_mode = "aead_aes256_gcm_rtpsize"
+
+                        self.log(f"READY: AudioSSRC={self.audio_ssrc}, VideoSSRC={self.video_ssrc}, IP={self.ip}:{self.port}, Mode={self.chosen_mode}")
 
                         # UDP Discovery
                         my_ip, my_port = await self._discover_udp()
                         self.log(f"UDP Discovery Successful: {my_ip}:{my_port}")
 
-                        # Op 1: SELECT_PROTOCOL (Standard AEAD AES-256-GCM + Dual Codec Negotiation)
+                        # Op 1: SELECT_PROTOCOL (Negotiated Mode: aead_aes256_gcm_rtpsize + Dual Codec Negotiation)
                         select_proto = {
                             "op": 1,
                             "d": {
@@ -592,7 +603,7 @@ class DiscordMediaConnection:
                                 "data": {
                                     "address": my_ip,
                                     "port": my_port,
-                                    "mode": "aead_aes256_gcm",
+                                    "mode": self.chosen_mode,
                                     "codecs": [
                                         {"name": "opus", "type": "audio", "priority": 1000, "payload_type": 120},
                                         {"name": "H264", "type": "video", "priority": 1000, "payload_type": 103}
@@ -607,7 +618,8 @@ class DiscordMediaConnection:
                         self.secret_key = bytes(key_list)
                         self.aesgcm = AESGCM(self.secret_key)
                         self.connected = True
-                        self.log("🔐 Authenticated session ready (AES-256-GCM AEAD)!")
+                        active_enc = d.get("mode", self.chosen_mode)
+                        self.log(f"🔐 Authenticated session ready ({active_enc})!")
 
                         # Op 5: SPEAKING
                         await ws.send(json.dumps({

@@ -895,11 +895,11 @@ def run_tests():
     except Exception as e:
         check("POST action: scrape_guild_blueprint", False, str(e))
 
-    # 87. Test Voice Protocol Selection (aead_aes256_gcm Mode & Codec Negotiation)
+    # 87. Test Voice Protocol Selection (aead_aes256_gcm / aead_aes256_gcm_rtpsize Mode & Codec Negotiation)
     try:
         with open("media_streamer.py", "r", encoding="utf-8") as ms_f:
             ms_code = ms_f.read()
-        mode_ok = '"mode": "aead_aes256_gcm"' in ms_code
+        mode_ok = ('"mode": "aead_aes256_gcm"' in ms_code) or ('"mode": self.chosen_mode' in ms_code)
         codecs_ok = '"payload_type": 120' in ms_code and '"payload_type": 103' in ms_code
         check("Voice Protocol Selection (aead_aes256_gcm & Opus/H264 Codec Negotiation)",
               mode_ok and codecs_ok)
@@ -937,7 +937,7 @@ def run_tests():
         with open("android/app/src/main/java/com/hubg50we/dc/DiscordManager.java", "r", encoding="utf-8") as jf:
             java_code = jf.read()
         no_lockout = "if (audioThread != null && audioThread.isAlive()) return;" in java_code
-        java_mode_ok = 'data.put("mode", "aead_aes256_gcm");' in java_code
+        java_mode_ok = ('data.put("mode", "aead_aes256_gcm");' in java_code) or ('data.put("mode", selectedMode);' in java_code)
         java_codecs_ok = 'opusCodec.put("payload_type", 120);' in java_code and 'h264Codec.put("payload_type", 103);' in java_code
         check("Android Audio Startup & AEAD AES-256-GCM Resolution (DiscordManager.java)",
               no_lockout and java_mode_ok and java_codecs_ok)
@@ -982,7 +982,7 @@ def run_tests():
                 self.stopped = True
 
         mock_vc = MockVoiceConn()
-        mock_acc = {"token": "test_token", "voice_conn": mock_vc}
+        mock_acc = {"id": 999, "token": "test_token", "voice_conn": mock_vc}
         main.ACCOUNTS["test_token"] = mock_acc
 
         st_sfx, d_sfx = http_post("/api/action", {"action": "play_sfx", "sfx_name": "airhorn"})
@@ -1027,6 +1027,29 @@ def run_tests():
               has_get_opus and no_corrupt_fallback)
     except Exception as e:
         check("Android RFC 6716 AudioSynthesizer Pre-Encoded Soundboard Packets", False, str(e))
+
+    # 94. Test Voice Gateway DAVE Protocol v1 & aead_aes256_gcm_rtpsize Negotiation & Asynchronous State Sync
+    try:
+        with open("media_streamer.py", "r", encoding="utf-8") as mf:
+            media_code = mf.read()
+        with open("main.py", "r", encoding="utf-8") as mpf:
+            main_code = mpf.read()
+        with open("android/app/src/main/java/com/hubg50we/dc/DiscordManager.java", "r", encoding="utf-8") as jf:
+            java_code = jf.read()
+
+        py_dave_v1 = '"max_dave_protocol_version": 1' in media_code
+        py_rtpsize_mode = "aead_aes256_gcm_rtpsize" in media_code
+        py_state_sync = "def try_connect_voice" in main_code
+
+        java_dave_v1 = 'd.put("max_dave_protocol_version", 1);' in java_code
+        java_rtpsize_mode = '"aead_aes256_gcm_rtpsize"' in java_code
+        java_state_sync = "public synchronized void tryConnectVoice" in java_code
+
+        check("Voice Gateway DAVE Protocol v1, AEAD Mode Negotiation & Dual-Event State Sync",
+              py_dave_v1 and py_rtpsize_mode and py_state_sync and
+              java_dave_v1 and java_rtpsize_mode and java_state_sync)
+    except Exception as e:
+        check("Voice Gateway DAVE Protocol v1, AEAD Mode Negotiation & Dual-Event State Sync", False, str(e))
 
     # Summary
     passed = sum(1 for _, ok, _ in results if ok)

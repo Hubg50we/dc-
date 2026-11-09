@@ -45,7 +45,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.5.7";
+    public static final String APP_VERSION = "1.5.8";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -2786,6 +2786,8 @@ public class DiscordManager {
         public boolean screenShare = false;
         public boolean youtubeActive = false;
         public String sessionId = "";
+        public String voiceToken = null;
+        public String voiceEndpoint = null;
         public String streamRtcServerId = "";
         public DiscordVoiceConnection voiceConnection = null;
         public DiscordVoiceConnection streamConnection = null;
@@ -2795,10 +2797,31 @@ public class DiscordManager {
         private Runnable heartRunnable;
         private int lastSequence = -1;
         public volatile boolean removed = false;
+        private OkHttpClient okClient;
+        private DiscordManager discordMgr;
 
         public Account(int id, String token) {
             this.id = id;
             this.token = token;
+        }
+
+        public synchronized void tryConnectVoice() {
+            if (voiceChannel != null && sessionId != null && !sessionId.isEmpty() && voiceToken != null && voiceEndpoint != null && !voiceEndpoint.isEmpty() && !"null".equals(voiceEndpoint)) {
+                if (voiceConnection != null && voiceConnection.isConnected()) {
+                    return;
+                }
+                if (voiceConnection != null) {
+                    voiceConnection.close();
+                }
+                String gId = (currentGuildId != null && !currentGuildId.isEmpty()) ? currentGuildId : voiceChannel;
+                DiscordManager m = (discordMgr != null) ? discordMgr : null;
+                OkHttpClient c = (okClient != null) ? okClient : null;
+                if (m != null) {
+                    m.log("Account #" + id + " 🎤 Connecting Voice Gateway to " + voiceEndpoint + " (session=" + (sessionId.length() > 6 ? sessionId.substring(0, 6) + "..." : sessionId) + ")...");
+                }
+                voiceConnection = new DiscordVoiceConnection(Account.this, gId, voiceChannel, sessionId, voiceToken, voiceEndpoint, c, m, false);
+                voiceConnection.connect();
+            }
         }
 
         public void reconnect(OkHttpClient client, DiscordManager mgr) {
@@ -2808,6 +2831,8 @@ public class DiscordManager {
         }
 
         public void connect(OkHttpClient client, DiscordManager mgr) {
+            this.okClient = client;
+            this.discordMgr = mgr;
             disconnect();
             Request req = new Request.Builder()
                     .url("wss://gateway.discord.gg/?v=9&encoding=json")
@@ -2865,9 +2890,11 @@ public class DiscordManager {
                             String t = msg.optString("t", "");
                             if ("READY".equals(t)) {
                                 online = true;
-                                JSONObject user = msg.getJSONObject("d").getJSONObject("user");
+                                JSONObject rd = msg.getJSONObject("d");
+                                JSONObject user = rd.getJSONObject("user");
                                 name = user.optString("username", "Account #" + id);
                                 userId = user.optString("id", "");
+                                sessionId = rd.optString("session_id", sessionId);
                                 mgr.log("Account #" + id + " 🟢 READY as " + name + " (" + userId + ")");
                             } else if ("VOICE_STATE_UPDATE".equals(t)) {
                                 JSONObject d = msg.getJSONObject("d");
@@ -2892,6 +2919,8 @@ public class DiscordManager {
                                             voiceConnection.close();
                                             voiceConnection = null;
                                         }
+                                    } else {
+                                        tryConnectVoice();
                                     }
 
                                     // Auto-Rejoin Guard: if unexpectedly disconnected/kicked and autoRejoin is enabled
@@ -2906,17 +2935,13 @@ public class DiscordManager {
                                 }
                             } else if ("VOICE_SERVER_UPDATE".equals(t)) {
                                 JSONObject d = msg.getJSONObject("d");
-                                String gId = d.optString("guild_id", currentGuildId);
-                                String token = d.optString("token", "");
-                                String endpoint = d.optString("endpoint", "");
-                                mgr.log("Account #" + id + " 📡 Voice Server Update: endpoint=" + endpoint + ", token=" + (token.length() > 6 ? token.substring(0, 6) + "..." : ""));
-                                if (endpoint != null && !endpoint.isEmpty() && !"null".equals(endpoint)) {
-                                    if (voiceConnection != null) {
-                                        voiceConnection.close();
-                                    }
-                                    voiceConnection = new DiscordVoiceConnection(Account.this, gId, voiceChannel, sessionId, token, endpoint, client, mgr, false);
-                                    voiceConnection.connect();
+                                if (d.has("guild_id") && !d.isNull("guild_id") && !"null".equals(d.optString("guild_id"))) {
+                                    currentGuildId = d.optString("guild_id", currentGuildId);
                                 }
+                                voiceToken = d.optString("token", voiceToken);
+                                voiceEndpoint = d.optString("endpoint", voiceEndpoint);
+                                mgr.log("Account #" + id + " 📡 Voice Server Update: endpoint=" + voiceEndpoint + ", token=" + (voiceToken != null && voiceToken.length() > 6 ? voiceToken.substring(0, 6) + "..." : ""));
+                                tryConnectVoice();
                             } else if ("STREAM_SERVER_UPDATE".equals(t)) {
                                 JSONObject d = msg.getJSONObject("d");
                                 String streamKey = d.optString("stream_key", "");
@@ -3341,6 +3366,8 @@ public class DiscordManager {
             }
             online = false;
             voiceChannel = null;
+            voiceToken = null;
+            voiceEndpoint = null;
             currentGuildId = "";
             lastSequence = -1;
         }
@@ -3480,6 +3507,11 @@ public static class AudioSynthesizer {
 
         private volatile boolean connected = false;
         private volatile boolean running = false;
+        private String selectedMode = "aead_aes256_gcm_rtpsize";
+
+        public boolean isConnected() {
+            return connected && running;
+        }
         private Thread audioThread;
         private Handler voiceHeartbeatHandler;
         private Runnable voiceHeartbeatRunnable;
@@ -3553,7 +3585,22 @@ public static class AudioSynthesizer {
                                 videoSsrc = ssrc + 1;
                                 rtxSsrc = ssrc + 2;
                             }
-                            mgr.log("Account #" + account.id + (isStream ? " 🎥 Stream Ready: SSRC=" : " 🎤 Voice Ready: SSRC=") + ssrc + ", VideoSSRC=" + videoSsrc + ", IP=" + ip + ":" + voiceServerPort);
+                            if (d.has("modes")) {
+                                JSONArray modes = d.getJSONArray("modes");
+                                boolean hasRtpsize = false;
+                                boolean hasLegacy = false;
+                                for (int i = 0; i < modes.length(); i++) {
+                                    String m = modes.optString(i, "");
+                                    if ("aead_aes256_gcm_rtpsize".equals(m)) hasRtpsize = true;
+                                    if ("aead_aes256_gcm".equals(m)) hasLegacy = true;
+                                }
+                                if (hasRtpsize) {
+                                    selectedMode = "aead_aes256_gcm_rtpsize";
+                                } else if (hasLegacy) {
+                                    selectedMode = "aead_aes256_gcm";
+                                }
+                            }
+                            mgr.log("Account #" + account.id + (isStream ? " 🎥 Stream Ready: SSRC=" : " 🎤 Voice Ready: SSRC=") + ssrc + ", VideoSSRC=" + videoSsrc + ", IP=" + ip + ":" + voiceServerPort + ", Mode=" + selectedMode);
                             new Thread(() -> performUdpDiscovery(ip, voiceServerPort, ssrc), "VoiceUDP-" + account.id).start();
                         } else if (op == 4) { // SESSION_DESCRIPTION
                             JSONObject d = msg.getJSONObject("d");
@@ -3601,7 +3648,7 @@ public static class AudioSynthesizer {
                 d.put("session_id", sessionId);
                 d.put("token", token);
                 d.put("video", true);
-                d.put("max_dave_protocol_version", 0);
+                d.put("max_dave_protocol_version", 1);
                 if (isStream) {
                     JSONArray streams = new JSONArray();
                     JSONObject s = new JSONObject();
@@ -3661,7 +3708,7 @@ public static class AudioSynthesizer {
                 JSONObject data = new JSONObject();
                 data.put("address", myIp);
                 data.put("port", myPort);
-                data.put("mode", "aead_aes256_gcm");
+                data.put("mode", selectedMode);
                 JSONArray codecs = new JSONArray();
                 JSONObject opusCodec = new JSONObject();
                 opusCodec.put("name", "opus");

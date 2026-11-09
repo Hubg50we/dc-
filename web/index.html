@@ -1059,7 +1059,7 @@
             <span style="font-size:1.1rem;">🔀</span>
             <span>Multi-Channel Room Spreader & Gatherer</span>
           </div>
-          <span class="badge" style="background:rgba(168, 85, 247, 0.25); color:#e9d5ff; font-weight:700;">v1.5.7</span>
+          <span class="badge" style="background:rgba(168, 85, 247, 0.25); color:#e9d5ff; font-weight:700;">v1.5.8</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Distribute bot accounts across multiple voice channels simultaneously, or gather all accounts into a single room with 1 tap.
@@ -1611,7 +1611,7 @@
             <span style="font-size:1.15rem;">🎛️</span>
             <span>Vencord Audio Lab & Power Tools</span>
           </div>
-          <span class="badge" style="background:rgba(236,72,153,0.25); color:#fbcfe8; font-size:0.7rem; font-weight:700;">v1.5.7</span>
+          <span class="badge" style="background:rgba(236,72,153,0.25); color:#fbcfe8; font-size:0.7rem; font-weight:700;">v1.5.8</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">
           Extreme volume amplification up to 2000%, Krisp neural noise filtration, live chat translator, and instant kaomoji macros.
@@ -1722,7 +1722,7 @@
             <span style="font-size:1.15rem;">🎯</span>
             <span>Ghost Target Follower & 8D Spatial Studio</span>
           </div>
-          <span class="badge" style="background:rgba(16, 185, 129, 0.25); color:#a7f3d0; font-size:0.7rem; font-weight:700;">v1.5.7</span>
+          <span class="badge" style="background:rgba(16, 185, 129, 0.25); color:#a7f3d0; font-size:0.7rem; font-weight:700;">v1.5.8</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">
           Autonomous voice room chaser, 4-part choir harmonizer, binaural 8D orbital audio, and anti-kick rejoin protection.
@@ -1926,7 +1926,7 @@
       <div class="card" style="border-color: rgba(88, 101, 242, 0.45);">
         <div class="card-title" style="color:var(--accent);">
           <span>🔄 App Updates & Version</span>
-          <span class="badge badge-voice" id="settings-app-version">v1.5.7</span>
+          <span class="badge badge-voice" id="settings-app-version">v1.5.8</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
           Cross-platform Discord controller for Android Mobile and Windows PC.
@@ -1950,7 +1950,7 @@
         </div>
 
         <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:6px;">
-          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Direct Downloads (v1.5.7):</div>
+          <div style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Direct Downloads (v1.5.8):</div>
           <div style="display:flex; gap:6px; flex-wrap:wrap;">
             <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-android.apk" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               📱 Android APK
@@ -1958,7 +1958,7 @@
             <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows.exe" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               💻 Windows EXE
             </a>
-            <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows-portable-v1.5.7.zip" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
+            <a href="https://github.com/Hubg50we/dc-/releases/latest/download/dc-windows-portable-v1.5.8.zip" target="_blank" class="btn btn-secondary btn-sm" style="flex:1; text-align:center; text-decoration:none;">
               📦 Portable ZIP
             </a>
           </div>
@@ -4236,8 +4236,20 @@
     async function runBatchRoute(subAction) {
       vibrate(25);
       if (selectedAccountIds.size === 0) return showToast('No bots selected', true);
-      const ch = document.getElementById('batch-route-ch') ? document.getElementById('batch-route-ch').value.trim() : '';
-      const gid = document.getElementById('batch-route-gid') ? document.getElementById('batch-route-gid').value.trim() : '';
+      let ch = document.getElementById('batch-route-ch') ? document.getElementById('batch-route-ch').value.trim() : '';
+      if (!ch) {
+        const targetChEl = document.getElementById('target-channel-id');
+        if (targetChEl && targetChEl.value.trim()) {
+          ch = targetChEl.value.trim();
+        }
+      }
+      let gid = document.getElementById('batch-route-gid') ? document.getElementById('batch-route-gid').value.trim() : '';
+      if (!gid) {
+        const targetGidEl = document.getElementById('target-guild-id');
+        if (targetGidEl && targetGidEl.value.trim()) {
+          gid = targetGidEl.value.trim();
+        }
+      }
       logToConsole(`Batch ${subAction} for ${selectedAccountIds.size} bot(s) -> Ch: ${ch || 'default'}${gid ? ' Svr: ' + gid : ''}...`);
       try {
         const res = await fetch('/api/action', {
@@ -7024,7 +7036,7 @@
       return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    let currentAppVersion = '1.5.7';
+    let currentAppVersion = '1.5.8';
     let latestUpdateData = null;
 
     function toggleAutoCheckUpdate(enabled) {

@@ -75,7 +75,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.5.7"
+APP_VERSION = "1.5.8"
 AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
@@ -1647,10 +1647,13 @@ async def run_account(aid):
                         break
 
                 if isinstance(event, dict) and event.get("d"):
-                    u = event["d"].get("user")
+                    d_rdy = event["d"]
+                    u = d_rdy.get("user")
                     if u:
                         acc["user_id"] = u.get("id", acc.get("user_id"))
                         acc["name"] = u.get("username", acc.get("name"))
+                    if d_rdy.get("session_id"):
+                        acc["session_id"] = d_rdy.get("session_id")
                 del event
                 del hello
 
@@ -1659,6 +1662,33 @@ async def run_account(aid):
                 acc["error"] = None
                 delay = 5
                 print(f"[Account {aid}] {acc['name']} connected (gateway).")
+
+                def try_connect_voice():
+                    endpoint = acc.get("voice_endpoint")
+                    token = acc.get("voice_token")
+                    session_id = acc.get("session_id")
+                    channel_id = acc.get("voice_channel")
+                    g_id = acc.get("guild_id") or channel_id
+                    if not (endpoint and token and session_id and channel_id):
+                        return
+                    if str(endpoint).strip() in ("", "null", "None"):
+                        return
+                    if acc.get("voice_conn") and getattr(acc["voice_conn"], "running", False):
+                        return
+                    if acc.get("voice_conn"):
+                        asyncio.create_task(acc["voice_conn"].stop())
+                    log(f"[Account {aid}] 🎤 Connecting Voice Gateway to {endpoint} (session={session_id[:6] if len(session_id) >= 6 else session_id})...")
+                    v_conn = DiscordMediaConnection(aid, acc.get("user_id"), session_id, token, endpoint, g_id, is_stream=False, logger=log)
+                    v_conn.set_profile(STREAM_PROFILE)
+                    v_conn.set_visualizer(VISUALIZER_MODE)
+                    def _make_speaker_cb(ch):
+                        def _on_spk(uid, spk):
+                            if ch in VOICE_HUD_MEMBERS and uid in VOICE_HUD_MEMBERS[ch]:
+                                VOICE_HUD_MEMBERS[ch][uid]["speaking"] = spk
+                        return _on_spk
+                    v_conn.speaker_callback = _make_speaker_cb(channel_id)
+                    acc["voice_conn"] = v_conn
+                    v_conn.start()
 
                 while True:
                     raw_msg = await asyncio.wait_for(ws.recv(), timeout=max(30, heartbeat_interval / 1000 + 15))
@@ -1711,7 +1741,8 @@ async def run_account(aid):
 
                             if d.get("user_id") == acc.get("user_id"):
                                 prev_ch = acc.get("voice_channel")
-                                acc["session_id"] = d.get("session_id", acc.get("session_id", ""))
+                                if d.get("session_id"):
+                                    acc["session_id"] = d.get("session_id")
                                 acc["voice_channel"] = d.get("channel_id")
                                 acc["mute"] = d.get("self_mute", False)
                                 acc["deaf"] = d.get("self_deaf", False)
@@ -1726,6 +1757,8 @@ async def run_account(aid):
                                     if acc.get("voice_conn"):
                                         asyncio.create_task(acc["voice_conn"].stop())
                                         acc["voice_conn"] = None
+                                else:
+                                    try_connect_voice()
                                 
                                 # Auto-Rejoin Guard: if unexpectedly disconnected and auto_rejoin is true
                                 if not acc["voice_channel"] and not acc.get("user_left_intentional", False) and AUTO_REJOIN and acc.get("desired_channel"):
@@ -1745,22 +1778,9 @@ async def run_account(aid):
                             endpoint = d.get("endpoint")
                             acc["voice_token"] = token
                             acc["voice_endpoint"] = endpoint
-                            if endpoint and token and acc.get("voice_channel"):
-                                if acc.get("voice_conn"):
-                                    asyncio.create_task(acc["voice_conn"].stop())
-                                log(f"[Account {aid}] 🎤 Connecting Voice Gateway to {endpoint}...")
-                                v_conn = DiscordMediaConnection(aid, acc.get("user_id"), acc.get("session_id"), token, endpoint, g_id, is_stream=False, logger=log)
-                                v_conn.set_profile(STREAM_PROFILE)
-                                v_conn.set_visualizer(VISUALIZER_MODE)
-                                cur_ch = acc.get("voice_channel")
-                                def _make_speaker_cb(ch):
-                                    def _on_spk(uid, spk):
-                                        if ch in VOICE_HUD_MEMBERS and uid in VOICE_HUD_MEMBERS[ch]:
-                                            VOICE_HUD_MEMBERS[ch][uid]["speaking"] = spk
-                                    return _on_spk
-                                v_conn.speaker_callback = _make_speaker_cb(cur_ch)
-                                acc["voice_conn"] = v_conn
-                                v_conn.start()
+                            if g_id:
+                                acc["guild_id"] = g_id
+                            try_connect_voice()
 
                         elif t == "STREAM_CREATE":
                             d = ev.get("d", {})
@@ -2627,7 +2647,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             "presets": get_channel_presets(),
             "accounts": [
                 {
-                    "id": a["id"],
+                    "id": a.get("id", 0),
                     "name": a.get("name") or "Unknown",
                     "user_id": a.get("user_id"),
                     "token_masked": (a.get("token")[:10] + "..." + a.get("token")[-4:]) if a.get("token") else "",
@@ -2644,7 +2664,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                     "youtube_active": a.get("youtube_active", False),
                     "error": a.get("error"),
                 }
-                for a in sorted(ACCOUNTS.values(), key=lambda x: x["id"])
+                for a in sorted(ACCOUNTS.values(), key=lambda x: x.get("id", 0))
             ],
         }
         resp = json.dumps(data).encode("utf-8")
@@ -3741,17 +3761,17 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                     results = []
                     valid_count = 0
                     invalid_count = 0
-                    for a in sorted(ACCOUNTS.values(), key=lambda x: x["id"]):
+                    for a in sorted(ACCOUNTS.values(), key=lambda x: x.get("id", 0)):
                         tok = a.get("token", "")
                         mask = (tok[:8] + "..." + tok[-4:]) if len(tok) > 14 else "******"
                         u, err = await _validate_token(tok)
                         if u:
                             valid_count += 1
-                            results.append({"id": a["id"], "name": a.get("name", "Unknown"), "token_masked": mask, "status": "valid", "username": u.get("username")})
+                            results.append({"id": a.get("id", 0), "name": a.get("name", "Unknown"), "token_masked": mask, "status": "valid", "username": u.get("username")})
                         else:
                             invalid_count += 1
                             st = "locked" if (err and ("403" in str(err) or "locked" in str(err).lower())) else "invalid"
-                            results.append({"id": a["id"], "name": a.get("name", "Unknown"), "token_masked": mask, "status": st, "error": err})
+                            results.append({"id": a.get("id", 0), "name": a.get("name", "Unknown"), "token_masked": mask, "status": st, "error": err})
                     return {"success": True, "results": results, "valid_count": valid_count, "invalid_count": invalid_count, "total": len(ACCOUNTS)}
 
                 fut = asyncio.run_coroutine_threadsafe(_do_check(), MAIN_LOOP)
