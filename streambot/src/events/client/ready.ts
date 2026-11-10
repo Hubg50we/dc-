@@ -1,4 +1,4 @@
-import { Client, ActivityOptions } from "discord.js-selfbot-v13";
+import { Client, ActivityOptions } from "@lng2004/discord.js-selfbot-v13";
 import logger from "../../utils/logger.js";
 import { DiscordUtils } from "../../utils/shared.js";
 

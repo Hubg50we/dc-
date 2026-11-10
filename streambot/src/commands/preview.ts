@@ -1,6 +1,6 @@
 import { BaseCommand } from "./base.js";
 import { CommandContext } from "../types/index.js";
-import { MessageAttachment } from "discord.js-selfbot-v13";
+import { MessageAttachment } from "@lng2004/discord.js-selfbot-v13";
 import path from 'path';
 import { ffmpegScreenshot } from "../utils/ffmpeg.js";
 import logger from '../utils/logger.js';

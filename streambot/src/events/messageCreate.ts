@@ -1,4 +1,4 @@
-import { Message } from "discord.js-selfbot-v13";
+import { Message } from "@lng2004/discord.js-selfbot-v13";
 import { CommandManager } from "../commands/manager.js";
 import { CommandContext, Video, StreamStatus } from "../types/index.js";
 import config from "../config.js";

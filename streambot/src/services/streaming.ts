@@ -1,4 +1,4 @@
-import { Client, Message } from "discord.js-selfbot-v13";
+import { Client, Message } from "@lng2004/discord.js-selfbot-v13";
 import { Streamer, Utils, prepareStream, playStream } from "@dank074/discord-video-stream";
 import fs from 'fs';
 import path from 'path';

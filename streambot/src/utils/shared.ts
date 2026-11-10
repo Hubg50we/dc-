@@ -1,4 +1,4 @@
-import { Message, ActivityOptions } from "discord.js-selfbot-v13";
+import { Message, ActivityOptions } from "@lng2004/discord.js-selfbot-v13";
 import config from "../config.js";
 import logger from "./logger.js";
 import fs from 'fs';

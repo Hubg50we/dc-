@@ -1,4 +1,4 @@
-import { Message, ActivityOptions } from "discord.js-selfbot-v13";
+import { Message, ActivityOptions } from "@lng2004/discord.js-selfbot-v13";
 export declare const DiscordUtils: {
     status_idle(): ActivityOptions;
     status_watch(name: string): ActivityOptions;

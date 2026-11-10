@@ -1,5 +1,5 @@
-import { VoiceState } from "discord.js-selfbot-v13";
-import { Client } from "discord.js-selfbot-v13";
+import { VoiceState } from "@lng2004/discord.js-selfbot-v13";
+import { Client } from "@lng2004/discord.js-selfbot-v13";
 import { DiscordUtils } from "../utils/shared.js";
 import { StreamStatus } from "../types/index.js";
 
