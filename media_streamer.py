@@ -195,8 +195,17 @@ class DiscordMediaConnection:
         self.main_task = None
 
         self.dave_session = None
-        self.dave_protocol_version = 0
+        self.dave_protocol_version = 1
         self.dave_pending_transitions = {}
+        self.dave_external_sender_package = None
+
+        if HAS_DAVEY:
+            try:
+                ch_id_int = int(self.channel_id) if str(self.channel_id).isdigit() else 0
+                uid_int = int(self.user_id) if str(self.user_id).isdigit() else 0
+                self.dave_session = davey.DaveSession(self.dave_protocol_version, uid_int, ch_id_int)
+            except Exception:
+                self.dave_session = None
 
         self.audio_ssrc = 0
         self.video_ssrc = 0
@@ -556,53 +565,64 @@ class DiscordMediaConnection:
                     msg_raw = await ws.recv()
                     if isinstance(msg_raw, bytes):
                         # Process binary WebSocket frame from Voice Gateway (DAVE / MLS)
-                        if len(msg_raw) >= 3 and self.dave_session:
-                            seq = struct.unpack(">H", msg_raw[:2])[0]
-                            op = msg_raw[2]
-                            payload = msg_raw[3:]
+                        if len(msg_raw) >= 1:
+                            if msg_raw[0] in (25, 26, 27, 28, 29, 30):
+                                op = msg_raw[0]
+                                payload = msg_raw[1:]
+                            elif len(msg_raw) >= 3 and msg_raw[2] in (25, 26, 27, 28, 29, 30):
+                                op = msg_raw[2]
+                                payload = msg_raw[3:]
+                            else:
+                                op = msg_raw[0]
+                                payload = msg_raw[1:]
 
                             if op == 25:  # DaveMlsExternalSender
                                 self.log("🔒 [DAVE] Received MLS External Sender Package")
-                                try:
-                                    self.dave_session.set_external_sender(payload)
-                                except Exception as e:
-                                    self.log(f"⚠️ [DAVE] set_external_sender: {e}")
+                                self.dave_external_sender_package = payload
+                                if self.dave_session:
+                                    try:
+                                        self.dave_session.set_external_sender(payload)
+                                    except Exception as e:
+                                        self.log(f"⚠️ [DAVE] set_external_sender: {e}")
 
                             elif op == 27:  # DaveMlsProposals
                                 self.log("🔒 [DAVE] Received MLS Proposals")
-                                try:
-                                    op_type = payload[0] if len(payload) > 0 else 0
-                                    prop_data = payload[1:] if len(payload) > 1 else b""
-                                    res = self.dave_session.process_proposals(
-                                        davey.ProposalsOperationType.append if op_type == 0 else davey.ProposalsOperationType.revoke,
-                                        prop_data
-                                    )
-                                    if res and getattr(res, "commit", None):
-                                        commit_payload = res.commit + (res.welcome or b"")
-                                        await ws.send(bytes([28]) + commit_payload)
-                                        self.log("🔒 [DAVE] Dispatched MLS Commit/Welcome (Opcode 28)")
-                                except Exception as e:
-                                    self.log(f"⚠️ [DAVE] process_proposals: {e}")
+                                if self.dave_session:
+                                    try:
+                                        op_type = payload[0] if len(payload) > 0 else 0
+                                        prop_data = payload[1:] if len(payload) > 1 else b""
+                                        res = self.dave_session.process_proposals(
+                                            davey.ProposalsOperationType.append if op_type == 0 else davey.ProposalsOperationType.revoke,
+                                            prop_data
+                                        )
+                                        if res and getattr(res, "commit", None):
+                                            commit_payload = res.commit + (res.welcome or b"")
+                                            await ws.send(bytes([28]) + commit_payload)
+                                            self.log("🔒 [DAVE] Dispatched MLS Commit/Welcome (Opcode 28)")
+                                    except Exception as e:
+                                        self.log(f"⚠️ [DAVE] process_proposals: {e}")
 
                             elif op == 29:  # DaveMlsAnnounceCommitTransition
-                                try:
-                                    trans_id = struct.unpack(">H", payload[:2])[0] if len(payload) >= 2 else 0
-                                    self.dave_session.process_commit(payload[2:])
-                                    self.log(f"🔒 [DAVE] Processed MLS Commit for Transition {trans_id}")
-                                    if trans_id != 0:
-                                        await ws.send(json.dumps({"op": 23, "d": {"transition_id": trans_id}}))
-                                except Exception as e:
-                                    self.log(f"⚠️ [DAVE] process_commit: {e}")
+                                if self.dave_session:
+                                    try:
+                                        trans_id = struct.unpack(">H", payload[:2])[0] if len(payload) >= 2 else 0
+                                        self.dave_session.process_commit(payload[2:])
+                                        self.log(f"🔒 [DAVE] Processed MLS Commit for Transition {trans_id}")
+                                        if trans_id != 0:
+                                            await ws.send(json.dumps({"op": 23, "d": {"transition_id": trans_id}}))
+                                    except Exception as e:
+                                        self.log(f"⚠️ [DAVE] process_commit: {e}")
 
                             elif op == 30:  # DaveMlsWelcome
-                                try:
-                                    trans_id = struct.unpack(">H", payload[:2])[0] if len(payload) >= 2 else 0
-                                    self.dave_session.process_welcome(payload[2:])
-                                    self.log(f"🔒 [DAVE] Processed MLS Welcome for Transition {trans_id}")
-                                    if trans_id != 0:
-                                        await ws.send(json.dumps({"op": 23, "d": {"transition_id": trans_id}}))
-                                except Exception as e:
-                                    self.log(f"⚠️ [DAVE] process_welcome: {e}")
+                                if self.dave_session:
+                                    try:
+                                        trans_id = struct.unpack(">H", payload[:2])[0] if len(payload) >= 2 else 0
+                                        self.dave_session.process_welcome(payload[2:])
+                                        self.log(f"🔒 [DAVE] Processed MLS Welcome for Transition {trans_id}")
+                                        if trans_id != 0:
+                                            await ws.send(json.dumps({"op": 23, "d": {"transition_id": trans_id}}))
+                                    except Exception as e:
+                                        self.log(f"⚠️ [DAVE] process_welcome: {e}")
                         continue
 
                     msg = json.loads(msg_raw)
@@ -702,6 +722,11 @@ class DiscordMediaConnection:
                                 ch_id_int = int(self.channel_id) if str(self.channel_id).isdigit() else 0
                                 uid_int = int(self.user_id) if str(self.user_id).isdigit() else 0
                                 self.dave_session = davey.DaveSession(self.dave_protocol_version, uid_int, ch_id_int)
+                                if self.dave_external_sender_package:
+                                    try:
+                                        self.dave_session.set_external_sender(self.dave_external_sender_package)
+                                    except Exception:
+                                        pass
                                 kp = self.dave_session.get_serialized_key_package()
                                 await ws.send(bytes([26]) + kp)
                                 self.log(f"🔒 [DAVE] Initialized session and sent Key Package (Opcode 26, {len(kp)} bytes)")

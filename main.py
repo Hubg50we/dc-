@@ -75,7 +75,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.5.9"
+APP_VERSION = "1.6.0"
 AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
@@ -1803,8 +1803,9 @@ async def run_account(aid):
                             if endpoint and token:
                                 if acc.get("stream_conn"):
                                     asyncio.create_task(acc["stream_conn"].stop())
+                                cur_ch = acc.get("voice_channel")
                                 srv_id = acc.get("stream_rtc_server_id") or stream_key
-                                log(f"[Account {aid}] 📡 Stream Server Update: {endpoint} (server_id={srv_id})")
+                                log(f"[Account {aid}] 📡 Stream Server Update: {endpoint} (server_id={srv_id}, channel={cur_ch})")
                                 s_conn = DiscordMediaConnection(aid, acc.get("user_id"), acc.get("session_id"), token, endpoint, srv_id, channel_id=cur_ch, is_stream=True, logger=log)
                                 s_conn.set_profile(STREAM_PROFILE)
                                 s_conn.set_visualizer(VISUALIZER_MODE)
@@ -1812,7 +1813,6 @@ async def run_account(aid):
                                     s_conn.set_overlay(STREAM_OVERLAY_TITLE, STREAM_OVERLAY_TICKER)
                                 if DESKTOP_SCREEN_CAPTURE:
                                     s_conn.set_desktop_capture(True)
-                                cur_ch = acc.get("voice_channel")
                                 def _make_stream_spk_cb(ch):
                                     def _on_spk(uid, spk):
                                         if ch in VOICE_HUD_MEMBERS and uid in VOICE_HUD_MEMBERS[ch]:
@@ -1957,6 +1957,7 @@ def show_status():
 
 
 async def handle_command(raw):
+    global CHANNEL_ID, GUILD_ID, STREAMBOT_VOLUME, STREAMBOT_LOOP_MODE, STREAMBOT_STATUS, STREAMBOT_CURRENT
     parts = raw.split()
     if not parts:
         return
