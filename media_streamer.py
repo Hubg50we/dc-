@@ -17,6 +17,12 @@ import threading
 import time
 import websockets
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+try:
+    import davey
+    HAS_DAVEY = True
+except ImportError:
+    davey = None
+    HAS_DAVEY = False
 
 # Compliant 320x240 H.264 Baseline Profile Sequence & Picture Parameter Sets
 SPS_B64 = "Z0LAHtkBQfsBagQECoAAAAMAgAAAAwEHixck"
@@ -171,13 +177,14 @@ class DiscordMediaConnection:
     Optimized for multi-platform (Android / Windows PC) execution.
     Delivers rock-solid 30 FPS video and 50 PPS Opus keepalive with AES-256-GCM AEAD encryption.
     """
-    def __init__(self, account_id, user_id, session_id, token, endpoint, server_id, is_stream=True, logger=None):
+    def __init__(self, account_id, user_id, session_id, token, endpoint, server_id, channel_id="", is_stream=True, logger=None):
         self.account_id = account_id
         self.user_id = str(user_id)
         self.session_id = session_id
         self.token = token
         self.endpoint = endpoint
         self.server_id = str(server_id)
+        self.channel_id = str(channel_id or server_id)
         self.is_stream = is_stream
         self.logger = logger or print
 
@@ -186,6 +193,10 @@ class DiscordMediaConnection:
         self.ws = None
         self.udp_sock = None
         self.main_task = None
+
+        self.dave_session = None
+        self.dave_protocol_version = 0
+        self.dave_pending_transitions = {}
 
         self.audio_ssrc = 0
         self.video_ssrc = 0
@@ -359,6 +370,21 @@ class DiscordMediaConnection:
         self._stop_native_audio()
         self.active_media_source = source
 
+        if isinstance(source, str) and (source.startswith("http://") or source.startswith("https://")):
+            if any(k in source.lower() for k in ["youtube.com", "youtu.be", "twitch.tv", "tiktok.com", "soundcloud.com"]):
+                try:
+                    proc = subprocess.run(
+                        ["yt-dlp", "-g", "-f", "bestaudio/best", "--no-warnings", "--quiet", source],
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                        timeout=8
+                    )
+                    if proc.returncode == 0 and proc.stdout.strip():
+                        source = proc.stdout.strip().splitlines()[0]
+                except Exception:
+                    pass
+
         if source.startswith("lavfi:"):
             cmd = [
                 "ffmpeg", "-hide_banner", "-loglevel", "error",
@@ -529,7 +555,56 @@ class DiscordMediaConnection:
                 while self.running:
                     msg_raw = await ws.recv()
                     if isinstance(msg_raw, bytes):
+                        # Process binary WebSocket frame from Voice Gateway (DAVE / MLS)
+                        if len(msg_raw) >= 3 and self.dave_session:
+                            seq = struct.unpack(">H", msg_raw[:2])[0]
+                            op = msg_raw[2]
+                            payload = msg_raw[3:]
+
+                            if op == 25:  # DaveMlsExternalSender
+                                self.log("🔒 [DAVE] Received MLS External Sender Package")
+                                try:
+                                    self.dave_session.set_external_sender(payload)
+                                except Exception as e:
+                                    self.log(f"⚠️ [DAVE] set_external_sender: {e}")
+
+                            elif op == 27:  # DaveMlsProposals
+                                self.log("🔒 [DAVE] Received MLS Proposals")
+                                try:
+                                    op_type = payload[0] if len(payload) > 0 else 0
+                                    prop_data = payload[1:] if len(payload) > 1 else b""
+                                    res = self.dave_session.process_proposals(
+                                        davey.ProposalsOperationType.append if op_type == 0 else davey.ProposalsOperationType.revoke,
+                                        prop_data
+                                    )
+                                    if res and getattr(res, "commit", None):
+                                        commit_payload = res.commit + (res.welcome or b"")
+                                        await ws.send(bytes([28]) + commit_payload)
+                                        self.log("🔒 [DAVE] Dispatched MLS Commit/Welcome (Opcode 28)")
+                                except Exception as e:
+                                    self.log(f"⚠️ [DAVE] process_proposals: {e}")
+
+                            elif op == 29:  # DaveMlsAnnounceCommitTransition
+                                try:
+                                    trans_id = struct.unpack(">H", payload[:2])[0] if len(payload) >= 2 else 0
+                                    self.dave_session.process_commit(payload[2:])
+                                    self.log(f"🔒 [DAVE] Processed MLS Commit for Transition {trans_id}")
+                                    if trans_id != 0:
+                                        await ws.send(json.dumps({"op": 23, "d": {"transition_id": trans_id}}))
+                                except Exception as e:
+                                    self.log(f"⚠️ [DAVE] process_commit: {e}")
+
+                            elif op == 30:  # DaveMlsWelcome
+                                try:
+                                    trans_id = struct.unpack(">H", payload[:2])[0] if len(payload) >= 2 else 0
+                                    self.dave_session.process_welcome(payload[2:])
+                                    self.log(f"🔒 [DAVE] Processed MLS Welcome for Transition {trans_id}")
+                                    if trans_id != 0:
+                                        await ws.send(json.dumps({"op": 23, "d": {"transition_id": trans_id}}))
+                                except Exception as e:
+                                    self.log(f"⚠️ [DAVE] process_welcome: {e}")
                         continue
+
                     msg = json.loads(msg_raw)
                     op = msg.get("op")
                     d = msg.get("d", {})
@@ -619,7 +694,19 @@ class DiscordMediaConnection:
                         self.aesgcm = AESGCM(self.secret_key)
                         self.connected = True
                         active_enc = d.get("mode", self.chosen_mode)
-                        self.log(f"🔐 Authenticated session ready ({active_enc})!")
+                        self.dave_protocol_version = d.get("dave_protocol_version", 0)
+                        self.log(f"🔐 Authenticated session ready ({active_enc}) [DAVE v{self.dave_protocol_version}]!")
+
+                        if self.dave_protocol_version > 0 and HAS_DAVEY:
+                            try:
+                                ch_id_int = int(self.channel_id) if str(self.channel_id).isdigit() else 0
+                                uid_int = int(self.user_id) if str(self.user_id).isdigit() else 0
+                                self.dave_session = davey.DaveSession(self.dave_protocol_version, uid_int, ch_id_int)
+                                kp = self.dave_session.get_serialized_key_package()
+                                await ws.send(bytes([26]) + kp)
+                                self.log(f"🔒 [DAVE] Initialized session and sent Key Package (Opcode 26, {len(kp)} bytes)")
+                            except Exception as e:
+                                self.log(f"⚠️ [DAVE] Session init error: {e}")
 
                         # Op 5: SPEAKING
                         await ws.send(json.dumps({
@@ -666,6 +753,44 @@ class DiscordMediaConnection:
                                 daemon=True
                             )
                             self._audio_thread.start()
+
+                    elif op == 21:  # DavePrepareTransition
+                        trans_id = d.get("transition_id", 0)
+                        proto_ver = d.get("protocol_version", 0)
+                        self.log(f"🔒 [DAVE] Prepare Transition: id={trans_id}, proto={proto_ver}")
+                        if trans_id == 0:
+                            if self.dave_session:
+                                self.dave_session.execute_transition(0)
+                        else:
+                            if proto_ver == 0 and self.dave_session:
+                                self.dave_session.set_passthrough_mode(True, 120)
+                            await ws.send(json.dumps({"op": 23, "d": {"transition_id": trans_id}}))
+
+                    elif op == 22:  # DaveExecuteTransition
+                        trans_id = d.get("transition_id", 0)
+                        self.log(f"🔒 [DAVE] Execute Transition: id={trans_id}")
+                        if self.dave_session:
+                            try:
+                                self.dave_session.execute_transition(trans_id)
+                                self.log(f"🔒 [DAVE] Transition {trans_id} executed! can_encrypt={self.dave_session.can_encrypt}")
+                            except Exception as e:
+                                self.log(f"⚠️ [DAVE] execute_transition error: {e}")
+
+                    elif op == 24:  # DavePrepareEpoch
+                        epoch = d.get("epoch", 0)
+                        proto_ver = d.get("protocol_version", self.dave_protocol_version)
+                        self.log(f"🔒 [DAVE] Prepare Epoch: epoch={epoch}, proto={proto_ver}")
+                        if epoch == 1 and HAS_DAVEY:
+                            try:
+                                self.dave_protocol_version = proto_ver
+                                ch_id_int = int(self.channel_id) if str(self.channel_id).isdigit() else 0
+                                uid_int = int(self.user_id) if str(self.user_id).isdigit() else 0
+                                self.dave_session = davey.DaveSession(self.dave_protocol_version, uid_int, ch_id_int)
+                                kp = self.dave_session.get_serialized_key_package()
+                                await ws.send(bytes([26]) + kp)
+                                self.log("🔒 [DAVE] Re-initialized session for epoch 1 and sent Key Package")
+                            except Exception as e:
+                                self.log(f"⚠️ [DAVE] Epoch reinit error: {e}")
 
                     elif op == 5:  # SPEAKING
                         uid = d.get("user_id")
@@ -738,6 +863,13 @@ class DiscordMediaConnection:
                 frame_idx += 1
 
                 for p_data, marker in packets:
+                    # DAVE MLS E2EE Frame Encryption if session ready
+                    if self.dave_session and getattr(self.dave_session, "can_encrypt", False):
+                        try:
+                            p_data = self.dave_session.encrypt(davey.MediaType.video, davey.Codec.h264, p_data)
+                        except Exception:
+                            pass
+
                     # 12-byte RTP header (90kHz clock)
                     rtp_header = struct.pack(
                         ">BBHII",
@@ -799,6 +931,14 @@ class DiscordMediaConnection:
                 )
 
                 frame_to_send = self.audio_queue.popleft() if len(self.audio_queue) > 0 else silence_frame
+
+                # DAVE MLS E2EE Frame Encryption if session ready
+                if self.dave_session and getattr(self.dave_session, "can_encrypt", False):
+                    try:
+                        frame_to_send = self.dave_session.encrypt_opus(frame_to_send)
+                    except Exception:
+                        pass
+
                 nonce = struct.pack(">I", nonce_counter) + (b"\x00" * 8)
                 ciphertext = self.aesgcm.encrypt(nonce, frame_to_send, rtp_header)
                 packet = rtp_header + ciphertext + struct.pack(">I", nonce_counter)

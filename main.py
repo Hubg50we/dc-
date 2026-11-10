@@ -75,7 +75,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.5.8"
+APP_VERSION = "1.5.9"
 AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
@@ -1673,12 +1673,14 @@ async def run_account(aid):
                         return
                     if str(endpoint).strip() in ("", "null", "None"):
                         return
-                    if acc.get("voice_conn") and getattr(acc["voice_conn"], "running", False):
-                        return
-                    if acc.get("voice_conn"):
-                        asyncio.create_task(acc["voice_conn"].stop())
-                    log(f"[Account {aid}] 🎤 Connecting Voice Gateway to {endpoint} (session={session_id[:6] if len(session_id) >= 6 else session_id})...")
-                    v_conn = DiscordMediaConnection(aid, acc.get("user_id"), session_id, token, endpoint, g_id, is_stream=False, logger=log)
+                    cur_vc = acc.get("voice_conn")
+                    if cur_vc and getattr(cur_vc, "running", False):
+                        if getattr(cur_vc, "channel_id", "") == str(channel_id) and getattr(cur_vc, "token", "") == token:
+                            return
+                        asyncio.create_task(cur_vc.stop())
+                        acc["voice_conn"] = None
+                    log(f"[Account {aid}] 🎤 Connecting Voice Gateway to {endpoint} (channel={channel_id}, session={session_id[:6] if len(session_id) >= 6 else session_id})...")
+                    v_conn = DiscordMediaConnection(aid, acc.get("user_id"), session_id, token, endpoint, g_id, channel_id=channel_id, is_stream=False, logger=log)
                     v_conn.set_profile(STREAM_PROFILE)
                     v_conn.set_visualizer(VISUALIZER_MODE)
                     def _make_speaker_cb(ch):
@@ -1803,7 +1805,7 @@ async def run_account(aid):
                                     asyncio.create_task(acc["stream_conn"].stop())
                                 srv_id = acc.get("stream_rtc_server_id") or stream_key
                                 log(f"[Account {aid}] 📡 Stream Server Update: {endpoint} (server_id={srv_id})")
-                                s_conn = DiscordMediaConnection(aid, acc.get("user_id"), acc.get("session_id"), token, endpoint, srv_id, is_stream=True, logger=log)
+                                s_conn = DiscordMediaConnection(aid, acc.get("user_id"), acc.get("session_id"), token, endpoint, srv_id, channel_id=cur_ch, is_stream=True, logger=log)
                                 s_conn.set_profile(STREAM_PROFILE)
                                 s_conn.set_visualizer(VISUALIZER_MODE)
                                 if STREAM_OVERLAY_ENABLED:
@@ -3867,7 +3869,11 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             if not text:
                 return {"success": False, "error": "TTS text cannot be empty"}
             sb_res = send_to_streambot("/api/tts", {"text": text})
+            tts_url = f"https://translate.google.com/translate_tts?ie=UTF-8&tl=en&client=tw-ob&q={urllib.parse.quote(text)}"
             for a in ACCOUNTS.values():
+                vc = a.get("voice_conn")
+                if vc and hasattr(vc, "stream_native_audio"):
+                    vc.stream_native_audio(tts_url)
                 tok = a.get("token")
                 if tok and not tok.startswith("dummy_"):
                     try:
@@ -4476,6 +4482,17 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         elif action in ("play_music", "set_music"):
             MUSIC_TITLE = str(payload.get("title", "Song Title")).strip()
             MUSIC_ARTIST = str(payload.get("artist", "Artist")).strip()
+            for a in ACCOUNTS.values():
+                a["speaking"] = True
+                vc = a.get("voice_conn")
+                if vc:
+                    target_audio = os.path.join(UPLOADS_DIR, f"{MUSIC_TITLE}.mp3")
+                    if not os.path.exists(target_audio):
+                        target_audio = "lavfi:sine=frequency=440:duration=180"
+                    if hasattr(vc, "stream_native_audio"):
+                        vc.stream_native_audio(target_audio)
+                    elif hasattr(vc, "play_sfx"):
+                        vc.play_sfx("music", 180)
             if MAIN_LOOP and MAIN_LOOP.is_running():
                 async def _broadcast_music():
                     now = int(time.time() * 1000)
@@ -4540,11 +4557,14 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             YOUTUBE_AUTHOR = author
             YOUTUBE_MODE = mode
             if u:
+                stream_u = u
+                if info and info.get("direct_url"):
+                    stream_u = info["direct_url"]
                 for a in ACCOUNTS.values():
                     a["speaking"] = True
                     vc = a.get("voice_conn")
                     if vc and hasattr(vc, "stream_native_audio"):
-                        vc.stream_native_audio(u)
+                        vc.stream_native_audio(stream_u)
             send_to_streambot("/api/play", {"url": u, "title": title})
 
             if MAIN_LOOP and MAIN_LOOP.is_running():

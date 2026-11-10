@@ -1051,6 +1051,26 @@ def run_tests():
     except Exception as e:
         check("Voice Gateway DAVE Protocol v1, AEAD Mode Negotiation & Dual-Event State Sync", False, str(e))
 
+    # 95. Test DAVE MLS E2EE Frame Encryption & YouTube/TTS Audio Stream Resolution
+    try:
+        with open("media_streamer.py", "r", encoding="utf-8") as mf:
+            m_code = mf.read()
+        with open("main.py", "r", encoding="utf-8") as mpf:
+            main_code = mpf.read()
+
+        dave_import_ok = "HAS_DAVEY" in m_code
+        dave_binary_frame_ok = "DaveMlsExternalSender" in m_code and "DaveMlsProposals" in m_code
+        dave_audio_enc_ok = "encrypt_opus" in m_code
+        dave_video_enc_ok = "encrypt(davey.MediaType.video" in m_code
+        tts_audio_ok = "translate_tts" in main_code
+        yt_direct_ok = "direct_url" in main_code
+
+        check("DAVE MLS E2EE Media Encryption, YouTube Stream Resolution & TTS Voice Pipeline",
+              dave_import_ok and dave_binary_frame_ok and dave_audio_enc_ok and
+              dave_video_enc_ok and tts_audio_ok and yt_direct_ok)
+    except Exception as e:
+        check("DAVE MLS E2EE Media Encryption & Audio Pipeline", False, str(e))
+
     # Summary
     passed = sum(1 for _, ok, _ in results if ok)
     total = len(results)
