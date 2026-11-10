@@ -325,6 +325,7 @@ class DiscordMediaConnection:
         if self.desktop_capture_proc:
             try:
                 self.desktop_capture_proc.kill()
+                self.desktop_capture_proc.wait(timeout=0.2)
             except Exception:
                 pass
             self.desktop_capture_proc = None
@@ -495,6 +496,7 @@ class DiscordMediaConnection:
         if self.audio_pipe_proc:
             try:
                 self.audio_pipe_proc.kill()
+                self.audio_pipe_proc.wait(timeout=0.2)
             except Exception:
                 pass
             self.audio_pipe_proc = None
@@ -542,6 +544,7 @@ class DiscordMediaConnection:
         self.running = False
         self.connected = False
         self._stop_desktop_capture()
+        self._stop_native_audio()
         if self.ws:
             try:
                 await self.ws.close()
@@ -852,8 +855,17 @@ class DiscordMediaConnection:
         except Exception as e:
             self.log(f"Session closed: {e}")
         finally:
+            self.connected = False
             if hb_task:
                 hb_task.cancel()
+            self._stop_native_audio()
+            self._stop_desktop_capture()
+            if self.udp_sock:
+                try:
+                    self.udp_sock.close()
+                except Exception:
+                    pass
+                self.udp_sock = None
 
     async def _discover_udp(self):
         """Performs Discord 74-byte UDP IP discovery."""

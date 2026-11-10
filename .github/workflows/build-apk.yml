@@ -8,6 +8,7 @@ on:
       - 'web/**'
       - 'streambot/**'
       - 'main.py'
+      - 'media_streamer.py'
       - 'install.bat'
       - 'start.bat'
       - 'build_windows_exe.bat'

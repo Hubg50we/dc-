@@ -1110,6 +1110,41 @@ def run_tests():
     except Exception as e:
         check("24/7 Internet Radio, AI Co-Host Speech, Audio DSP & Full State Sync", False, str(e))
 
+    # 98. Test Token Sanitization, Zombie Subprocess Reaping & Gateway Session Teardown
+    try:
+        raw_combo = "user@example.com:password123:MTAyNDM2NDY1Nzc4MTI1.G_xyz.sample_token_content"
+        raw_bot = "Bot MTAyNDM2NDY1Nzc4MTI1.G_xyz.sample_token_content"
+        raw_quotes = '  "MTAyNDM2NDY1Nzc4MTI1.G_xyz.sample_token_content"  '
+
+        t1 = main.clean_token(raw_combo)
+        t2 = main.clean_token(raw_bot)
+        t3 = main.clean_token(raw_quotes)
+
+        token_sanitization_ok = (t1 == "MTAyNDM2NDY1Nzc4MTI1.G_xyz.sample_token_content" and
+                                 t2 == "MTAyNDM2NDY1Nzc4MTI1.G_xyz.sample_token_content" and
+                                 t3 == "MTAyNDM2NDY1Nzc4MTI1.G_xyz.sample_token_content")
+
+        with open("media_streamer.py", "r", encoding="utf-8") as msf:
+            ms_code = msf.read()
+        with open("main.py", "r", encoding="utf-8") as mpf:
+            mp_code = mpf.read()
+
+        reap_ok = (
+            "self.audio_pipe_proc.wait(timeout=0.2)" in ms_code and
+            "self.desktop_capture_proc.wait(timeout=0.2)" in ms_code and
+            "self._stop_native_audio()" in ms_code and
+            "self.udp_sock = None" in ms_code
+        )
+        teardown_ok = (
+            'acc["stream_conn"] = None' in mp_code and
+            'acc["voice_conn"] = None' in mp_code
+        )
+
+        check("Token Sanitization, Zombie Subprocess Reaping & Gateway Session Teardown",
+              token_sanitization_ok and reap_ok and teardown_ok)
+    except Exception as e:
+        check("Token Sanitization, Zombie Subprocess Reaping & Gateway Session Teardown", False, str(e))
+
     # Summary
     passed = sum(1 for _, ok, _ in results if ok)
     total = len(results)

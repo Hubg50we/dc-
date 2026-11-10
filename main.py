@@ -75,7 +75,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.6.2"
+APP_VERSION = "1.6.3"
 AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
@@ -1075,9 +1075,9 @@ def sync_streambot_config():
             try:
                 with open("tokens.txt", "r", encoding="utf-8") as f:
                     for line in f:
-                        line = line.strip()
-                        if line and not line.startswith("#") and not is_placeholder_token(line):
-                            active_token = line
+                        tok = clean_token(line)
+                        if tok and not tok.startswith("#") and not is_placeholder_token(tok):
+                            active_token = tok
                             break
             except Exception:
                 pass
@@ -1237,6 +1237,24 @@ def parse_percent(arg):
     if not 0 <= value <= 100:
         raise ValueError
     return value
+
+
+def clean_token(raw):
+    """Sanitize token string: strip quotes, whitespace, 'Bot ' prefix, and extract from email:pass:token combos."""
+    if not raw or not isinstance(raw, str):
+        return ""
+    clean = raw.strip().strip("\"' \t\r\n")
+    if clean.startswith("Bot "):
+        clean = clean[4:].strip()
+    # Extract token from combo formats (e.g. email:pass:token)
+    if ":" in clean and len(clean) > 28:
+        parts = clean.split(":")
+        for p in reversed(parts):
+            p = p.strip()
+            if len(p) >= 24 and "@" not in p and " " not in p:
+                clean = p
+                break
+    return clean
 
 
 def is_placeholder_token(token):
@@ -1532,6 +1550,9 @@ async def apply(targets, channel="keep", mute="keep", deaf="keep", video="keep",
 
 async def add_account(token):
     global NEXT_ID
+    token = clean_token(token)
+    if not token:
+        return None
     for a in ACCOUNTS.values():
         if a.get("token") == token:
             print(f"[Account {a['id']}] Already added ({a.get('name')}).")
@@ -1855,6 +1876,12 @@ async def run_account(aid):
                 acc["ws"] = None
             acc["online"] = False
             acc["voice_channel"] = None
+            if acc.get("stream_conn"):
+                asyncio.create_task(acc["stream_conn"].stop())
+                acc["stream_conn"] = None
+            if acc.get("voice_conn"):
+                asyncio.create_task(acc["voice_conn"].stop())
+                acc["voice_conn"] = None
             if hb is not None:
                 hb.cancel()
         if acc.get("removed", False) or not RUNNING:
@@ -1899,7 +1926,7 @@ async def load_tokens_from_file(path):
     count = 0
     with open(path, "r", encoding="utf-8") as f:
         for line in f:
-            tok = line.strip()
+            tok = clean_token(line)
             if not tok or tok.startswith("#") or is_placeholder_token(tok):
                 continue
             await add_account(tok)
@@ -4743,7 +4770,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
     async def _run_bulk_add(self, tokens):
         count = 0
         for raw in tokens:
-            t = str(raw).strip()
+            t = clean_token(str(raw))
             if t and not is_placeholder_token(t):
                 await add_account(t)
                 count += 1
