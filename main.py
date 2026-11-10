@@ -75,7 +75,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.6.1"
+APP_VERSION = "1.6.2"
 AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
@@ -3084,6 +3084,21 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 a["speaking"] = True
                 a["voice_flags"] = flags
                 a["active_sfx"] = name
+                vc = a.get("voice_conn")
+                if vc:
+                    if custom_file:
+                        c_path = os.path.join(UPLOADS_DIR, custom_file)
+                        if os.path.exists(c_path) and hasattr(vc, "stream_native_audio"):
+                            vc.stream_native_audio(c_path)
+                        elif hasattr(vc, "play_sfx"):
+                            vc.play_sfx(pad_id, duration)
+                    elif hasattr(vc, "play_sfx"):
+                        vc.play_sfx(pad_id, duration)
+                sc = a.get("stream_conn")
+                if sc and hasattr(sc, "stream_native_audio") and custom_file:
+                    c_path = os.path.join(UPLOADS_DIR, custom_file)
+                    if os.path.exists(c_path):
+                        sc.stream_native_audio(c_path)
 
             stream_target = f"uploads/{custom_file}" if custom_file else f"sfx/{pad_id}.mp3"
             sb_res = send_to_streambot("/api/play", {"url": stream_target, "title": name})
@@ -3092,11 +3107,16 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             if MAIN_LOOP and MAIN_LOOP.is_running():
                 async def _auto_stop_pad():
                     await asyncio.sleep(duration)
-                    global ACTIVE_SFX
+                    global ACTIVE_SFX, SPEAKING_SIM
                     if ACTIVE_SFX == name:
                         ACTIVE_SFX = ""
+                        SPEAKING_SIM = False
                         for a in ACCOUNTS.values():
                             a["active_sfx"] = ""
+                            a["speaking"] = False
+                            vc = a.get("voice_conn")
+                            if vc and hasattr(vc, "stop_audio"):
+                                vc.stop_audio()
                 asyncio.run_coroutine_threadsafe(_auto_stop_pad(), MAIN_LOOP)
 
             return {"success": True, "pad": pad_id, "name": name, "duration": duration, "message": f"Played {name}", "streambot": sb_res}
@@ -3105,6 +3125,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             b64_data = payload.get("data", "")
             duration = float(payload.get("duration", 5.0))
             clip_name = str(payload.get("name", "Voice Clip")).strip()
+            clip_path = None
             if b64_data:
                 if "," in b64_data:
                     b64_data = b64_data.split(",", 1)[1]
@@ -3121,7 +3142,29 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             for a in ACCOUNTS.values():
                 a["speaking"] = True
                 a["active_sfx"] = ACTIVE_SFX
+                if clip_path and os.path.exists(clip_path):
+                    for conn in (a.get("voice_conn"), a.get("stream_conn")):
+                        if conn and hasattr(conn, "stream_native_audio"):
+                            conn.stream_native_audio(clip_path)
+
+            send_to_streambot("/api/play", {"url": clip_path or "uploads/voice_clip_latest.wav", "title": clip_name})
             log(f"🎙️ Broadcast Voice Clip: [{clip_name}] ({duration}s)")
+
+            if MAIN_LOOP and MAIN_LOOP.is_running():
+                async def _auto_stop_clip():
+                    await asyncio.sleep(duration)
+                    global ACTIVE_SFX, SPEAKING_SIM
+                    if ACTIVE_SFX == f"🎙️ {clip_name}":
+                        ACTIVE_SFX = ""
+                        SPEAKING_SIM = False
+                        for a in ACCOUNTS.values():
+                            a["active_sfx"] = ""
+                            a["speaking"] = False
+                            vc = a.get("voice_conn")
+                            if vc and hasattr(vc, "stop_audio"):
+                                vc.stop_audio()
+                asyncio.run_coroutine_threadsafe(_auto_stop_clip(), MAIN_LOOP)
+
             return {"success": True, "name": clip_name, "duration": duration, "message": f"Broadcasted voice clip: {clip_name}"}
 
         if action == "get_uploaded_media":
@@ -3195,9 +3238,13 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 text = generate_ofm_ai_response(persona, model=model)
             ACTIVE_SFX = f"🤖 AI ({persona.upper()}): {text[:25]}..."
             SPEAKING_SIM = True
+            tts_url = f"https://translate.google.com/translate_tts?ie=UTF-8&tl=en&client=tw-ob&q={urllib.parse.quote(text[:200])}"
             for a in ACCOUNTS.values():
                 a["speaking"] = True
                 a["active_sfx"] = ACTIVE_SFX
+                for conn in (a.get("voice_conn"), a.get("stream_conn")):
+                    if conn and hasattr(conn, "stream_native_audio"):
+                        conn.stream_native_audio(tts_url)
             log(f"🤖 [AI Co-Host Speech via Built-in Free AI] ({persona}): \"{text}\"")
             return {"success": True, "persona": persona, "speech": text, "message": f"AI Co-Host spoke: \"{text}\"", "ofm_engine": "Ebony-Vinyl/dsh-our-free-model", "builtin": True}
 
@@ -3703,12 +3750,19 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 for a in ACCOUNTS.values():
                     a["speaking"] = True
                     a["active_sfx"] = fname
+                    for conn in (a.get("voice_conn"), a.get("stream_conn")):
+                        if conn and hasattr(conn, "stream_native_audio"):
+                            conn.stream_native_audio(fpath)
                 sb_res = send_to_streambot("/api/play", {"url": fpath, "title": fname})
                 log(f"🎵 [Local Media] Streaming audio file '{fname}'")
                 return {"success": True, "message": f"Streaming audio file '{fname}'", "filename": fname, "streambot": sb_res}
             else:
                 STREAMBOT_CURRENT = {"title": fname, "url": fpath}
                 STREAMBOT_STATUS = "playing"
+                for a in ACCOUNTS.values():
+                    conn = a.get("stream_conn") or a.get("voice_conn")
+                    if conn and hasattr(conn, "stream_native_audio"):
+                        conn.stream_native_audio(fpath)
                 sb_res = send_to_streambot("/api/play", {"url": fpath, "title": fname})
                 log(f"🎬 [Local Media] Streaming uploaded video '{fname}' to Discord Go Live!")
                 return {"success": True, "message": f"Streaming local media '{fname}'", "filename": fname, "path": fpath, "streambot": sb_res}

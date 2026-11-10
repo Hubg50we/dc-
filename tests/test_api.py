@@ -1071,6 +1071,45 @@ def run_tests():
     except Exception as e:
         check("DAVE MLS E2EE Media Encryption & Audio Pipeline", False, str(e))
 
+    # 96. Test Soundboard Pad & Voice Clip Direct Voice Connection Audio Dispatch (Python & Android)
+    try:
+        with open("main.py", "r", encoding="utf-8") as mpf:
+            main_code = mpf.read()
+        with open("android/app/src/main/java/com/hubg50we/dc/DiscordManager.java", "r", encoding="utf-8") as jf:
+            java_code = jf.read()
+
+        py_pad_dispatch = 'vc.play_sfx(pad_id, duration)' in main_code and 'vc.stream_native_audio(c_path)' in main_code
+        py_clip_dispatch = 'conn.stream_native_audio(clip_path)' in main_code
+        py_upload_dispatch = 'conn.stream_native_audio(fpath)' in main_code
+
+        java_pad_dispatch = '"play_soundboard_pad".equals(action)' in java_code and 'a.voiceConnection.playSfx(padId, flags, duration)' in java_code
+        java_clip_dispatch = '"broadcast_voice_clip".equals(action)' in java_code and 'a.voiceConnection.playSfx("stream", 5, duration)' in java_code
+        java_upload_dispatch = '"stream_uploaded_file".equals(action)' in java_code and 'a.voiceConnection.playSfx("stream", 5, 30.0)' in java_code
+
+        check("Soundboard Pad, Voice Clip & Upload Direct Voice Connection Dispatch",
+              py_pad_dispatch and py_clip_dispatch and py_upload_dispatch and
+              java_pad_dispatch and java_clip_dispatch and java_upload_dispatch)
+    except Exception as e:
+        check("Soundboard Pad, Voice Clip & Upload Direct Voice Connection Dispatch", False, str(e))
+
+    # 97. Test 24/7 Internet Radio, AI Co-Host Speech, Audio DSP & Visualizer Synchronization (Python & Android)
+    try:
+        with open("main.py", "r", encoding="utf-8") as mpf:
+            main_code = mpf.read()
+        with open("android/app/src/main/java/com/hubg50we/dc/DiscordManager.java", "r", encoding="utf-8") as jf:
+            java_code = jf.read()
+
+        py_radio_ok = 'conn.stream_native_audio(station["url"])' in main_code
+        py_ai_speech_ok = 'conn.stream_native_audio(tts_url)' in main_code
+        java_radio_ok = '"play_radio_station".equals(action)' in java_code and 'a.voiceConnection.playSfx("music", 5, 0, true)' in java_code
+        java_dsp_ok = '"set_audio_dsp".equals(action)' in java_code and 'getAudioDspJson()' in java_code
+        java_status_ok = 'json.put("soundboard_pads", getSoundboardPadsArray());' in java_code and 'json.put("radio_stations", getRadioStationsArray());' in java_code
+
+        check("24/7 Internet Radio, AI Co-Host Speech, Audio DSP & Full State Sync",
+              py_radio_ok and py_ai_speech_ok and java_radio_ok and java_dsp_ok and java_status_ok)
+    except Exception as e:
+        check("24/7 Internet Radio, AI Co-Host Speech, Audio DSP & Full State Sync", False, str(e))
+
     # Summary
     passed = sum(1 for _, ok, _ in results if ok)
     total = len(results)

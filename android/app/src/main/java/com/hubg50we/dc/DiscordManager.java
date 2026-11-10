@@ -45,7 +45,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.6.1";
+    public static final String APP_VERSION = "1.6.2";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -113,6 +113,26 @@ public class DiscordManager {
     private final List<String> logs = Collections.synchronizedList(new ArrayList<>());
     private final List<JSONObject> presets = Collections.synchronizedList(new ArrayList<>());
 
+    // Soundboard Pads, Radio Stations & Audio DSP
+    private final List<JSONObject> soundboardPads = Collections.synchronizedList(new ArrayList<>());
+    private final List<JSONObject> radioStations = Collections.synchronizedList(new ArrayList<>());
+    private String activeRadioStation = null;
+    private String aiCohostPersona = "dj";
+    private boolean aiCohostEnabled = false;
+    private int audioBassBoost = 0;
+    private double audioPitchShift = 1.0;
+    private boolean audioNormalizer = false;
+    private String audioEqPreset = "flat";
+    private String visualizerMode = "spectrum";
+    private boolean streamOverlayEnabled = false;
+    private String streamOverlayTitle = "dc- Live";
+    private String streamOverlayTicker = "30 FPS AES-256-GCM";
+    private String streamProfile = "balanced";
+    private String spotifySong = "";
+    private String spotifyArtist = "";
+    private String spotifyAlbum = "";
+    private int spotifyDuration = 0;
+
     public static synchronized DiscordManager getInstance(Context context) {
         if (instance == null) {
             instance = new DiscordManager(context.getApplicationContext());
@@ -153,6 +173,7 @@ public class DiscordManager {
 
         loadPresetsFromPrefs();
         loadSavedTokens();
+        initDefaultPadsAndRadios();
         log("dc- Android Engine initialized. Appearance: " + deviceMode.toUpperCase());
     }
 
@@ -246,6 +267,91 @@ public class DiscordManager {
             }
         }
         prefs.edit().putString("tokens", sb.toString()).apply();
+    }
+
+    private void initDefaultPadsAndRadios() {
+        try {
+            soundboardPads.clear();
+            soundboardPads.add(new JSONObject().put("id", "airhorn").put("name", "Airhorn 📢").put("emoji", "📢").put("flags", 5).put("duration", 3.0).put("custom_file", "").put("custom_name", ""));
+            soundboardPads.add(new JSONObject().put("id", "vine_boom").put("name", "Vine Boom 💥").put("emoji", "💥").put("flags", 5).put("duration", 2.5).put("custom_file", "").put("custom_name", ""));
+            soundboardPads.add(new JSONObject().put("id", "bruh").put("name", "Bruh 🗿").put("emoji", "🗿").put("flags", 5).put("duration", 2.0).put("custom_file", "").put("custom_name", ""));
+            soundboardPads.add(new JSONObject().put("id", "metal_pipe").put("name", "Metal Pipe 🪈").put("emoji", "🪈").put("flags", 5).put("duration", 3.0).put("custom_file", "").put("custom_name", ""));
+            soundboardPads.add(new JSONObject().put("id", "applause").put("name", "Applause 👏").put("emoji", "👏").put("flags", 5).put("duration", 4.0).put("custom_file", "").put("custom_name", ""));
+            soundboardPads.add(new JSONObject().put("id", "gg").put("name", "Good Game 🏆").put("emoji", "🏆").put("flags", 5).put("duration", 2.5).put("custom_file", "").put("custom_name", ""));
+            soundboardPads.add(new JSONObject().put("id", "sad_trombone").put("name", "Sad Trombone 🎺").put("emoji", "🎺").put("flags", 5).put("duration", 3.5).put("custom_file", "").put("custom_name", ""));
+            soundboardPads.add(new JSONObject().put("id", "drum_roll").put("name", "Drum Roll 🥁").put("emoji", "🥁").put("flags", 5).put("duration", 4.0).put("custom_file", "").put("custom_name", ""));
+            soundboardPads.add(new JSONObject().put("id", "what").put("name", "What?! ❓").put("emoji", "❓").put("flags", 5).put("duration", 2.0).put("custom_file", "").put("custom_name", ""));
+            soundboardPads.add(new JSONObject().put("id", "wow").put("name", "Anime Wow ✨").put("emoji", "✨").put("flags", 5).put("duration", 2.5).put("custom_file", "").put("custom_name", ""));
+            soundboardPads.add(new JSONObject().put("id", "scream").put("name", "Scream FX 😱").put("emoji", "😱").put("flags", 5).put("duration", 3.0).put("custom_file", "").put("custom_name", ""));
+            soundboardPads.add(new JSONObject().put("id", "discord_ping").put("name", "Discord Ping 🔔").put("emoji", "🔔").put("flags", 5).put("duration", 1.5).put("custom_file", "").put("custom_name", ""));
+
+            radioStations.clear();
+            radioStations.add(new JSONObject().put("id", "lofi").put("name", "Lofi Girl 24/7").put("genre", "Chill / Study").put("url", "https://stream.zeno.fm/0r0xa792kwzuv").put("icon", "☕"));
+            radioStations.add(new JSONObject().put("id", "synthwave").put("name", "Synthwave 80s Retro").put("genre", "Electronic").put("url", "https://stream.zeno.fm/7x4g0d2kwzuv").put("icon", "🌆"));
+            radioStations.add(new JSONObject().put("id", "chillhop").put("name", "Chillhop Cafe").put("genre", "Hip Hop / Jazz").put("url", "https://stream.zeno.fm/f3wvbbqmdg8uv").put("icon", "🎧"));
+            radioStations.add(new JSONObject().put("id", "nightcore").put("name", "Nightcore Radio").put("genre", "Speed / Dance").put("url", "https://stream.zeno.fm/w062c3e414zuv").put("icon", "⚡"));
+            radioStations.add(new JSONObject().put("id", "edm").put("name", "Gaming EDM Fest").put("genre", "Bass / Electro").put("url", "https://stream.zeno.fm/u8s19m6742zuv").put("icon", "🔥"));
+            radioStations.add(new JSONObject().put("id", "coffee_jazz").put("name", "Coffee House Jazz").put("genre", "Acoustic / Jazz").put("url", "https://stream.zeno.fm/k1wa82e414zuv").put("icon", "🎷"));
+        } catch (Exception ignored) {}
+    }
+
+    public JSONArray getSoundboardPadsArray() {
+        JSONArray arr = new JSONArray();
+        synchronized (soundboardPads) {
+            for (JSONObject p : soundboardPads) arr.put(p);
+        }
+        return arr;
+    }
+
+    public JSONArray getRadioStationsArray() {
+        JSONArray arr = new JSONArray();
+        synchronized (radioStations) {
+            for (JSONObject s : radioStations) arr.put(s);
+        }
+        return arr;
+    }
+
+    public JSONObject getAudioDspJson() {
+        JSONObject obj = new JSONObject();
+        try {
+            obj.put("bass_boost", audioBassBoost);
+            obj.put("pitch_shift", audioPitchShift);
+            obj.put("normalizer", audioNormalizer);
+            obj.put("preset", audioEqPreset);
+        } catch (Exception ignored) {}
+        return obj;
+    }
+
+    public JSONObject getAiCohostJson() {
+        JSONObject obj = new JSONObject();
+        try {
+            obj.put("enabled", aiCohostEnabled);
+            obj.put("persona", aiCohostPersona);
+            obj.put("has_api_key", false);
+            obj.put("ofm_engine", "Ebony-Vinyl/dsh-our-free-model");
+            obj.put("ofm_model", "kilo-auto/free");
+        } catch (Exception ignored) {}
+        return obj;
+    }
+
+    public JSONArray getUploadedMediaArray() {
+        JSONArray arr = new JSONArray();
+        try {
+            File uploadsDir = new File(context.getFilesDir(), "uploads");
+            if (uploadsDir.exists() && uploadsDir.isDirectory()) {
+                File[] files = uploadsDir.listFiles();
+                if (files != null) {
+                    for (File f : files) {
+                        JSONObject o = new JSONObject();
+                        o.put("name", f.getName());
+                        o.put("size", f.length());
+                        o.put("modified", f.lastModified() / 1000);
+                        arr.put(o);
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return arr;
     }
 
     private String cleanToken(String raw) {
@@ -1391,6 +1497,282 @@ public class DiscordManager {
                 res.put("status", "ok");
                 res.put("active_sfx", "");
                 res.put("message", "SFX stopped");
+            } else if ("play_soundboard_pad".equals(action)) {
+                String padId = payload.optString("id", "").trim();
+                JSONObject pad = null;
+                synchronized (soundboardPads) {
+                    for (JSONObject p : soundboardPads) {
+                        if (padId.equals(p.optString("id"))) {
+                            pad = p;
+                            break;
+                        }
+                    }
+                }
+                String name = (pad != null && !pad.optString("custom_name").isEmpty()) ? pad.optString("custom_name") : (pad != null ? pad.optString("name") : padId);
+                double duration = (pad != null) ? pad.optDouble("duration", 3.0) : payload.optDouble("duration", 3.0);
+                int flags = (pad != null) ? pad.optInt("flags", 5) : payload.optInt("flags", 5);
+
+                this.activeSfx = name;
+                this.speakingSim = true;
+                for (Account a : accounts.values()) {
+                    a.speaking = true;
+                    a.activeSfx = name;
+                    a.voiceFlags = flags;
+                    if (a.voiceConnection != null) {
+                        a.voiceConnection.playSfx(padId, flags, duration);
+                    }
+                }
+                if (sfxResetRunnable != null) {
+                    mainHandler.removeCallbacks(sfxResetRunnable);
+                }
+                if (duration > 0) {
+                    sfxResetRunnable = () -> {
+                        this.activeSfx = "";
+                        this.speakingSim = false;
+                        for (Account a : accounts.values()) {
+                            a.speaking = false;
+                            a.activeSfx = "";
+                            if (a.voiceConnection != null) {
+                                a.voiceConnection.stopAudio();
+                            }
+                        }
+                        log("🎛️ Soundboard Pad [" + name + "] completed");
+                    };
+                    mainHandler.postDelayed(sfxResetRunnable, (long) (duration * 1000));
+                }
+                log("🎛️ Soundboard Pad Activated: [" + name + "] (" + duration + "s)");
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("pad", padId);
+                res.put("name", name);
+                res.put("duration", duration);
+                res.put("message", "Played " + name);
+            } else if ("assign_soundboard_pad".equals(action)) {
+                String padId = payload.optString("id", "").trim();
+                String customName = payload.optString("custom_name", "").trim();
+                String customFile = payload.optString("custom_file", "").trim();
+                boolean found = false;
+                synchronized (soundboardPads) {
+                    for (JSONObject p : soundboardPads) {
+                        if (padId.equals(p.optString("id"))) {
+                            p.put("custom_name", customName);
+                            p.put("custom_file", customFile);
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+                res.put("success", found);
+                res.put("pads", getSoundboardPadsArray());
+                res.put("message", found ? "Assigned pad " + padId : "Pad not found");
+            } else if ("reset_soundboard_pad".equals(action)) {
+                String padId = payload.optString("id", "").trim();
+                boolean found = false;
+                synchronized (soundboardPads) {
+                    for (JSONObject p : soundboardPads) {
+                        if (padId.equals(p.optString("id"))) {
+                            p.put("custom_name", "");
+                            p.put("custom_file", "");
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+                res.put("success", found);
+                res.put("pads", getSoundboardPadsArray());
+                res.put("message", "Reset pad " + padId);
+            } else if ("broadcast_voice_clip".equals(action)) {
+                String clipName = payload.optString("name", "Voice Clip").trim();
+                double duration = payload.optDouble("duration", 5.0);
+                this.activeSfx = "🎙️ " + clipName;
+                this.speakingSim = true;
+                for (Account a : accounts.values()) {
+                    a.speaking = true;
+                    a.activeSfx = this.activeSfx;
+                    if (a.voiceConnection != null) {
+                        a.voiceConnection.playSfx("stream", 5, duration);
+                    }
+                }
+                if (sfxResetRunnable != null) {
+                    mainHandler.removeCallbacks(sfxResetRunnable);
+                }
+                if (duration > 0) {
+                    sfxResetRunnable = () -> {
+                        this.activeSfx = "";
+                        this.speakingSim = false;
+                        for (Account a : accounts.values()) {
+                            a.speaking = false;
+                            a.activeSfx = "";
+                            if (a.voiceConnection != null) {
+                                a.voiceConnection.stopAudio();
+                            }
+                        }
+                        log("🎙️ Voice Clip [" + clipName + "] completed");
+                    };
+                    mainHandler.postDelayed(sfxResetRunnable, (long) (duration * 1000));
+                }
+                log("🎙️ Broadcast Voice Clip: [" + clipName + "] (" + duration + "s)");
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("name", clipName);
+                res.put("duration", duration);
+                res.put("message", "Broadcasted voice clip: " + clipName);
+            } else if ("stream_uploaded_file".equals(action)) {
+                String fname = payload.optString("filename", "").trim();
+                this.activeSfx = fname;
+                this.speakingSim = true;
+                for (Account a : accounts.values()) {
+                    a.speaking = true;
+                    a.activeSfx = fname;
+                    if (a.voiceConnection != null) {
+                        a.voiceConnection.playSfx("stream", 5, 30.0);
+                    }
+                }
+                try {
+                    JSONObject p = new JSONObject();
+                    p.put("url", "uploads/" + fname);
+                    p.put("title", fname);
+                    sendToStreamBot("/api/play", p);
+                } catch (Exception ignored) {}
+                log("🎵 [Local Media] Streaming uploaded file: " + fname);
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("filename", fname);
+                res.put("message", "Streaming uploaded file: " + fname);
+            } else if ("get_uploaded_media".equals(action)) {
+                res.put("success", true);
+                res.put("files", getUploadedMediaArray());
+            } else if ("delete_uploaded_media".equals(action)) {
+                String fname = payload.optString("filename", "").trim();
+                boolean deleted = false;
+                try {
+                    File target = new File(new File(context.getFilesDir(), "uploads"), fname);
+                    if (target.exists()) {
+                        deleted = target.delete();
+                    }
+                } catch (Exception ignored) {}
+                res.put("success", deleted);
+                res.put("message", deleted ? "Deleted " + fname : "File not found");
+            } else if ("play_radio_station".equals(action)) {
+                String stationId = payload.optString("id", "").trim();
+                JSONObject station = null;
+                synchronized (radioStations) {
+                    for (JSONObject s : radioStations) {
+                        if (stationId.equals(s.optString("id"))) {
+                            station = s;
+                            break;
+                        }
+                    }
+                }
+                String sName = station != null ? station.optString("name") : stationId;
+                this.activeRadioStation = stationId;
+                this.activeSfx = "📻 " + sName;
+                this.speakingSim = true;
+                for (Account a : accounts.values()) {
+                    a.speaking = true;
+                    a.activeSfx = this.activeSfx;
+                    if (a.voiceConnection != null) {
+                        a.voiceConnection.playSfx("music", 5, 0, true);
+                    }
+                }
+                log("📻 [24/7 Internet Radio] Tuned in to: " + sName);
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("station", station);
+                res.put("message", "Tuned in to " + sName);
+            } else if ("stop_radio_station".equals(action)) {
+                this.activeRadioStation = null;
+                this.activeSfx = "";
+                this.speakingSim = false;
+                for (Account a : accounts.values()) {
+                    a.speaking = false;
+                    a.activeSfx = "";
+                    if (a.voiceConnection != null) {
+                        a.voiceConnection.stopAudio();
+                    }
+                }
+                log("📻 [24/7 Internet Radio] Radio stopped");
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("message", "Radio station playback stopped");
+            } else if ("play_native_media".equals(action)) {
+                String src = payload.optString("source", "").trim();
+                String title = payload.optString("title", "Native Media").trim();
+                this.activeSfx = title;
+                this.speakingSim = true;
+                for (Account a : accounts.values()) {
+                    a.speaking = true;
+                    a.activeSfx = title;
+                    if (a.voiceConnection != null) {
+                        a.voiceConnection.playSfx("stream", 5, 0);
+                    }
+                }
+                log("🎵 [Native Pipe] Streaming: " + title);
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("source", src);
+                res.put("title", title);
+                res.put("message", "Streaming " + title + " natively");
+            } else if ("stop_native_media".equals(action)) {
+                this.activeSfx = "";
+                this.speakingSim = false;
+                for (Account a : accounts.values()) {
+                    a.speaking = false;
+                    a.activeSfx = "";
+                    if (a.voiceConnection != null) {
+                        a.voiceConnection.stopAudio();
+                    }
+                }
+                log("⏹️ [Native Pipe] Playback stopped");
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("message", "Native media playback stopped");
+            } else if ("set_ai_cohost".equals(action)) {
+                if (payload.has("persona")) this.aiCohostPersona = payload.optString("persona", this.aiCohostPersona).toLowerCase();
+                if (payload.has("enabled")) this.aiCohostEnabled = payload.optBoolean("enabled", this.aiCohostEnabled);
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("ai_cohost", getAiCohostJson());
+                res.put("message", "AI Co-Host updated: " + this.aiCohostPersona);
+            } else if ("set_audio_dsp".equals(action)) {
+                if (payload.has("bass_boost")) this.audioBassBoost = payload.optInt("bass_boost", this.audioBassBoost);
+                if (payload.has("pitch_shift")) this.audioPitchShift = payload.optDouble("pitch_shift", this.audioPitchShift);
+                if (payload.has("normalizer")) this.audioNormalizer = payload.optBoolean("normalizer", this.audioNormalizer);
+                if (payload.has("preset")) this.audioEqPreset = payload.optString("preset", this.audioEqPreset);
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("audio_dsp", getAudioDspJson());
+                res.put("message", "Audio DSP updated: " + this.audioEqPreset);
+            } else if ("set_visualizer_mode".equals(action)) {
+                this.visualizerMode = payload.optString("mode", "spectrum").toLowerCase();
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("mode", this.visualizerMode);
+                res.put("message", "Visualizer mode set to: " + this.visualizerMode.toUpperCase());
+            } else if ("set_stream_overlay".equals(action)) {
+                this.streamOverlayEnabled = payload.optBoolean("enabled", this.streamOverlayEnabled);
+                this.streamOverlayTitle = payload.optString("title", this.streamOverlayTitle);
+                this.streamOverlayTicker = payload.optString("ticker", this.streamOverlayTicker);
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("stream_overlay_enabled", this.streamOverlayEnabled);
+                res.put("message", "Stream overlay configuration updated");
+            } else if ("set_stream_profile".equals(action)) {
+                this.streamProfile = payload.optString("profile", "balanced").toLowerCase();
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("profile", this.streamProfile);
+                res.put("message", "Stream profile updated to " + this.streamProfile.toUpperCase());
+            } else if ("set_spotify_presence".equals(action)) {
+                this.spotifySong = payload.optString("song", "").trim();
+                this.spotifyArtist = payload.optString("artist", "").trim();
+                this.spotifyAlbum = payload.optString("album", "").trim();
+                this.spotifyDuration = payload.optInt("duration", 180);
+                res.put("success", true);
+                res.put("status", "ok");
+                res.put("song", this.spotifySong);
+                res.put("artist", this.spotifyArtist);
+                res.put("message", "Spotify presence set: " + this.spotifySong);
             } else if ("set_voice_status".equals(action)) {
                 String ch = payload.optString("channel_id", this.defaultChannelId);
                 String st = payload.optString("status", "").trim();
@@ -2621,6 +3003,21 @@ public class DiscordManager {
             json.put("stadium_echo", echoObj);
 
             json.put("ptt_active", this.pttActive);
+            json.put("soundboard_pads", getSoundboardPadsArray());
+            json.put("radio_stations", getRadioStationsArray());
+            json.put("active_radio_station", activeRadioStation != null ? activeRadioStation : JSONObject.NULL);
+            json.put("audio_dsp", getAudioDspJson());
+            json.put("ai_cohost", getAiCohostJson());
+            json.put("uploaded_media", getUploadedMediaArray());
+            json.put("visualizer_mode", this.visualizerMode);
+            json.put("stream_profile", this.streamProfile);
+            json.put("stream_overlay_enabled", this.streamOverlayEnabled);
+            json.put("stream_overlay_title", this.streamOverlayTitle);
+            json.put("stream_overlay_ticker", this.streamOverlayTicker);
+            json.put("spotify_song", this.spotifySong);
+            json.put("spotify_artist", this.spotifyArtist);
+            json.put("spotify_album", this.spotifyAlbum);
+            json.put("spotify_duration", this.spotifyDuration);
         } catch (Exception e) {
             Log.e(TAG, "Status error", e);
         }
@@ -3402,7 +3799,7 @@ public static class AudioSynthesizer {
         }
 
         public static List<byte[]> getOpusPackets(String sound) {
-            String s = (sound != null ? sound : "").toLowerCase();
+            String s = (sound != null ? sound : "").toLowerCase().replace("_", "").replace("-", "").replace(" ", "");
             if (s.contains("airhorn")) {
                 if (airhornPackets == null) airhornPackets = decodeList(AIRHORN_B64);
                 return new ArrayList<>(airhornPackets);

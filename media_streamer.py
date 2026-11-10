@@ -334,16 +334,18 @@ class DiscordMediaConnection:
         """Plays real soundboard SFX packets or synthesizes on the fly."""
         self._stop_native_audio()
         snd = str(sound or "scream").lower().strip()
+        snd_clean = snd.replace("_", "").replace("-", "").replace(" ", "")
         # 1. Check pre-encoded RFC 6716 Opus frames (zero CPU overhead)
         for key, pkts in SFX_PACKETS_MAP.items():
-            if key in snd:
+            key_clean = key.replace("_", "").replace("-", "").replace(" ", "")
+            if key in snd or key_clean in snd_clean or snd_clean in key_clean:
                 self.audio_queue.extend(pkts)
                 self.log(f"Queued {len(pkts)} RFC 6716 Opus frames for SFX: [{key.upper()}]")
                 return
 
         # 2. Check local sound files in uploads/
         local_dir = os.path.join(os.getcwd(), "uploads")
-        for ext in (".mp3", ".wav", ".ogg", ".aac"):
+        for ext in (".mp3", ".wav", ".ogg", ".aac", ".opus"):
             target = os.path.join(local_dir, f"{snd}{ext}")
             if os.path.exists(target):
                 self.stream_native_audio(target)
@@ -359,6 +361,22 @@ class DiscordMediaConnection:
             src = f"lavfi:sine=frequency=180:duration={dur}"
         elif "vine" in snd or "boom" in snd:
             src = f"lavfi:sine=frequency=60:duration={dur},volume=4"
+        elif "pipe" in snd:
+            src = f"lavfi:sine=frequency=800:duration={dur}"
+        elif "applause" in snd:
+            src = f"lavfi:anoisesrc=d={dur}:c=white:r=48000,volume=2"
+        elif "gg" in snd:
+            src = f"lavfi:sine=frequency=523.25:duration={dur}"
+        elif "trombone" in snd:
+            src = f"lavfi:sine=frequency=196:duration={dur}"
+        elif "drum" in snd:
+            src = f"lavfi:anoisesrc=d={dur}:c=brown:r=48000,volume=2"
+        elif "what" in snd:
+            src = f"lavfi:sine=frequency=659.25:duration={dur}"
+        elif "wow" in snd:
+            src = f"lavfi:sine=frequency=587.33:duration={dur}"
+        elif "ping" in snd or "bell" in snd:
+            src = f"lavfi:sine=frequency=784:duration={dur}"
         elif "siren" in snd:
             src = f"lavfi:sine=frequency=880:duration={dur}"
         else:
