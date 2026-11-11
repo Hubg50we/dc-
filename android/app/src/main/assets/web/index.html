@@ -4650,7 +4650,8 @@
 
             <div class="acc-pills">
               ${inVoice ? `<span class="badge badge-voice">🔊 ${escapeHtml(acc.voice_channel)}${acc.guild_id ? ' <span style="font-size:0.72rem; opacity:0.8;">(Svr: ' + escapeHtml(acc.guild_id) + ')</span>' : ''}</span>` : `<span class="badge" style="background:#202225; color:#888;">Idle</span>`}
-              ${acc.proxy ? `<span class="badge" style="background:rgba(0,180,216,0.22); color:#00b4d8; font-weight:600;" title="${escapeHtml(acc.proxy)}">🌐 ${escapeHtml(acc.proxy)}</span>` : ''}
+              ${acc.proxy ? `<span class="badge" style="background:rgba(0,180,216,0.22); color:#00b4d8; font-weight:600;" title="${escapeHtml(acc.proxy)}">🌐 ${acc.country && acc.country !== 'Direct IP' ? escapeHtml(acc.country) + ' ' : ''}${escapeHtml(acc.proxy)}</span>` : ''}
+              ${acc.device_model ? `<span class="badge" style="background:rgba(255,255,255,0.06); color:#aaa; font-size:0.72rem;">📱 ${escapeHtml(acc.device_model)}</span>` : ''}
               ${acc.ping ? `<span class="badge" style="background:rgba(88,101,242,0.18); color:var(--accent); font-weight:600;">⚡ ${acc.ping}ms</span>` : ''}
               ${acc.speaking ? `<span class="badge badge-online">🎙️ Speaking</span>` : ''}
               ${acc.video ? `<span class="badge" style="background:rgba(88,101,242,0.25); color:#7289da; font-weight:600;">📹 Cam ON</span>` : ''}

@@ -3237,6 +3237,8 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                     "youtube_active": a.get("youtube_active", False),
                     "proxy": mask_proxy(a.get("proxy")),
                     "has_proxy": bool(a.get("proxy")),
+                    "device_model": get_account_fingerprint(a.get("id", 0)).get("$device", "Mobile"),
+                    "country": guess_country_from_ip(a.get("proxy").split("://", 1)[-1].split("@")[-1].split(":")[0]) if a.get("proxy") else "Direct IP",
                     "error": a.get("error"),
                 }
                 for a in sorted(ACCOUNTS.values(), key=lambda x: x.get("id", 0))
