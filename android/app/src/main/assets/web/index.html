@@ -160,9 +160,10 @@
     /* Top Glass App Bar */
     header {
       background: var(--bg-glass);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
       border-bottom: 1px solid var(--border);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), inset 0 -1px 0 rgba(255, 255, 255, 0.05);
       padding: 14px 18px;
       display: flex;
       justify-content: space-between;
@@ -319,6 +320,21 @@
       flex-direction: column;
       gap: 14px;
       box-shadow: var(--shadow-card);
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.16s ease, border-color 0.16s ease;
+    }
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+      pointer-events: none;
+    }
+    .card:hover {
+      border-color: rgba(255, 255, 255, 0.14);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
     }
 
     .card-title {
@@ -513,9 +529,30 @@
       display: flex;
       flex-direction: column;
       gap: 12px;
-      transition: all 0.15s ease;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     }
-    .acc-card.selected { border-color: var(--accent); background: rgba(88, 101, 242, 0.08); }
+    .acc-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    }
+    .acc-card:hover {
+      border-color: rgba(255, 255, 255, 0.18);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+    }
+    .acc-card.selected {
+      border-color: var(--accent);
+      background: rgba(88, 101, 242, 0.08);
+      box-shadow: 0 0 16px rgba(88, 101, 242, 0.2), inset 0 0 0 1px var(--accent);
+    }
+    .acc-card.speaking {
+      border-color: var(--success);
+      box-shadow: 0 0 18px var(--success-glow);
+    }
     .acc-top { display: flex; align-items: center; gap: 12px; }
     .acc-avatar-box {
       position: relative;
@@ -530,6 +567,17 @@
       color: var(--accent);
       flex-shrink: 0;
       border: 1px solid var(--border);
+      transition: all 0.2s ease;
+    }
+    .acc-card.speaking .acc-avatar-box {
+      border-color: var(--success);
+      box-shadow: 0 0 12px var(--success);
+      animation: avatarSpeakingPulse 1.4s infinite cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    @keyframes avatarSpeakingPulse {
+      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(35, 165, 90, 0.7); }
+      70% { transform: scale(1.05); box-shadow: 0 0 0 8px rgba(35, 165, 90, 0); }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(35, 165, 90, 0); }
     }
     .online-indicator {
       position: absolute;
@@ -540,8 +588,12 @@
       border-radius: 50%;
       border: 2px solid var(--bg-dark);
       background: var(--text-muted);
+      transition: background-color 0.2s ease;
     }
-    .online-indicator.live { background: var(--success); }
+    .online-indicator.live {
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+    }
     .acc-meta { flex: 1; min-width: 0; }
     .acc-name {
       font-weight: 700;
@@ -858,20 +910,42 @@
       justify-content: center;
       cursor: pointer;
       user-select: none;
-      transition: transform 0.1s ease, background 0.15s ease, border-color 0.15s ease;
-      min-height: 60px;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+      min-height: 64px;
+    }
+    .sound-pad-btn::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    }
+    .sound-pad-btn:hover {
+      border-color: rgba(255, 255, 255, 0.22);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
     }
     .sound-pad-btn:active {
-      transform: scale(0.92);
+      transform: scale(0.93);
       border-color: var(--accent);
-      background: rgba(88, 101, 242, 0.15);
+      background: rgba(88, 101, 242, 0.2);
+      box-shadow: 0 0 16px var(--accent-glow);
+    }
+    .sound-pad-btn.custom-bound {
+      border-color: rgba(0, 180, 216, 0.45);
+      background: linear-gradient(135deg, var(--bg-card), rgba(0, 180, 216, 0.08));
     }
     .sound-pad-emoji {
-      font-size: 1.35rem;
-      margin-bottom: 2px;
+      font-size: 1.45rem;
+      margin-bottom: 3px;
+      transition: transform 0.12s ease;
+    }
+    .sound-pad-btn:hover .sound-pad-emoji {
+      transform: scale(1.1);
     }
     .sound-pad-title {
-      font-size: 0.68rem;
+      font-size: 0.7rem;
       font-weight: 700;
       color: var(--text-heading);
       text-align: center;
@@ -3622,11 +3696,12 @@
         const hasBots = p.assigned_to && p.assigned_to.length > 0;
         const protoColor = p.protocol === 'SOCKS5' ? '#00b4d8' : '#a855f7';
         const protoBg = p.protocol === 'SOCKS5' ? 'rgba(0,180,216,0.18)' : 'rgba(168,85,247,0.18)';
+        const pingColor = (!p.ping || p.ping < 200) ? '#23a55a' : (p.ping < 500 ? '#faa61a' : '#f23f43');
 
         html += `
-          <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-dark); border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:10px 14px; gap:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-dark); border:1px solid ${isOnline ? 'rgba(35,165,90,0.25)' : 'rgba(255,255,255,0.06)'}; border-radius:10px; padding:10px 14px; gap:8px; transition:border-color 0.15s, box-shadow 0.15s;" onmouseover="this.style.borderColor='rgba(0,180,216,0.4)'; this.style.boxShadow='0 4px 14px rgba(0,0,0,0.3)'" onmouseout="this.style.borderColor='${isOnline ? 'rgba(35,165,90,0.25)' : 'rgba(255,255,255,0.06)'}'; this.style.boxShadow='none'">
             <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
-              <span style="font-size:0.8rem; font-weight:800; color:${protoColor}; background:${protoBg}; padding:3px 8px; border-radius:6px;">
+              <span style="font-size:0.8rem; font-weight:800; color:${protoColor}; background:${protoBg}; padding:3px 8px; border-radius:6px; box-shadow:0 0 10px ${protoBg};">
                 ${p.protocol}
               </span>
               <div style="min-width:0; overflow:hidden;">
@@ -3634,8 +3709,8 @@
                   ${escapeHtml(p.url)}
                 </div>
                 <div style="display:flex; gap:8px; align-items:center; font-size:0.74rem; color:var(--text-muted); margin-top:2px;">
-                  <span style="color:${isOnline ? '#23a55a' : '#888'};">● ${isOnline ? 'Online' : 'Untested'}</span>
-                  ${p.ping ? `<span style="color:#faa61a;">⚡ ${p.ping}ms</span>` : ''}
+                  <span style="color:${isOnline ? '#23a55a' : '#888'}; font-weight:600;">● ${isOnline ? 'Online' : 'Untested'}</span>
+                  ${p.ping ? `<span style="color:${pingColor}; font-weight:600;">⚡ ${p.ping}ms</span>` : ''}
                   ${hasBots ? `<span style="color:#00b4d8; font-weight:600;">🤖 Assigned to Bot(s): #${p.assigned_to.join(', #')}</span>` : '<span style="color:#666;">Available</span>'}
                 </div>
               </div>
@@ -4522,8 +4597,10 @@
         const initial = (acc.name || 'U').charAt(0).toUpperCase();
         const botOrder = index + 1;
 
+        const isSpeaking = !!acc.speaking;
+
         html += `
-          <div class="acc-card ${isSelected ? 'selected' : ''}" onclick="openBotModal(${acc.id})">
+          <div class="acc-card ${isSelected ? 'selected' : ''} ${isSpeaking ? 'speaking' : ''}" onclick="openBotModal(${acc.id})">
             <div class="acc-top">
               <div class="acc-avatar-box">
                 ${initial}
