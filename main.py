@@ -1832,6 +1832,15 @@ async def add_account(token, proxy=None):
         token = clean_token(token)
     if not token:
         return None
+
+    # 🛡️ Auto-Assign Free Proxy from pool if no proxy was explicitly provided
+    if not proxy and FREE_PROXY_POOL:
+        online_proxies = [p for p in FREE_PROXY_POOL if p.get("status") == "online"]
+        if online_proxies:
+            # Pick least-loaded proxy to distribute traffic evenly
+            proxy_target = min(online_proxies, key=lambda p: len(p.get("assigned_to", [])))
+            proxy = proxy_target.get("url")
+
     for a in ACCOUNTS.values():
         if a.get("token") == token:
             print(f"[Account {a['id']}] Already added ({a.get('name')}).")
