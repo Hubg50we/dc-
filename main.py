@@ -4782,9 +4782,14 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
 
         if action == "restart_all":
             if MAIN_LOOP and MAIN_LOOP.is_running():
-                for aid in list(ACCOUNTS.keys()):
-                    asyncio.run_coroutine_threadsafe(restart_account(aid), MAIN_LOOP)
-                return {"success": True, "message": "Reconnecting all accounts..."}
+                async def _staggered_restart_all():
+                    for idx, aid in enumerate(list(ACCOUNTS.keys())):
+                        await restart_account(aid)
+                        # Stagger reconnects with stealth delay to prevent concurrent IP burst flags
+                        if STEALTH_DELAY > 0 and idx < len(ACCOUNTS) - 1:
+                            await asyncio.sleep(min(STEALTH_DELAY, 2.5))
+                asyncio.run_coroutine_threadsafe(_staggered_restart_all(), MAIN_LOOP)
+                return {"success": True, "message": "Reconnecting all accounts with stealth delay..."}
             return {"success": False, "error": "Bot engine not running"}
 
         if action == "shutdown":
