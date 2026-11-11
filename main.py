@@ -91,7 +91,7 @@ def get_account_fingerprint(aid):
     return dict(DEVICE_FINGERPRINTS[aid % len(DEVICE_FINGERPRINTS)])
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.6.5"
+APP_VERSION = "1.6.6"
 AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
@@ -1201,7 +1201,7 @@ def generate_ofm_ai_response(persona="friendly", prompt="", model="kilo-auto/fre
         if topic:
             try:
                 w_url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(topic)}"
-                req_w = urllib.request.Request(w_url, headers={"User-Agent": "Mozilla/5.0 (dc-bot/1.6.5)"})
+                req_w = urllib.request.Request(w_url, headers={"User-Agent": "Mozilla/5.0 (dc-bot/1.6.6)"})
                 with urllib.request.urlopen(req_w, timeout=2.5) as r_w:
                     d_w = json.loads(r_w.read().decode())
                     extract = d_w.get("extract", "")

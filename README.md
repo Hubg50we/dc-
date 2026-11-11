@@ -152,33 +152,45 @@ bash start.sh
 - **On Local WiFi**: Access it from another phone or PC via `http://<YOUR_IP>:5000`.
 - **Installable PWA**: Add to Home Screen as a native mobile app with AMOLED dark theme!
 
-### 🎯 5 Dedicated Tabs (Full UI Management):
+### 🎯 6 Dedicated Tabs (Full UI Management):
 
 1. **🎛️ Controls Tab**:
    - **Editable Guild & Channel ID**: Edit your Discord Server ID & Voice Channel ID directly in input fields with 1-tap Save.
    - **Auto-Detect Server ID**: Don't know your Server ID? Just enter your Voice Channel ID, click **Auto-Detect**, and the bot looks up your Server ID automatically via Discord's API!
+   - **1-Bot-Per-VC Distribution Engine**: Auto-scrapes all voice channels in a server and dynamically places exactly 1 bot in each voice channel, balancing across rooms and disconnecting overflow accounts.
+   - **Multi-Channel Room Spreader & Gatherer**: Spread bots evenly across all available guild rooms or gather all accounts into a single room with 1 tap.
    - **Quick Channel Presets**: 1-tap chips to switch between preset rooms (Lounge, Gaming, Music, General, AFK).
    - **Batch Percentage Slider**: Move, mute, deafen, or disconnect 10%, 25%, 50%, 75%, or 100% of your bots.
    - **Floating Mobile Thumb Bar**: Bottom-docked quick buttons for instantaneous thumb control on phones.
 
 2. **🤖 Bots Tab**:
    - **Live Account Cards**: Real-time status indicators (🟢 Online, 🔊 In Voice, 🔇 Muted, 🎧 Deafened, 📱 Mobile).
+   - **Hardware Fingerprint Badges**: Displays randomized Android models (Galaxy S24 Ultra, Pixel 8 Pro, OnePlus 12, etc.) for authentic Discord presence.
+   - **Dedicated IP & Geo-Flags**: Shows assigned dedicated proxy with country flag (🇺🇸, 🇩🇪, 🇯🇵, 🇧🇷) and latency tier badge.
    - **Batch Selection Bar**: Select specific bots to perform targeted voice actions.
    - **Detailed Account Modal**: Tap any bot card to see Ping, Gateway ID, Voice State, and per-bot controls.
 
-3. **🔑 Tokens Tab (100% In-Browser Management)**:
+3. **🌐 Proxies & Network Tab**:
+   - **Dedicated 1:1 IP Allocation**: Distributes verified proxies such that each bot receives an exclusive, unique IP address.
+   - **Multi-Source Free Proxy Scraper**: Aggregates from TheSpeedX, Monosans, and ProxyScrape with 20-worker parallel health checks.
+   - **Discord 429 & Opcode 4008 Auto-Quarantine**: Automatically quarantines rate-limited IPs for 10 minutes and hot-swaps active bots to fresh proxies.
+   - **Latency Auto-Healer Watchdog**: Continuously monitors round-trip latency and hot-swaps any proxy exceeding 1000ms.
+   - **Custom Proxy Importer**: Support for custom HTTP, HTTPS, SOCKS4, and SOCKS5 proxy lists.
+
+4. **🔑 Tokens Tab (100% In-Browser Management)**:
    - **Upload `tokens.txt`**: Pick and upload token files directly from your phone's file storage.
    - **Bulk Multi-Line Paste**: Paste multiple tokens at once with instant live validation.
    - **Single Token Add**: Add new tokens dynamically on the fly without restarting.
    - **Backup & Download**: 1-click download of your current `tokens.txt` backup.
    - **Masked Token Security**: Displays masked tokens (`MTAx...w0wQ`) with 1-tap delete.
 
-4. **⚙️ Settings Tab**:
+5. **⚙️ Settings Tab**:
+   - **1-Bot-Per-VC Toggle**: Enable or disable strict 1-bot-per-channel distribution mode.
    - **Device Appearance Toggle**: Choose between **📱 Discord Android (Green Mobile Icon)** or **💻 Desktop/Browser**.
    - **Channel Presets Manager**: Create, rename, edit, and delete custom voice channel shortcuts.
    - **Power Controls**: Cleanly **Restart Engine** or **Shut Down** all Discord instances straight from the browser.
 
-5. **📜 Logs Tab**:
+6. **📜 Logs Tab**:
    - **Live Streaming Terminal**: Real-time log stream showing Opcode handshakes, reconnects, and actions.
    - **Terminal Input Bar**: Execute console commands directly from the UI.
    - **Copy & Clear**: 1-tap copy logs to clipboard or clear screen.
