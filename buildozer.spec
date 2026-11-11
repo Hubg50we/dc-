@@ -21,7 +21,7 @@ source.include_patterns = assets/*,web/*
 source.exclude_dirs = tests, bin, .git, .github
 
 # (str) Application versioning
-version = 1.6.4
+version = 1.6.5
 
 # (list) Application requirements
 # Comma separated e.g. requirements = sqlite3,kivy
