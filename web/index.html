@@ -3308,8 +3308,11 @@
           <button class="btn btn-secondary" onclick="fetchFreeProxies('http')" id="btn-fetch-http" style="flex:1; min-width:130px;">
             🌐 Fetch Free HTTP
           </button>
-          <button class="btn btn-success" onclick="distributeProxiesToBots()" id="btn-distribute-proxies" style="flex:1; min-width:150px;">
-            🎯 Auto-Distribute to All Bots
+          <button class="btn btn-success" onclick="distributeDedicatedProxies()" id="btn-distribute-dedicated" style="flex:1; min-width:170px; background:linear-gradient(135deg, #10b981, #059669); border:none; font-weight:700;">
+            🛡️ 1 IP Per Bot (Dedicated Unique)
+          </button>
+          <button class="btn btn-secondary" onclick="distributeProxiesToBots()" id="btn-distribute-proxies" style="flex:1; min-width:130px;">
+            🎯 Distribute Shared
           </button>
           <button class="btn btn-secondary" onclick="clearAllBotProxies()" style="color:var(--danger); border-color:rgba(242,63,67,0.3);">
             🧹 Clear (Direct IP)
@@ -3722,6 +3725,7 @@
                 </div>
                 <div style="display:flex; gap:8px; align-items:center; font-size:0.74rem; color:var(--text-muted); margin-top:2px;">
                   <span style="color:${isOnline ? '#23a55a' : '#888'}; font-weight:600;">● ${isOnline ? 'Online' : 'Untested'}</span>
+                  ${p.country ? `<span style="background:rgba(255,255,255,0.08); padding:1px 6px; border-radius:4px; font-weight:700; color:#ddd;">${escapeHtml(p.country)}</span>` : ''}
                   ${p.ping ? `<span style="color:${pingColor}; font-weight:600;">⚡ ${p.ping}ms</span>` : ''}
                   ${hasBots ? `<span style="color:#00b4d8; font-weight:600;">🤖 Assigned to Bot(s): #${p.assigned_to.join(', #')}</span>` : '<span style="color:#666;">Available</span>'}
                 </div>
@@ -3749,6 +3753,22 @@
           fetchStatus();
         } else {
           showToast(res.error || 'Failed to fetch proxies', true);
+        }
+      } catch (e) {
+        showToast('Error: ' + e.message, true);
+      }
+    }
+
+    async function distributeDedicatedProxies() {
+      vibrate(25);
+      showToast('Binding 1 dedicated unique IP per bot...');
+      try {
+        const res = await sendPost('/api/action', { action: 'distribute_proxies', dedicated: true, refresh: true });
+        if (res.success) {
+          showToast(`Assigned ${res.assigned} unique dedicated IPs to bots!`);
+          fetchStatus();
+        } else {
+          showToast(res.error || 'Failed to bind dedicated IPs', true);
         }
       } catch (e) {
         showToast('Error: ' + e.message, true);

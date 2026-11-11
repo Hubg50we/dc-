@@ -228,26 +228,57 @@ def ping_proxy_socket(host, port, timeout=1.5):
         return False, 0
 
 
-def fetch_free_proxies_sync(limit=40, protocol="socks5"):
+def guess_country_from_ip(ip):
+    """Simple lightweight heuristic country detection for popular proxy subnets."""
+    try:
+        octets = [int(x) for x in ip.split(".") if x.isdigit()]
+        if len(octets) != 4:
+            return "🌐 Global"
+        o1 = octets[0]
+        if o1 in (13, 34, 35, 52, 54, 100, 104, 107, 108, 142, 143, 162, 172, 173, 174, 192, 198, 199, 208, 209):
+            return "🇺🇸 US"
+        elif o1 in (46, 78, 79, 80, 81, 82, 85, 87, 88, 89, 91, 92, 93, 94, 95, 176, 178, 185, 188, 193, 194, 195):
+            return "🇩🇪 EU"
+        elif o1 in (180, 182, 183, 202, 203, 210, 211, 218, 219, 220, 221, 222, 223):
+            return "🇯🇵 AP"
+        elif o1 in (177, 179, 181, 186, 187, 189, 190, 191, 200, 201):
+            return "🇧🇷 LATAM"
+        return "🌐 Global"
+    except Exception:
+        return "🌐 Global"
+
+
+def fetch_free_proxies_sync(limit=60, protocol="socks5"):
     global FREE_PROXY_POOL, PROXY_LAST_FETCH
     from concurrent.futures import ThreadPoolExecutor
     proto_clean = protocol.lower() if protocol in ("socks5", "http") else "socks5"
-    url = f"https://api.proxyscrape.com/v2/?request=displayproxies&protocol={proto_clean}&timeout=3500&country=all"
+    sources = [
+        f"https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/{proto_clean}.txt",
+        f"https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/{proto_clean}.txt",
+        f"https://api.proxyscrape.com/v2/?request=displayproxies&protocol={proto_clean}&timeout=3500&country=all"
+    ]
     candidates = []
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            text = resp.read().decode("utf-8")
-            for line in text.splitlines():
-                line = line.strip()
-                if line and ":" in line:
-                    h, p = line.split(":", 1)
-                    if p.isdigit():
-                        candidates.append((h, int(p), proto_clean.upper()))
-                        if len(candidates) >= limit:
-                            break
-    except Exception as e:
-        log(f"[Proxy Engine] Fetch error: {e}")
+    seen = set()
+    for s_url in sources:
+        try:
+            req = urllib.request.Request(s_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+            with urllib.request.urlopen(req, timeout=3.5) as resp:
+                text = resp.read().decode("utf-8", errors="ignore")
+                for line in text.splitlines():
+                    line = line.strip()
+                    if line and ":" in line:
+                        parts = line.split(":", 1)
+                        h = parts[0].strip()
+                        p = parts[1].strip()
+                        if p.isdigit() and (h, int(p)) not in seen:
+                            seen.add((h, int(p)))
+                            candidates.append((h, int(p), proto_clean.upper()))
+                            if len(candidates) >= limit * 3:
+                                break
+        except Exception:
+            pass
+        if len(candidates) >= limit * 2:
+            break
 
     if not candidates:
         defaults = [
@@ -262,23 +293,25 @@ def fetch_free_proxies_sync(limit=40, protocol="socks5"):
 
     def _test(cand):
         h, p, proto = cand
-        ok, ping = ping_proxy_socket(h, p, timeout=1.5)
+        ok, ping = ping_proxy_socket(h, p, timeout=1.2)
         return {
             "url": f"{proto.lower()}://{h}:{p}",
             "protocol": proto,
             "ip": h,
             "port": p,
             "ping": ping if ok else 0,
+            "country": guess_country_from_ip(h),
             "status": "online" if ok else "offline",
             "assigned_to": []
         }
 
+    test_subset = candidates[:min(len(candidates), limit * 2)]
     tested = []
-    with ThreadPoolExecutor(max_workers=10) as ex:
-        tested = list(ex.map(_test, candidates))
+    with ThreadPoolExecutor(max_workers=20) as ex:
+        tested = list(ex.map(_test, test_subset))
 
     tested.sort(key=lambda x: (0 if x["status"] == "online" else 1, x["ping"] if x["ping"] > 0 else 9999))
-    FREE_PROXY_POOL = tested
+    FREE_PROXY_POOL = tested[:limit]
     PROXY_LAST_FETCH = int(time.time())
 
     for p in FREE_PROXY_POOL:
@@ -309,10 +342,10 @@ def get_free_proxy_summary():
     }
 
 
-def distribute_free_proxies_to_bots(refresh_pool=False):
+def distribute_free_proxies_to_bots(refresh_pool=False, dedicated_unique=True):
     global FREE_PROXY_POOL, PROXY_LAST_AUTO_ROTATE
     if refresh_pool or not FREE_PROXY_POOL:
-        fetch_free_proxies_sync(limit=30, protocol="socks5")
+        fetch_free_proxies_sync(limit=60, protocol="socks5")
 
     online = [p for p in FREE_PROXY_POOL if p.get("status") == "online"]
     if not online:
@@ -320,21 +353,42 @@ def distribute_free_proxies_to_bots(refresh_pool=False):
     if not online:
         return {"success": False, "error": "No proxies available in pool"}
 
+    # Sort online proxies by lowest latency
+    online.sort(key=lambda x: x.get("ping") if x.get("ping", 0) > 0 else 9999)
+
     for p in FREE_PROXY_POOL:
         p["assigned_to"] = []
 
     assigned = 0
     pool_len = len(online)
-    for idx, (aid, acc) in enumerate(sorted(ACCOUNTS.items())):
-        p_obj = online[idx % pool_len]
-        acc["proxy"] = p_obj["url"]
-        p_obj["assigned_to"].append(aid)
-        assigned += 1
+    acc_list = sorted(ACCOUNTS.items())
+
+    if dedicated_unique:
+        for idx, (aid, acc) in enumerate(acc_list):
+            if idx < pool_len:
+                p_obj = online[idx]
+                acc["proxy"] = p_obj["url"]
+                p_obj["assigned_to"].append(aid)
+                assigned += 1
+            else:
+                acc["proxy"] = None
+    else:
+        for idx, (aid, acc) in enumerate(acc_list):
+            p_obj = online[idx % pool_len]
+            acc["proxy"] = p_obj["url"]
+            p_obj["assigned_to"].append(aid)
+            assigned += 1
 
     PROXY_LAST_AUTO_ROTATE = int(time.time())
     sync_tokens_file()
-    log(f"🎯 [Proxy Engine] Distributed free proxies to {assigned} bot accounts.")
-    return {"success": True, "assigned": assigned, "total_accounts": len(ACCOUNTS)}
+    log(f"🎯 [Proxy Engine] Distributed {'dedicated unique' if dedicated_unique else 'shared'} proxies to {assigned} bot accounts.")
+    return {
+        "success": True,
+        "assigned": assigned,
+        "total_accounts": len(ACCOUNTS),
+        "dedicated_unique": dedicated_unique,
+        "available_proxies": pool_len
+    }
 
 
 def auto_failover_account_proxy(aid):
@@ -2535,6 +2589,11 @@ async def handle_command(raw):
             handler = WebHandler(None, ("127.0.0.1", 0), None)
             res = handler.execute_action({"action": "one_bot_per_vc", "guild_id": GUILD_ID, "strict_one_per_vc": True})
             print(f"🎯 [1-Bot-Per-VC] {res.get('message', 'Completed')}")
+            return
+
+        if cmd in ("oneip", "dedicatedip", "one_ip_per_bot"):
+            res = distribute_free_proxies_to_bots(refresh_pool=True, dedicated_unique=True)
+            print(f"🛡️ [1-IP-Per-Bot] Assigned {res.get('assigned', 0)} dedicated unique IP proxies (Total: {res.get('total_accounts', 0)})")
             return
 
         if cmd == "account":
@@ -5331,8 +5390,10 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             limit = int(payload.get("limit", 40))
             proxies = fetch_free_proxies_sync(limit=limit, protocol=proto)
             return {"success": True, "message": f"Fetched {len(proxies)} free {proto.upper()} proxies.", "summary": get_free_proxy_summary()}
-        elif action == "distribute_proxies":
-            res = distribute_free_proxies_to_bots()
+        elif action in ("distribute_proxies", "distribute_dedicated_proxies", "one_ip_per_bot"):
+            refresh = bool(payload.get("refresh", False))
+            dedicated = bool(payload.get("dedicated", payload.get("dedicated_unique", True)))
+            res = distribute_free_proxies_to_bots(refresh_pool=refresh, dedicated_unique=dedicated)
             return res
         elif action == "clear_bot_proxies":
             res = clear_all_bot_proxies()

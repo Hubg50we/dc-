@@ -1350,6 +1350,24 @@ def run_tests():
     except Exception as e:
         check("1-Bot-Per-VC Automatic Distribution & Anti-Clustering Engine (106th Milestone Function)", False, str(e))
 
+    # 107. Dedicated 1-Bot-Per-IP Distribution & Multi-Source Aggregator
+    try:
+        st_ded, d_ded = http_post("/api/action", {
+            "action": "distribute_proxies",
+            "dedicated": True
+        })
+        ded_ok = (
+            st_ded == 200 and
+            d_ded.get("success") is True and
+            d_ded.get("dedicated_unique") is True and
+            "available_proxies" in d_ded
+        )
+        # Clean up
+        http_post("/api/action", {"action": "clear_bot_proxies"})
+        check("Dedicated 1-Bot-Per-IP Distribution & Multi-Source Fast Aggregator (107th Milestone Function)", ded_ok)
+    except Exception as e:
+        check("Dedicated 1-Bot-Per-IP Distribution & Multi-Source Fast Aggregator (107th Milestone Function)", False, str(e))
+
     # Summary
     passed = sum(1 for _, ok, _ in results if ok)
     total = len(results)
