@@ -1008,7 +1008,6 @@ def generate_ofm_ai_response(persona="friendly", prompt="", model="kilo-auto/fre
     3. High-variety offline generative persona synthesizer
     """
     system_prompts = {
-        "cat": "You are an adorable, playful AI anime cat girl / feline companion in Discord voice chat. Respond in under 20 words with cute meows, purrs, and 'nya~' or 'uwu' cat energy! Keep it adorable and playful.",
         "friendly": "You are a warm, friendly voice channel co-host. Respond in under 20 words, conversational and cheerful.",
         "dj": "You are a high-energy Discord soundstage DJ. Respond in under 20 words with hype and beats swagger.",
         "gamer": "You are an esports gaming co-host. Respond in under 20 words with snappy tactical gamer energy.",
@@ -2145,21 +2144,40 @@ async def run_account(aid):
                                 acc["stream_conn"] = s_conn
                                 s_conn.start()
 
-                        elif t == "MESSAGE_CREATE" and CHAT_AUTO_RESPONDER_ENABLED:
+                        elif t == "MESSAGE_CREATE" and (CHAT_AUTO_RESPONDER_ENABLED or AI_COPILOT_ENABLED):
                             d = ev.get("d", {})
                             author = d.get("author", {})
                             author_id = str(author.get("id", ""))
                             if author_id and author_id != str(acc.get("user_id")) and not author.get("bot", False):
-                                msg_content = (d.get("content") or "").strip().lower()
+                                raw_content = (d.get("content") or "").strip()
+                                msg_content = raw_content.lower()
                                 ch_id = d.get("channel_id")
-                                for rule in CHAT_AUTO_RESPONDER_RULES:
-                                    trig = rule.get("trigger", "").lower().strip()
-                                    rep = rule.get("response", "")
-                                    exact = rule.get("exact", False)
-                                    if trig and rep and ((exact and msg_content == trig) or (not exact and trig in msg_content)):
-                                        log(f"[Account {aid}] 🤖 Chat Auto-Responder: Trigger '{trig}' matched -> Replying to #{ch_id}")
-                                        asyncio.create_task(send_chat_message(acc.get("token"), ch_id, rep))
-                                        break
+                                mentions = [str(m.get("id", "")) for m in d.get("mentions", [])]
+                                is_mentioned = str(acc.get("user_id")) in mentions
+                                replied = False
+
+                                # 1. Check Static Keyword Triggers
+                                if CHAT_AUTO_RESPONDER_ENABLED:
+                                    for rule in CHAT_AUTO_RESPONDER_RULES:
+                                        trig = rule.get("trigger", "").lower().strip()
+                                        rep = rule.get("response", "")
+                                        exact = rule.get("exact", False)
+                                        if trig and rep and ((exact and msg_content == trig) or (not exact and trig in msg_content)):
+                                            log(f"[Account {aid}] 🤖 Chat Auto-Responder: Trigger '{trig}' matched -> Replying to #{ch_id}")
+                                            asyncio.create_task(send_chat_message(acc.get("token"), ch_id, rep))
+                                            replied = True
+                                            break
+
+                                # 2. Dynamic DSH Frontier AI Chat Response (Direct DM or @Mention or Bot Trigger)
+                                if not replied and (AI_COPILOT_ENABLED or is_mentioned or not d.get("guild_id")):
+                                    clean_prompt = re.sub(r"<@!?[0-9]+>", "", raw_content).strip()
+                                    if clean_prompt:
+                                        log(f"[Account {aid}] 🧠 [DSH AI Chat] Generating AI reply for: '{clean_prompt[:50]}'...")
+                                        def _generate_and_reply(tok, cid, prompt):
+                                            ai_text = generate_ofm_ai_response(persona=AI_COPILOT_PERSONA or AI_COHOST_PERSONA, prompt=prompt, model=OFM_MODEL)
+                                            if ai_text:
+                                                asyncio.run_coroutine_threadsafe(send_chat_message(tok, cid, ai_text), MAIN_LOOP)
+                                        threading.Thread(target=_generate_and_reply, args=(acc.get("token"), ch_id, clean_prompt), daemon=True).start()
                     except Exception:
                         pass
 
