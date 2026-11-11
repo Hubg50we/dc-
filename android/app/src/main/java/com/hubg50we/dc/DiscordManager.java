@@ -60,6 +60,8 @@ public class DiscordManager {
     private String defaultChannelId = "";
     private String deviceMode = "mobile"; // "mobile" or "desktop"
     private boolean autoRejoin = true;
+    private String accessKey = "hubg50";
+    private boolean keySystemEnabled = true;
     private String customActivityName = "";
     private int customActivityType = 0; // 0=Playing, 1=Streaming, 2=Listening, 3=Watching, 4=Custom
     private double stealthDelaySec = 0.1;
@@ -150,6 +152,8 @@ public class DiscordManager {
         this.defaultChannelId = prefs.getString("channel_id", "");
         this.deviceMode = prefs.getString("device_mode", "mobile");
         this.autoRejoin = prefs.getBoolean("auto_rejoin", true);
+        this.accessKey = prefs.getString("access_key", "hubg50");
+        this.keySystemEnabled = prefs.getBoolean("key_system_enabled", true);
         this.customActivityName = prefs.getString("activity_name", "");
         this.customActivityType = prefs.getInt("activity_type", 0);
         this.stealthDelaySec = prefs.getFloat("stealth_delay", 0.1f);
@@ -698,6 +702,62 @@ public class DiscordManager {
         try {
             String action = payload.optString("action", "");
             int percent = payload.optInt("percent", 100);
+
+            // 0. Key System & Login Authentication
+            if ("verify_key".equals(action) || "validate_key".equals(action) || "login".equals(action) || "check_login".equals(action)) {
+                String k = payload.optString("key", payload.optString("password", "")).trim();
+                if (!this.keySystemEnabled) {
+                    res.put("success", true);
+                    res.put("valid", true);
+                    res.put("authenticated", true);
+                    res.put("key_system_enabled", false);
+                    res.put("message", "Login successful (Key system is disabled)");
+                } else if (this.accessKey.equalsIgnoreCase(k)) {
+                    res.put("success", true);
+                    res.put("valid", true);
+                    res.put("authenticated", true);
+                    res.put("key_system_enabled", true);
+                    res.put("message", "Access Key Verified! Welcome to dc-.");
+                } else {
+                    res.put("success", false);
+                    res.put("valid", false);
+                    res.put("authenticated", false);
+                    res.put("key_system_enabled", true);
+                    res.put("error", "Invalid access key! Please check your credentials.");
+                }
+                return res;
+            } else if ("set_access_key".equals(action)) {
+                String cur = payload.optString("current_key", "").trim();
+                String newK = payload.optString("new_key", "").trim();
+                if (!this.accessKey.equalsIgnoreCase(cur)) {
+                    res.put("success", false);
+                    res.put("error", "Current access key is incorrect.");
+                } else if (newK.isEmpty()) {
+                    res.put("success", false);
+                    res.put("error", "New access key cannot be empty.");
+                } else {
+                    this.accessKey = newK;
+                    prefs.edit().putString("access_key", this.accessKey).apply();
+                    log("🔐 Access key updated to: " + this.accessKey);
+                    res.put("success", true);
+                    res.put("key", this.accessKey);
+                    res.put("message", "Access key updated successfully");
+                }
+                return res;
+            } else if ("toggle_key_system".equals(action)) {
+                String k = payload.optString("key", "").trim();
+                if (!this.accessKey.equalsIgnoreCase(k)) {
+                    res.put("success", false);
+                    res.put("error", "Unauthorized: Invalid access key.");
+                } else {
+                    this.keySystemEnabled = payload.optBoolean("enabled", !this.keySystemEnabled);
+                    prefs.edit().putBoolean("key_system_enabled", this.keySystemEnabled).apply();
+                    log("🔐 Key System: " + (this.keySystemEnabled ? "ENABLED" : "DISABLED"));
+                    res.put("success", true);
+                    res.put("enabled", this.keySystemEnabled);
+                }
+                return res;
+            }
 
             // 1. Token Addition (Single & Bulk)
             if ("token_add".equals(action) || "add_token".equals(action)) {
@@ -2958,6 +3018,11 @@ public class DiscordManager {
             json.put("default_channel", defaultChannelId);
             json.put("device_type", deviceMode);
             json.put("auto_rejoin", autoRejoin);
+            JSONObject keySysObj = new JSONObject();
+            keySysObj.put("enabled", this.keySystemEnabled);
+            keySysObj.put("required", true);
+            keySysObj.put("key_hint", "hubg50");
+            json.put("key_system", keySysObj);
             json.put("activity_name", customActivityName);
             json.put("activity_type", customActivityType);
             json.put("stealth_delay", stealthDelaySec);

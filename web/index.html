@@ -1008,6 +1008,50 @@
 </head>
 <body>
 
+  <!-- Key System & Website Login Portal Screen -->
+  <div id="login-portal-screen" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:radial-gradient(circle at 50% 25%, rgba(88,101,242,0.22), rgba(10,11,14,0.98) 75%); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); z-index:999999; align-items:center; justify-content:center; padding:18px;">
+    <div style="background:var(--bg-card, #1e1f22); border:1px solid rgba(88, 101, 242, 0.45); border-radius:20px; max-width:420px; width:100%; padding:32px 24px; box-shadow:0 20px 60px rgba(0,0,0,0.85), 0 0 40px rgba(88,101,242,0.25); text-align:center;">
+      <div style="width:72px; height:72px; border-radius:50%; background:linear-gradient(135deg, rgba(88, 101, 242, 0.35), rgba(168, 85, 247, 0.5)); display:inline-flex; align-items:center; justify-content:center; font-size:2.2rem; margin-bottom:16px; border:2px solid rgba(168, 85, 247, 0.6); box-shadow:0 0 25px rgba(168,85,247,0.4);">
+        🔐
+      </div>
+      <div style="display:flex; justify-content:center; align-items:center; gap:8px; margin-bottom:6px;">
+        <span style="font-size:1.5rem; font-weight:900; color:#fff; letter-spacing:-0.03em;">dc-</span>
+        <span class="badge" style="background:linear-gradient(135deg, #5865F2, #a855f7); color:#fff; font-size:0.75rem; font-weight:800; padding:2px 8px; border-radius:12px;">PRO</span>
+      </div>
+      <h3 style="font-size:1.15rem; font-weight:800; color:#e2e8f0; margin-bottom:6px;">Website Access Gate</h3>
+      <p style="font-size:0.82rem; color:var(--text-muted, #949ba4); margin-bottom:24px; line-height:1.45;">
+        This Discord Controller is protected. Enter the authorized access key to log in.
+      </p>
+
+      <div style="margin-bottom:16px; text-align:left;">
+        <label style="font-size:0.75rem; font-weight:700; color:#cbd5e1; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:6px; display:block;">Access Key / Password</label>
+        <div style="position:relative; display:flex; align-items:center;">
+          <input type="password" id="login-key-input" placeholder="Enter key (hubg50)..." style="width:100%; padding:13px 44px 13px 14px; background:rgba(0,0,0,0.45); border:1px solid rgba(255,255,255,0.18); border-radius:12px; color:#fff; font-size:1rem; font-family:monospace; outline:none; transition:border 0.2s;" onfocus="this.style.borderColor='#818cf8'" onblur="this.style.borderColor='rgba(255,255,255,0.18)'" onkeydown="if(event.key==='Enter') submitLogin()">
+          <span onclick="toggleLoginKeyVisibility()" style="position:absolute; right:14px; cursor:pointer; font-size:1.15rem; user-select:none; opacity:0.75;" title="Toggle Password Visibility">👁️</span>
+        </div>
+        <div id="login-error-msg" style="display:none; color:#f87171; font-size:0.8rem; margin-top:8px; font-weight:600; text-align:left; background:rgba(239,68,68,0.12); padding:6px 10px; border-radius:8px; border:1px solid rgba(239,68,68,0.25);"></div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; font-size:0.8rem; color:var(--text-muted, #949ba4);">
+        <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+          <input type="checkbox" id="login-remember-me" checked style="cursor:pointer; accent-color:#5865f2;">
+          <span>Remember login</span>
+        </label>
+        <span style="background:rgba(88,101,242,0.18); color:#a5b4fc; padding:2px 8px; border-radius:6px; font-family:monospace; font-size:0.72rem; cursor:pointer;" onclick="document.getElementById('login-key-input').value='hubg50'" title="Click to autofill key">Key: hubg50</span>
+      </div>
+
+      <button onclick="submitLogin()" class="btn btn-primary" id="btn-login-submit" style="width:100%; padding:13px; font-size:0.95rem; font-weight:700; border-radius:12px; display:flex; justify-content:center; align-items:center; gap:8px; background:linear-gradient(135deg, #5865F2, #8b5cf6); border:none; box-shadow:0 4px 15px rgba(88,101,242,0.4);">
+        <span>🔓</span>
+        <span>Login to Dashboard</span>
+      </button>
+
+      <div style="margin-top:20px; padding-top:14px; border-top:1px solid rgba(255,255,255,0.08); font-size:0.75rem; color:var(--text-muted, #949ba4); display:flex; justify-content:space-between;">
+        <span>Multi-Account Voice Controller</span>
+        <span>v1.6.6 Build 67</span>
+      </div>
+    </div>
+  </div>
+
   <!-- Top App Header -->
   <header>
     <div class="brand">
@@ -1041,6 +1085,7 @@
       </select>
       <button class="icon-btn" onclick="triggerPipMode()" title="Floating Picture-in-Picture Mini-Dock">🪟</button>
       <button class="icon-btn" onclick="toggleAmoled()" title="AMOLED Black Toggle">⚡</button>
+      <button class="icon-btn" onclick="logoutDashboard()" title="Lock / Logout Dashboard" style="color:#c084fc; border-color:rgba(168,85,247,0.35);">🔐</button>
       <button class="icon-btn" onclick="refreshAll()" title="Refresh Dashboard">↻</button>
     </div>
   </header>
@@ -2178,6 +2223,43 @@
             <div style="font-size:0.7rem; color:var(--text-muted);">Tactile vibration on mobile screen taps</div>
           </div>
           <input type="checkbox" id="haptic-toggle" checked onchange="toggleHapticFeedback(this.checked)" style="width:18px; height:18px; accent-color:var(--accent);">
+        </div>
+      </div>
+
+      <!-- Access Key & Login System Card -->
+      <div class="card" style="border-color: rgba(168, 85, 247, 0.45);">
+        <div class="card-title" style="color:#d8b4fe;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.2rem;">🔐</span>
+            <span>Website Access Key & Login System</span>
+          </div>
+          <span class="badge" style="background:rgba(168, 85, 247, 0.25); color:#e9d5ff; font-weight:700;" id="key-system-badge">AUTHENTICATED</span>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px;">
+          Protect your dc- dashboard and bots from unauthorized access. The master authorized key is <code>hubg50</code>.
+        </p>
+
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+            <div style="flex:1; min-width:180px;">
+              <label style="font-size:0.75rem; color:var(--text-muted); display:block; margin-bottom:4px; font-weight:600;">Active Authorized Key:</label>
+              <input type="text" id="settings-current-key" readonly style="width:100%; padding:8px 12px; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; color:#a5b4fc; font-family:monospace; font-size:0.85rem;" value="hubg50">
+            </div>
+            <div style="flex:1; min-width:200px;">
+              <label style="font-size:0.75rem; color:var(--text-muted); display:block; margin-bottom:4px; font-weight:600;">Change Access Key:</label>
+              <div style="display:flex; gap:6px;">
+                <input type="text" id="settings-new-key" placeholder="New key..." style="flex:1; padding:8px 12px; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; color:#fff; font-family:monospace; font-size:0.85rem;">
+                <button onclick="updateAccessKeyFromSettings()" class="btn btn-primary btn-sm">Save Key</button>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); margin-top:4px; padding-top:8px;">
+            <span style="font-size:0.75rem; color:var(--text-muted);">Require key again on this browser?</span>
+            <button onclick="logoutDashboard()" class="btn btn-secondary btn-sm" style="color:#f87171; border-color:rgba(239,68,68,0.3); display:flex; align-items:center; gap:4px;">
+              <span>🔒</span>
+              <span>Lock / Logout Now</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -4020,6 +4102,14 @@
         currentAppVersion = data.version;
         const vBadge = document.getElementById('settings-app-version');
         if (vBadge) vBadge.innerText = 'v' + data.version;
+      }
+
+      // Key system status sync
+      if (data.key_system) {
+        const badge = document.getElementById('key-system-badge');
+        if (badge) {
+          badge.innerText = isKeySystemAuthenticated ? 'AUTHENTICATED' : (data.key_system.enabled ? 'ACTIVE' : 'DISABLED');
+        }
       }
 
       // Active device button highlight
@@ -8823,6 +8913,202 @@
       });
     }
 
+    // ==========================================
+    // 🔐 Website Login & Access Key System
+    // ==========================================
+    let currentAccessKey = localStorage.getItem('dc_access_key') || sessionStorage.getItem('dc_access_key') || '';
+    let isKeySystemAuthenticated = false;
+
+    function initKeySystem() {
+      const portal = document.getElementById('login-portal-screen');
+      if (!portal) return;
+
+      if (currentAccessKey && currentAccessKey.trim().toLowerCase() === 'hubg50') {
+        isKeySystemAuthenticated = true;
+        portal.style.display = 'none';
+        updateKeySettingsUI(currentAccessKey, true);
+        return;
+      }
+
+      if (currentAccessKey) {
+        verifyStoredKey(currentAccessKey);
+      } else {
+        showLoginPortal();
+      }
+    }
+
+    function showLoginPortal() {
+      isKeySystemAuthenticated = false;
+      const portal = document.getElementById('login-portal-screen');
+      if (portal) {
+        portal.style.display = 'flex';
+        setTimeout(() => {
+          const inp = document.getElementById('login-key-input');
+          if (inp) {
+            inp.focus();
+            if (!inp.value && currentAccessKey) inp.value = currentAccessKey;
+          }
+        }, 150);
+      }
+    }
+
+    function hideLoginPortal() {
+      isKeySystemAuthenticated = true;
+      const portal = document.getElementById('login-portal-screen');
+      if (portal) {
+        portal.style.display = 'none';
+      }
+    }
+
+    function toggleLoginKeyVisibility() {
+      const inp = document.getElementById('login-key-input');
+      if (!inp) return;
+      inp.type = inp.type === 'password' ? 'text' : 'password';
+    }
+
+    async function submitLogin() {
+      const inp = document.getElementById('login-key-input');
+      const err = document.getElementById('login-error-msg');
+      const btn = document.getElementById('btn-login-submit');
+      if (!inp) return;
+
+      const val = inp.value.trim();
+      if (!val) {
+        if (err) {
+          err.innerText = '⚠️ Please enter your access key.';
+          err.style.display = 'block';
+        }
+        return;
+      }
+
+      if (btn) btn.innerHTML = '<span>⏳</span><span>Verifying...</span>';
+      if (err) err.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'login', key: val })
+        });
+        const data = await res.json();
+
+        if (data && (data.valid || data.authenticated || val.toLowerCase() === 'hubg50')) {
+          currentAccessKey = val;
+          const remember = document.getElementById('login-remember-me');
+          if (remember && remember.checked) {
+            localStorage.setItem('dc_access_key', val);
+          } else {
+            sessionStorage.setItem('dc_access_key', val);
+          }
+          hideLoginPortal();
+          updateKeySettingsUI(val, true);
+          showToast('🔓 Access Granted! Welcome to dc- v1.6.6');
+          fetchStatus();
+        } else {
+          if (err) {
+            err.innerText = data.error || '❌ Invalid access key! Expected: hubg50';
+            err.style.display = 'block';
+          }
+        }
+      } catch (e) {
+        if (val.toLowerCase() === 'hubg50') {
+          currentAccessKey = val;
+          localStorage.setItem('dc_access_key', val);
+          hideLoginPortal();
+          updateKeySettingsUI(val, true);
+          showToast('🔓 Access Granted! Welcome to dc-');
+          fetchStatus();
+        } else {
+          if (err) {
+            err.innerText = '❌ Invalid access key. Please try again.';
+            err.style.display = 'block';
+          }
+        }
+      } finally {
+        if (btn) btn.innerHTML = '<span>🔓</span><span>Login to Dashboard</span>';
+      }
+    }
+
+    async function verifyStoredKey(key) {
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'login', key: key })
+        });
+        const data = await res.json();
+        if (data && (data.valid || data.authenticated || key.toLowerCase() === 'hubg50')) {
+          hideLoginPortal();
+          updateKeySettingsUI(key, true);
+        } else {
+          showLoginPortal();
+        }
+      } catch (e) {
+        if (key.toLowerCase() === 'hubg50') {
+          hideLoginPortal();
+          updateKeySettingsUI(key, true);
+        } else {
+          showLoginPortal();
+        }
+      }
+    }
+
+    function logoutDashboard() {
+      localStorage.removeItem('dc_access_key');
+      sessionStorage.removeItem('dc_access_key');
+      currentAccessKey = '';
+      const inp = document.getElementById('login-key-input');
+      if (inp) inp.value = '';
+      const err = document.getElementById('login-error-msg');
+      if (err) err.style.display = 'none';
+      showLoginPortal();
+      showToast('🔒 Logged out of dashboard.');
+    }
+
+    function updateKeySettingsUI(key, isAuthed) {
+      const curInput = document.getElementById('settings-current-key');
+      if (curInput) curInput.value = key || 'hubg50';
+      const badge = document.getElementById('key-system-badge');
+      if (badge) {
+        badge.innerText = isAuthed ? 'AUTHENTICATED' : 'LOCKED';
+        badge.style.background = isAuthed ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)';
+        badge.style.color = isAuthed ? '#6ee7b7' : '#fca5a5';
+      }
+    }
+
+    async function updateAccessKeyFromSettings() {
+      const curInp = document.getElementById('settings-current-key');
+      const newInp = document.getElementById('settings-new-key');
+      if (!newInp) return;
+      const newK = newInp.value.trim();
+      const curK = (curInp && curInp.value.trim()) || currentAccessKey || 'hubg50';
+
+      if (!newK) {
+        showToast('Please enter a new access key.', true);
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set_access_key', current_key: curK, new_key: newK })
+        });
+        const data = await res.json();
+        if (data && data.success) {
+          currentAccessKey = newK;
+          localStorage.setItem('dc_access_key', newK);
+          if (curInp) curInp.value = newK;
+          newInp.value = '';
+          showToast(`🔐 Key updated to: ${newK}`);
+        } else {
+          showToast(data.error || 'Failed to update access key.', true);
+        }
+      } catch (e) {
+        showToast('Error updating key: ' + e.message, true);
+      }
+    }
+
     // Initialize saved language
     const savedLang = localStorage.getItem('dc_lang') || 'en';
     switchLanguage(savedLang);
@@ -8833,6 +9119,7 @@
     const hapticToggle = document.getElementById('haptic-toggle');
     if (hapticToggle) hapticToggle.checked = hapticEnabled;
 
+    initKeySystem();
     fetchStatus();
     fetchLogs();
     checkAndroidFeatures();

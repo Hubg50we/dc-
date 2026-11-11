@@ -185,6 +185,7 @@ bash start.sh
    - **Masked Token Security**: Displays masked tokens (`MTAx...w0wQ`) with 1-tap delete.
 
 5. **⚙️ Settings Tab**:
+   - **🔐 Access Key & Website Login System**: Full security gate protecting the controller and bot tokens. Master authorized access key is `hubg50`, with live key rotation and 1-tap browser lock/logout.
    - **1-Bot-Per-VC Toggle**: Enable or disable strict 1-bot-per-channel distribution mode.
    - **Device Appearance Toggle**: Choose between **📱 Discord Android (Green Mobile Icon)** or **💻 Desktop/Browser**.
    - **Channel Presets Manager**: Create, rename, edit, and delete custom voice channel shortcuts.

@@ -1386,6 +1386,35 @@ def run_tests():
     except Exception as e:
         check("Device Fingerprint Diversifier & Rate-Limit Quarantine Engine (108th Milestone Function)", False, str(e))
 
+    # 109. Website Login & Access Key System ('hubg50' Authentication Gate)
+    try:
+        # Invalid key rejection
+        st_bad, d_bad = http_post("/api/action", {"action": "login", "key": "incorrect_key_123"})
+        bad_rejected = (st_bad == 200 and d_bad.get("valid") is False and d_bad.get("authenticated") is False)
+
+        # Valid key acceptance ('hubg50')
+        st_good, d_good = http_post("/api/action", {"action": "login", "key": "hubg50"})
+        good_accepted = (st_good == 200 and d_good.get("valid") is True and d_good.get("authenticated") is True)
+
+        # verify_key alias
+        st_v, d_v = http_post("/api/action", {"action": "verify_key", "key": "hubg50"})
+        v_ok = (st_v == 200 and d_v.get("valid") is True)
+
+        # Status schema key_system check
+        _, st_data = http_get("/api/status")
+        ks = st_data.get("key_system", {})
+        ks_ok = (ks.get("enabled") is True and ks.get("key_hint") == "hubg50")
+
+        # Test key update and restore
+        st_ch, d_ch = http_post("/api/action", {"action": "set_access_key", "current_key": "hubg50", "new_key": "hubg50_temp"})
+        ch_ok = (st_ch == 200 and d_ch.get("success") is True)
+        http_post("/api/action", {"action": "set_access_key", "current_key": "hubg50_temp", "new_key": "hubg50"})
+
+        login_system_ok = bad_rejected and good_accepted and v_ok and ks_ok and ch_ok
+        check("Website Login & Access Key System ('hubg50' Authentication Gate) (109th Milestone Function)", login_system_ok)
+    except Exception as e:
+        check("Website Login & Access Key System ('hubg50' Authentication Gate) (109th Milestone Function)", False, str(e))
+
     # Summary
     passed = sum(1 for _, ok, _ in results if ok)
     total = len(results)

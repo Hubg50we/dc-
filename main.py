@@ -97,6 +97,8 @@ CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
 STEALTH_DELAY = float(os.environ.get("STEALTH_DELAY", "3.0"))
 ONE_BOT_PER_VC = os.environ.get("ONE_BOT_PER_VC", "false").lower() in ("true", "1", "yes")
+ACCESS_KEY = os.environ.get("DC_ACCESS_KEY", "hubg50")
+KEY_SYSTEM_ENABLED = os.environ.get("KEY_SYSTEM_ENABLED", "true").lower() in ("true", "1", "yes")
 ROTATOR_ENABLED = False
 ROTATOR_INTERVAL = 300
 ROTATOR_CHANNELS = []
@@ -1768,6 +1770,8 @@ def save_env_config():
         activity_type_found = False
         stealth_delay_found = False
         one_bot_per_vc_found = False
+        access_key_found = False
+        key_system_found = False
         new_lines = []
         for line in lines:
             if line.startswith("GUILD_ID="):
@@ -1794,6 +1798,12 @@ def save_env_config():
             elif line.startswith("ONE_BOT_PER_VC="):
                 new_lines.append(f"ONE_BOT_PER_VC={ONE_BOT_PER_VC}\n")
                 one_bot_per_vc_found = True
+            elif line.startswith("DC_ACCESS_KEY="):
+                new_lines.append(f"DC_ACCESS_KEY={ACCESS_KEY}\n")
+                access_key_found = True
+            elif line.startswith("KEY_SYSTEM_ENABLED="):
+                new_lines.append(f"KEY_SYSTEM_ENABLED={KEY_SYSTEM_ENABLED}\n")
+                key_system_found = True
             else:
                 new_lines.append(line)
 
@@ -1813,6 +1823,10 @@ def save_env_config():
             new_lines.append(f"STEALTH_DELAY={STEALTH_DELAY}\n")
         if not one_bot_per_vc_found:
             new_lines.append(f"ONE_BOT_PER_VC={ONE_BOT_PER_VC}\n")
+        if not access_key_found:
+            new_lines.append(f"DC_ACCESS_KEY={ACCESS_KEY}\n")
+        if not key_system_found:
+            new_lines.append(f"KEY_SYSTEM_ENABLED={KEY_SYSTEM_ENABLED}\n")
 
         with open(env_path, "w", encoding="utf-8") as f:
             f.writelines(new_lines)
@@ -2658,6 +2672,29 @@ async def handle_command(raw):
             print(f"🛡️ [1-IP-Per-Bot] Assigned {res.get('assigned', 0)} dedicated unique IP proxies (Total: {res.get('total_accounts', 0)})")
             return
 
+        if cmd.startswith("key") or cmd.startswith("login"):
+            sub_parts = cmd.split(None, 2)
+            sub = sub_parts[1].lower() if len(sub_parts) > 1 else "status"
+            if sub in ("status", "show"):
+                print(f"🔐 [Key & Login System] Enabled: {KEY_SYSTEM_ENABLED} | Authorized Key: {ACCESS_KEY}")
+            elif sub == "set" and len(sub_parts) > 2:
+                ACCESS_KEY = sub_parts[2].strip()
+                save_env_config()
+                print(f"🔐 [Key & Login System] Key updated to: {ACCESS_KEY}")
+            elif sub == "verify" and len(sub_parts) > 2:
+                test_k = sub_parts[2].strip()
+                if test_k.lower() == ACCESS_KEY.lower():
+                    print(f"✅ [Key & Login System] Key '{test_k}' is VALID!")
+                else:
+                    print(f"❌ [Key & Login System] Key '{test_k}' is INVALID!")
+            elif sub == "toggle":
+                KEY_SYSTEM_ENABLED = not KEY_SYSTEM_ENABLED
+                save_env_config()
+                print(f"🔐 [Key & Login System] Enabled: {KEY_SYSTEM_ENABLED}")
+            else:
+                print("Usage: key [status|set <new_key>|verify <key>|toggle]")
+            return
+
         if cmd == "account":
             if len(parts) < 3:
                 print("Usage: account <id|name|uid> <action> [args]")
@@ -3091,6 +3128,11 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             "activity_type": CUSTOM_ACTIVITY_TYPE,
             "stealth_delay": STEALTH_DELAY,
             "one_bot_per_vc": ONE_BOT_PER_VC,
+            "key_system": {
+                "enabled": KEY_SYSTEM_ENABLED,
+                "required": True,
+                "key_hint": "hubg50"
+            },
             "rotator_enabled": ROTATOR_ENABLED,
             "rotator_interval": ROTATOR_INTERVAL,
             "speaking_sim": SPEAKING_SIM,
@@ -3307,7 +3349,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(404, "Not Found")
 
     def execute_action(self, payload):
-        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VOICE_FLAGS, ACTIVE_SFX, VOICE_STATUS, HUMAN_CHATTER_ENABLED, HUMAN_CHATTER_TASK, REAL_VIDEO_ACTIVE, REAL_VIDEO_MODE, REAL_VIDEO_TITLE, WEB_SHARE_URL, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE, STREAMBOT_QUEUE, STREAMBOT_CURRENT, STREAMBOT_STATUS, STREAMBOT_LOOP_MODE, STREAMBOT_VOLUME, STREAMBOT_RESOLUTION, STREAMBOT_FPS, STREAMBOT_BITRATE, STREAM_PROFILE, SPOTIFY_SONG, SPOTIFY_ARTIST, SPOTIFY_ALBUM, SPOTIFY_DURATION, VISUALIZER_MODE, STREAM_OVERLAY_ENABLED, STREAM_OVERLAY_TITLE, STREAM_OVERLAY_TICKER, CHAT_AUTO_RESPONDER_ENABLED, CHAT_AUTO_RESPONDER_RULES, DESKTOP_SCREEN_CAPTURE, AUDIO_BASS_BOOST, AUDIO_PITCH_SHIFT, AUDIO_NORMALIZER, AUDIO_EQ_PRESET, AUTO_REJOIN, CUSTOM_ACTIVITY_NAME, CUSTOM_ACTIVITY_TYPE, STEALTH_DELAY, ONE_BOT_PER_VC, RECORDING_ACTIVE, RECORDING_START_TIME, RECORDING_FILENAME, STADIUM_ECHO_ENABLED, STADIUM_ECHO_DELAY_MS, PTT_ACTIVE, PTT_TOTAL_CHUNKS, TOKEN_HEALTH_INDEX, RATE_LIMIT_COOLDOWN, RATE_LIMIT_HITS, ACTIVE_RADIO_STATION, AI_COHOST_ENABLED, AI_COHOST_PERSONA, AI_COHOST_API_KEY, FREE_PROXY_POOL, PROXY_AUTO_ROTATE, PROXY_LAST_FETCH, PROXY_AUTO_FAILOVER, PROXY_AUTO_ROTATE_INTERVAL, PROXY_LAST_AUTO_ROTATE, SOUNDBOARD_PADS
+        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VOICE_FLAGS, ACTIVE_SFX, VOICE_STATUS, HUMAN_CHATTER_ENABLED, HUMAN_CHATTER_TASK, REAL_VIDEO_ACTIVE, REAL_VIDEO_MODE, REAL_VIDEO_TITLE, WEB_SHARE_URL, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE, STREAMBOT_QUEUE, STREAMBOT_CURRENT, STREAMBOT_STATUS, STREAMBOT_LOOP_MODE, STREAMBOT_VOLUME, STREAMBOT_RESOLUTION, STREAMBOT_FPS, STREAMBOT_BITRATE, STREAM_PROFILE, SPOTIFY_SONG, SPOTIFY_ARTIST, SPOTIFY_ALBUM, SPOTIFY_DURATION, VISUALIZER_MODE, STREAM_OVERLAY_ENABLED, STREAM_OVERLAY_TITLE, STREAM_OVERLAY_TICKER, CHAT_AUTO_RESPONDER_ENABLED, CHAT_AUTO_RESPONDER_RULES, DESKTOP_SCREEN_CAPTURE, AUDIO_BASS_BOOST, AUDIO_PITCH_SHIFT, AUDIO_NORMALIZER, AUDIO_EQ_PRESET, AUTO_REJOIN, CUSTOM_ACTIVITY_NAME, CUSTOM_ACTIVITY_TYPE, STEALTH_DELAY, ONE_BOT_PER_VC, ACCESS_KEY, KEY_SYSTEM_ENABLED, RECORDING_ACTIVE, RECORDING_START_TIME, RECORDING_FILENAME, STADIUM_ECHO_ENABLED, STADIUM_ECHO_DELAY_MS, PTT_ACTIVE, PTT_TOTAL_CHUNKS, TOKEN_HEALTH_INDEX, RATE_LIMIT_COOLDOWN, RATE_LIMIT_HITS, ACTIVE_RADIO_STATION, AI_COHOST_ENABLED, AI_COHOST_PERSONA, AI_COHOST_API_KEY, FREE_PROXY_POOL, PROXY_AUTO_ROTATE, PROXY_LAST_FETCH, PROXY_AUTO_FAILOVER, PROXY_AUTO_ROTATE_INTERVAL, PROXY_LAST_AUTO_ROTATE, SOUNDBOARD_PADS
         action = payload.get("action", "")
 
         if action == "set_desktop_screen_capture":
@@ -3387,6 +3429,35 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 "preset": AUDIO_EQ_PRESET,
                 "message": f"Audio DSP updated ({AUDIO_EQ_PRESET.upper()})"
             }
+
+        if action in ("verify_key", "validate_key", "login", "check_login"):
+            provided = str(payload.get("key", payload.get("password", ""))).strip()
+            if not KEY_SYSTEM_ENABLED:
+                return {"success": True, "valid": True, "authenticated": True, "message": "Login successful (Key system is disabled)", "key_system_enabled": False}
+            if provided.lower() == ACCESS_KEY.lower():
+                return {"success": True, "valid": True, "authenticated": True, "message": "Access Key Verified! Welcome to dc-.", "key_system_enabled": True}
+            return {"success": False, "valid": False, "authenticated": False, "error": "Invalid access key! Please check your credentials.", "key_system_enabled": True}
+
+        if action == "set_access_key":
+            cur = str(payload.get("current_key", "")).strip()
+            new_k = str(payload.get("new_key", "")).strip()
+            if cur.lower() != ACCESS_KEY.lower():
+                return {"success": False, "error": "Current access key is incorrect."}
+            if not new_k:
+                return {"success": False, "error": "New access key cannot be empty."}
+            ACCESS_KEY = new_k
+            save_env_config()
+            log(f"🔐 Access key updated to: {ACCESS_KEY}")
+            return {"success": True, "key": ACCESS_KEY, "message": "Access key updated successfully"}
+
+        if action == "toggle_key_system":
+            k = str(payload.get("key", "")).strip()
+            if k.lower() != ACCESS_KEY.lower():
+                return {"success": False, "error": "Unauthorized: Invalid access key."}
+            KEY_SYSTEM_ENABLED = bool(payload.get("enabled", not KEY_SYSTEM_ENABLED))
+            save_env_config()
+            log(f"🔐 Key System: {'ENABLED' if KEY_SYSTEM_ENABLED else 'DISABLED'}")
+            return {"success": True, "enabled": KEY_SYSTEM_ENABLED, "message": f"Key system {'Enabled' if KEY_SYSTEM_ENABLED else 'Disabled'}"}
 
         if action == "set_one_bot_per_vc":
             ONE_BOT_PER_VC = bool(payload.get("enabled", payload.get("one_bot_per_vc", True)))
