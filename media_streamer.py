@@ -239,6 +239,8 @@ class DiscordMediaConnection:
         self.audio_pipe_thread = None
         self.audio_queue = collections.deque(maxlen=500)
         self.active_media_source = ""
+        self.packets_sent = 0
+        self.audio_lock = threading.Lock()
 
     def set_desktop_capture(self, enabled=True):
         self.desktop_capture_active = bool(enabled)
@@ -493,14 +495,25 @@ class DiscordMediaConnection:
             self.log(f"[!] Native audio pipe error: {e}")
 
     def _stop_native_audio(self):
-        if self.audio_pipe_proc:
-            try:
-                self.audio_pipe_proc.kill()
-                self.audio_pipe_proc.wait(timeout=0.2)
-            except Exception:
-                pass
-            self.audio_pipe_proc = None
-        self.audio_queue.clear()
+        with self.audio_lock:
+            if self.audio_pipe_proc:
+                try:
+                    self.audio_pipe_proc.kill()
+                    self.audio_pipe_proc.wait(timeout=0.2)
+                except Exception:
+                    pass
+                self.audio_pipe_proc = None
+            self.audio_queue.clear()
+
+    def get_telemetry(self):
+        return {
+            "connected": self.connected,
+            "packets_sent": self.packets_sent,
+            "queue_size": len(self.audio_queue),
+            "source": self.active_media_source,
+            "visualizer_mode": self.visualizer_mode,
+            "profile": self.profile,
+        }
 
     def set_visualizer(self, mode):
         self.visualizer_mode = (mode or "spectrum").lower()
@@ -944,7 +957,11 @@ class DiscordMediaConnection:
                     # UDP Datagram: [RTP Header] + [Ciphertext + 16B Tag] + [4B Nonce Counter]
                     packet = rtp_header + ciphertext + struct.pack(">I", nonce_counter)
 
-                    self.udp_sock.sendto(packet, dest)
+                    try:
+                        self.udp_sock.sendto(packet, dest)
+                        self.packets_sent += 1
+                    except (OSError, socket.error):
+                        pass
 
                     seq = (seq + 1) & 0xFFFF
                     nonce_counter += 1
@@ -998,7 +1015,11 @@ class DiscordMediaConnection:
                 ciphertext = self.aesgcm.encrypt(nonce, frame_to_send, rtp_header)
                 packet = rtp_header + ciphertext + struct.pack(">I", nonce_counter)
 
-                self.udp_sock.sendto(packet, dest)
+                try:
+                    self.udp_sock.sendto(packet, dest)
+                    self.packets_sent += 1
+                except (OSError, socket.error):
+                    pass
 
                 seq = (seq + 1) & 0xFFFF
                 timestamp = (timestamp + 960) & 0xFFFFFFFF

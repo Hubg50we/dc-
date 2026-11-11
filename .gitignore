@@ -29,3 +29,4 @@ streambot/tmp/
 streambot/.env
 uploads/*
 !uploads/.gitkeep
+.arena/

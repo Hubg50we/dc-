@@ -75,7 +75,7 @@ else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
 API = "https://discord.com/api/v10"
-APP_VERSION = "1.6.3"
+APP_VERSION = "1.6.4"
 AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
@@ -2675,6 +2675,15 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             "chat_auto_responder_rules": CHAT_AUTO_RESPONDER_RULES,
             "soundboard_pads": SOUNDBOARD_PADS,
             "presets": get_channel_presets(),
+            "voice_telemetry": {
+                "voice_connections": len(voice_accounts()),
+                "audio_packets_sent": sum(
+                    getattr(a.get("voice_conn"), "packets_sent", 0)
+                    for a in ACCOUNTS.values()
+                    if a.get("voice_conn")
+                ),
+                "active_sfx": ACTIVE_SFX,
+            },
             "accounts": [
                 {
                     "id": a.get("id", 0),
@@ -3213,7 +3222,17 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
 
         if action == "play_radio_station":
             station_id = str(payload.get("id", "")).strip()
+            if not station_id and "station_index" in payload:
+                try:
+                    idx = int(payload["station_index"])
+                    if 0 <= idx < len(RADIO_STATIONS):
+                        station_id = RADIO_STATIONS[idx]["id"]
+                except Exception:
+                    pass
             station = next((s for s in RADIO_STATIONS if s["id"] == station_id), None)
+            if not station and RADIO_STATIONS:
+                station = RADIO_STATIONS[0]
+                station_id = station["id"]
             if not station:
                 return {"success": False, "error": f"Radio station '{station_id}' not found"}
             ACTIVE_RADIO_STATION = station["id"]

@@ -8,6 +8,7 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
+import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.PowerManager;
@@ -18,6 +19,7 @@ public class DiscordService extends Service {
     private static final String CHANNEL_ID = "dc_voice_service";
     private static final int NOTIFICATION_ID = 1001;
     private PowerManager.WakeLock wakeLock;
+    private WifiManager.WifiLock wifiLock;
 
     @Override
     public void onCreate() {
@@ -29,6 +31,14 @@ public class DiscordService extends Service {
             wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "dc:VoiceManagerWakeLock");
             wakeLock.acquire(24 * 60 * 60 * 1000L); // 24 hours
         }
+
+        try {
+            WifiManager wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+            if (wifiManager != null) {
+                wifiLock = wifiManager.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "dc:VoiceWifiLock");
+                wifiLock.acquire();
+            }
+        } catch (Throwable ignored) {}
 
         DiscordManager.getInstance(this);
     }
@@ -100,7 +110,7 @@ public class DiscordService extends Service {
         PendingIntent disconnPending = PendingIntent.getService(this, 3, disconnIntent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
 
         return new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("dc- Discord Manager (v1.6.3)")
+                .setContentTitle("dc- Discord Manager (v1.6.4)")
                 .setContentText(text)
                 .setSmallIcon(R.drawable.ic_launcher)
                 .setContentIntent(pendingIntent)
@@ -115,6 +125,9 @@ public class DiscordService extends Service {
     public void onDestroy() {
         if (wakeLock != null && wakeLock.isHeld()) {
             wakeLock.release();
+        }
+        if (wifiLock != null && wifiLock.isHeld()) {
+            wifiLock.release();
         }
         super.onDestroy();
     }

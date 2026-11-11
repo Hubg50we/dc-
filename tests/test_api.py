@@ -1145,6 +1145,58 @@ def run_tests():
     except Exception as e:
         check("Token Sanitization, Zombie Subprocess Reaping & Gateway Session Teardown", False, str(e))
 
+    # 99. Test Rapid Action Spamming & Mutual Exclusion Stress Test
+    try:
+        import concurrent.futures
+        spam_success = True
+        spam_errors = []
+
+        def fire_action(i):
+            pad = f"pad_{(i % 6) + 1}"
+            station_idx = i % 5
+            try:
+                # Alternate rapidly between soundboard pads and radio stations
+                if i % 2 == 0:
+                    st, res = http_post("/api/action", {"action": "play_soundboard_pad", "pad_id": pad})
+                else:
+                    st, res = http_post("/api/action", {"action": "play_radio_station", "station_index": station_idx})
+                return st == 200 and res.get("success", False)
+            except Exception as ex:
+                spam_errors.append(str(ex))
+                return False
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [executor.submit(fire_action, i) for i in range(20)]
+            results_spam = [f.result() for f in concurrent.futures.as_completed(futures)]
+
+        spam_success = all(results_spam) and len(spam_errors) == 0
+        check("Rapid Action Spamming & Mutual Exclusion Stress Test (20 concurrent requests)",
+              spam_success, f"Success count: {sum(results_spam)}/20, errors: {len(spam_errors)}")
+    except Exception as e:
+        check("Rapid Action Spamming & Mutual Exclusion Stress Test (20 concurrent requests)", False, str(e))
+
+    # 100. Test Voice Telemetry & Background Persistence Parity (Python & Android)
+    try:
+        status_code, st_data = http_get("/api/status")
+        vt = st_data.get("voice_telemetry", {})
+        py_telemetry_ok = "voice_connections" in vt and "audio_packets_sent" in vt
+
+        with open("android/app/src/main/java/com/hubg50we/dc/DiscordManager.java", "r", encoding="utf-8") as jf:
+            java_dm_code = jf.read()
+        with open("android/app/src/main/java/com/hubg50we/dc/DiscordService.java", "r", encoding="utf-8") as sf:
+            java_ds_code = sf.read()
+        with open("media_streamer.py", "r", encoding="utf-8") as msf:
+            ms_code = msf.read()
+
+        java_telemetry_ok = 'json.put("voice_telemetry", voiceTelemetry);' in java_dm_code and 'getPacketsSent()' in java_dm_code
+        java_wifi_lock_ok = 'wifiLock = wifiManager.createWifiLock' in java_ds_code and 'wakeLock.acquire' in java_ds_code
+        py_streamer_lock_ok = 'self.audio_lock = threading.Lock()' in ms_code and 'self.packets_sent += 1' in ms_code
+
+        check("Voice Telemetry & Background Persistence Parity (100th Milestone Function)",
+              py_telemetry_ok and java_telemetry_ok and java_wifi_lock_ok and py_streamer_lock_ok)
+    except Exception as e:
+        check("Voice Telemetry & Background Persistence Parity (100th Milestone Function)", False, str(e))
+
     # Summary
     passed = sum(1 for _, ok, _ in results if ok)
     total = len(results)

@@ -45,7 +45,7 @@ import okhttp3.WebSocketListener;
 
 public class DiscordManager {
     private static final String TAG = "DiscordManager";
-    public static final String APP_VERSION = "1.6.3";
+    public static final String APP_VERSION = "1.6.4";
     private static final String PREFS_NAME = "dc_prefs";
     private static DiscordManager instance;
 
@@ -1655,6 +1655,14 @@ public class DiscordManager {
                 res.put("message", deleted ? "Deleted " + fname : "File not found");
             } else if ("play_radio_station".equals(action)) {
                 String stationId = payload.optString("id", "").trim();
+                if (stationId.isEmpty() && payload.has("station_index")) {
+                    int sIdx = payload.optInt("station_index", -1);
+                    synchronized (radioStations) {
+                        if (sIdx >= 0 && sIdx < radioStations.size()) {
+                            stationId = radioStations.get(sIdx).optString("id");
+                        }
+                    }
+                }
                 JSONObject station = null;
                 synchronized (radioStations) {
                     for (JSONObject s : radioStations) {
@@ -1662,6 +1670,10 @@ public class DiscordManager {
                             station = s;
                             break;
                         }
+                    }
+                    if (station == null && !radioStations.isEmpty()) {
+                        station = radioStations.get(0);
+                        stationId = station.optString("id");
                     }
                 }
                 String sName = station != null ? station.optString("name") : stationId;
@@ -3018,6 +3030,20 @@ public class DiscordManager {
             json.put("spotify_artist", this.spotifyArtist);
             json.put("spotify_album", this.spotifyAlbum);
             json.put("spotify_duration", this.spotifyDuration);
+
+            JSONObject voiceTelemetry = new JSONObject();
+            int totalVoiceConnections = 0;
+            int totalPacketsSent = 0;
+            for (Account a : accounts.values()) {
+                if (a.voiceConnection != null) {
+                    totalVoiceConnections++;
+                    totalPacketsSent += a.voiceConnection.getPacketsSent();
+                }
+            }
+            voiceTelemetry.put("voice_connections", totalVoiceConnections);
+            voiceTelemetry.put("audio_packets_sent", totalPacketsSent);
+            voiceTelemetry.put("active_sfx", this.activeSfx);
+            json.put("voice_telemetry", voiceTelemetry);
         } catch (Exception e) {
             Log.e(TAG, "Status error", e);
         }
@@ -3914,8 +3940,13 @@ public static class AudioSynthesizer {
         private Runnable voiceHeartbeatRunnable;
         private final BlockingQueue<byte[]> audioQueue = new LinkedBlockingQueue<>(500);
         private final OpusMediaEncoder encoder = new OpusMediaEncoder();
+        private final java.util.concurrent.atomic.AtomicInteger packetsSent = new java.util.concurrent.atomic.AtomicInteger(0);
         private volatile boolean isLooping = false;
         private String activeSound = "stream";
+
+        public int getPacketsSent() {
+            return packetsSent.get();
+        }
 
         private final boolean isStream;
 
@@ -4226,6 +4257,8 @@ public static class AudioSynthesizer {
                         byte[] packetData = packetBuf.array();
                         DatagramPacket udpPacket = new DatagramPacket(packetData, packetData.length, voiceServerAddr, voiceServerPort);
                         udpSocket.send(udpPacket);
+                packetsSent.incrementAndGet();
+                        packetsSent.incrementAndGet();
 
                         seq = (seq + 1) & 0xFFFF;
                         timestamp += 960;
@@ -4399,6 +4432,7 @@ public static class AudioSynthesizer {
                 byte[] packetData = packetBuf.array();
                 DatagramPacket udpPacket = new DatagramPacket(packetData, packetData.length, voiceServerAddr, voiceServerPort);
                 udpSocket.send(udpPacket);
+                packetsSent.incrementAndGet();
 
                 videoSeq = (videoSeq + 1) & 0xFFFF;
                 videoNonceCounter++;
