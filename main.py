@@ -74,6 +74,22 @@ if DEVICE_TYPE == "desktop":
 else:
     GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
 
+DEVICE_FINGERPRINTS = [
+    {"$os": "Android", "$browser": "Discord Android", "$device": "Samsung Galaxy S24 Ultra", "$system_locale": "en-US"},
+    {"$os": "Android", "$browser": "Discord Android", "$device": "Google Pixel 8 Pro", "$system_locale": "en-US"},
+    {"$os": "Android", "$browser": "Discord Android", "$device": "OnePlus 12", "$system_locale": "en-GB"},
+    {"$os": "Android", "$browser": "Discord Android", "$device": "Xiaomi 14 Ultra", "$system_locale": "en-US"},
+    {"$os": "Android", "$browser": "Discord Android", "$device": "Sony Xperia 1 V", "$system_locale": "ja-JP"},
+    {"$os": "Android", "$browser": "Discord Android", "$device": "ASUS ROG Phone 8", "$system_locale": "en-US"},
+    {"$os": "Android", "$browser": "Discord Android", "$device": "Motorola Edge 50 Pro", "$system_locale": "en-US"},
+    {"$os": "Android", "$browser": "Discord Android", "$device": "Nothing Phone (2)", "$system_locale": "en-GB"},
+]
+
+def get_account_fingerprint(aid):
+    if DEVICE_TYPE == "desktop":
+        return {"$os": "windows", "$browser": "chrome", "$device": "pc"}
+    return dict(DEVICE_FINGERPRINTS[aid % len(DEVICE_FINGERPRINTS)])
+
 API = "https://discord.com/api/v10"
 APP_VERSION = "1.6.5"
 AUTO_REJOIN = True
@@ -215,6 +231,17 @@ PROXY_LAST_AUTO_ROTATE = 0
 PROXY_AUTO_FAILOVER = True
 PROXY_LAST_FETCH = 0
 PROXY_WATCHDOG_TASK = None
+QUARANTINED_PROXIES = {}  # {url: timestamp_expiry}
+
+
+def quarantine_proxy(url, duration_seconds=600, reason="Rate limited (429)"):
+    if not url:
+        return
+    QUARANTINED_PROXIES[url] = time.time() + duration_seconds
+    log(f"⚠️ [Proxy Quarantine] Quarantined proxy '{mask_proxy(url)}' for {duration_seconds}s. Reason: {reason}")
+    for p in FREE_PROXY_POOL:
+        if p.get("url") == url:
+            p["status"] = "quarantined"
 
 
 def ping_proxy_socket(host, port, timeout=1.5):
@@ -332,6 +359,7 @@ def get_free_proxy_summary():
         "total": len(FREE_PROXY_POOL),
         "online": online_count,
         "assigned_to_bots": assigned_count,
+        "quarantined": sum(1 for exp in QUARANTINED_PROXIES.values() if exp > time.time()),
         "avg_ping": avg_ping,
         "auto_rotate": PROXY_AUTO_ROTATE,
         "auto_rotate_interval": PROXY_AUTO_ROTATE_INTERVAL,
@@ -391,8 +419,8 @@ def distribute_free_proxies_to_bots(refresh_pool=False, dedicated_unique=True):
     }
 
 
-def auto_failover_account_proxy(aid):
-    """Auto-switches a bot with a dead proxy to the next best online proxy in the pool."""
+def auto_failover_account_proxy(aid, quarantine_old=False, reason="Dead proxy / Connection failed"):
+    """Auto-switches a bot with a dead or rate-limited proxy to the next best online proxy in the pool."""
     global FREE_PROXY_POOL
     acc = ACCOUNTS.get(aid)
     if not acc:
@@ -401,18 +429,22 @@ def auto_failover_account_proxy(aid):
     if not old_proxy:
         return False
 
-    # Mark old proxy offline
-    for p in FREE_PROXY_POOL:
-        if p.get("url") == old_proxy:
-            p["status"] = "offline"
-            if aid in p.get("assigned_to", []):
-                p["assigned_to"].remove(aid)
+    if quarantine_old:
+        quarantine_proxy(old_proxy, duration_seconds=600, reason=reason)
+    else:
+        # Mark old proxy offline
+        for p in FREE_PROXY_POOL:
+            if p.get("url") == old_proxy:
+                p["status"] = "offline"
+                if aid in p.get("assigned_to", []):
+                    p["assigned_to"].remove(aid)
 
-    # Find next candidate with lowest ping
-    online = [p for p in FREE_PROXY_POOL if p.get("status") == "online" and p.get("url") != old_proxy]
+    # Find next candidate with lowest ping that is NOT quarantined
+    now = time.time()
+    online = [p for p in FREE_PROXY_POOL if p.get("status") == "online" and p.get("url") != old_proxy and QUARANTINED_PROXIES.get(p.get("url"), 0) < now]
     if not online:
-        fetch_free_proxies_sync(limit=25, protocol="socks5")
-        online = [p for p in FREE_PROXY_POOL if p.get("status") == "online" and p.get("url") != old_proxy]
+        fetch_free_proxies_sync(limit=30, protocol="socks5")
+        online = [p for p in FREE_PROXY_POOL if p.get("status") == "online" and p.get("url") != old_proxy and QUARANTINED_PROXIES.get(p.get("url"), 0) < now]
 
     if online:
         online.sort(key=lambda x: x.get("ping") if x.get("ping", 0) > 0 else 9999)
@@ -421,30 +453,58 @@ def auto_failover_account_proxy(aid):
         if aid not in new_p.setdefault("assigned_to", []):
             new_p["assigned_to"].append(aid)
         sync_tokens_file()
-        log(f"🛡️ [Auto-Failover Watchdog] Bot #{aid} ({acc.get('name')}) dead proxy '{mask_proxy(old_proxy)}' -> Failed over to '{mask_proxy(new_p['url'])}' (Ping: {new_p.get('ping')}ms)")
+        log(f"🛡️ [Auto-Failover Watchdog] Bot #{aid} ({acc.get('name')}) proxy '{mask_proxy(old_proxy)}' -> Failed over to '{mask_proxy(new_p['url'])}' ({new_p.get('country', '')} Ping: {new_p.get('ping')}ms)")
         return True
     return False
 
 
 async def proxy_auto_watchdog_loop():
-    """Background watchdog monitoring bot proxy health and performing scheduled auto-rotations."""
+    """Background watchdog monitoring bot proxy health, latency healing, and scheduled auto-rotations."""
     global PROXY_LAST_AUTO_ROTATE
     while RUNNING:
         try:
             now = time.time()
+            # Clean up expired quarantines
+            expired_q = [url for url, expiry in QUARANTINED_PROXIES.items() if expiry <= now]
+            for url in expired_q:
+                QUARANTINED_PROXIES.pop(url, None)
+                for p in FREE_PROXY_POOL:
+                    if p.get("url") == url and p.get("status") == "quarantined":
+                        p["status"] = "untested"
+
+            # Check health of active account proxies (Ping Spike / Dead IP Auto-Healer)
+            if PROXY_AUTO_FAILOVER:
+                for aid, a in list(ACCOUNTS.items()):
+                    prx = a.get("proxy")
+                    if prx and a.get("online"):
+                        host, port = None, None
+                        try:
+                            netloc = prx.split("://", 1)[-1].split("@")[-1]
+                            h, p = netloc.split(":", 1)
+                            if p.isdigit():
+                                host, port = h, int(p)
+                        except Exception:
+                            pass
+                        if host and port:
+                            ok, ping = ping_proxy_socket(host, port, timeout=1.2)
+                            if not ok or ping > 1000:
+                                log(f"⚠️ [Latency Auto-Healer] Bot #{aid} proxy {host}:{port} ping unhealthy ({'timeout' if not ok else f'{ping}ms'}). Auto-failing over...")
+                                auto_failover_account_proxy(aid, quarantine_old=False, reason=f"High latency ({ping}ms)")
+                                asyncio.create_task(restart_account(aid))
+
             if PROXY_AUTO_ROTATE and PROXY_AUTO_ROTATE_INTERVAL > 0 and ACCOUNTS:
                 if PROXY_LAST_AUTO_ROTATE == 0:
                     PROXY_LAST_AUTO_ROTATE = now
                 elif now - PROXY_LAST_AUTO_ROTATE >= PROXY_AUTO_ROTATE_INTERVAL:
                     log(f"🔄 [Auto-Rotate Watchdog] Rotating bot proxies on schedule ({PROXY_AUTO_ROTATE_INTERVAL}s interval)...")
-                    distribute_free_proxies_to_bots(refresh_pool=True)
+                    distribute_free_proxies_to_bots(refresh_pool=True, dedicated_unique=True)
                     for aid, a in ACCOUNTS.items():
                         if a.get("online"):
                             asyncio.create_task(restart_account(aid))
                     PROXY_LAST_AUTO_ROTATE = now
         except Exception as e:
             log(f"[Proxy Watchdog] Error: {e}")
-        await asyncio.sleep(15)
+        await asyncio.sleep(20)
 
 
 def ensure_proxy_watchdog_task():
@@ -2084,7 +2144,7 @@ async def run_account(aid):
                         "op": 2,
                         "d": {
                             "token": token,
-                            "properties": GATEWAY_PROPERTIES,
+                            "properties": get_account_fingerprint(aid),
                             "presence": presence_obj,
                         },
                     })
@@ -2319,10 +2379,12 @@ async def run_account(aid):
                 break
             print(f"[Account {aid}] Error for {acc.get('name')}: {e}. Reconnecting in {delay}s...")
             acc["error"] = str(e)
+            is_rate_limited = (close_code in (4008, 4014)) or "429" in err_lower or "rate limit" in err_lower
             if PROXY_AUTO_FAILOVER and acc.get("proxy"):
-                err_lower = str(e).lower()
-                if any(x in err_lower for x in ("proxy", "socks", "timeout", "timed out", "connection refused", "reset by peer", "handshake", "10061", "111", "closed", "1006")):
-                    auto_failover_account_proxy(aid)
+                if is_rate_limited:
+                    auto_failover_account_proxy(aid, quarantine_old=True, reason="Discord Rate Limit (429/4008)")
+                elif any(x in err_lower for x in ("proxy", "socks", "timeout", "timed out", "connection refused", "reset by peer", "handshake", "10061", "111", "closed", "1006")):
+                    auto_failover_account_proxy(aid, quarantine_old=False, reason=str(e))
         finally:
             if acc.get("ws") is ws:
                 acc["ws"] = None

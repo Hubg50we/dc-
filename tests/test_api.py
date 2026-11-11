@@ -1368,6 +1368,24 @@ def run_tests():
     except Exception as e:
         check("Dedicated 1-Bot-Per-IP Distribution & Multi-Source Fast Aggregator (107th Milestone Function)", False, str(e))
 
+    # 108. Device Fingerprint Diversifier & Rate-Limit Quarantine Engine
+    try:
+        fp1 = main.get_account_fingerprint(1)
+        fp2 = main.get_account_fingerprint(2)
+        fingerprints_differ = (fp1.get("$device") != fp2.get("$device"))
+        # Test quarantine
+        test_q_url = "socks5://192.0.2.1:1080"
+        main.quarantine_proxy(test_q_url, duration_seconds=60, reason="Test rate limit 429")
+        st_st, d_st = http_get("/api/status")
+        ps = d_st.get("proxy_summary", {})
+        q_count = ps.get("quarantined", 0)
+        # Clear quarantine
+        main.QUARANTINED_PROXIES.pop(test_q_url, None)
+        df_ok = fingerprints_differ and (q_count >= 1)
+        check("Device Fingerprint Diversifier & Rate-Limit Quarantine Engine (108th Milestone Function)", df_ok)
+    except Exception as e:
+        check("Device Fingerprint Diversifier & Rate-Limit Quarantine Engine (108th Milestone Function)", False, str(e))
+
     # Summary
     passed = sum(1 for _, ok, _ in results if ok)
     total = len(results)
