@@ -80,6 +80,7 @@ AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
 STEALTH_DELAY = float(os.environ.get("STEALTH_DELAY", "3.0"))
+ONE_BOT_PER_VC = os.environ.get("ONE_BOT_PER_VC", "false").lower() in ("true", "1", "yes")
 ROTATOR_ENABLED = False
 ROTATOR_INTERVAL = 300
 ROTATOR_CHANNELS = []
@@ -1652,6 +1653,7 @@ def save_env_config():
         activity_name_found = False
         activity_type_found = False
         stealth_delay_found = False
+        one_bot_per_vc_found = False
         new_lines = []
         for line in lines:
             if line.startswith("GUILD_ID="):
@@ -1675,6 +1677,9 @@ def save_env_config():
             elif line.startswith("STEALTH_DELAY="):
                 new_lines.append(f"STEALTH_DELAY={STEALTH_DELAY}\n")
                 stealth_delay_found = True
+            elif line.startswith("ONE_BOT_PER_VC="):
+                new_lines.append(f"ONE_BOT_PER_VC={ONE_BOT_PER_VC}\n")
+                one_bot_per_vc_found = True
             else:
                 new_lines.append(line)
 
@@ -1692,6 +1697,8 @@ def save_env_config():
             new_lines.append(f"ACTIVITY_TYPE={CUSTOM_ACTIVITY_TYPE}\n")
         if not stealth_delay_found:
             new_lines.append(f"STEALTH_DELAY={STEALTH_DELAY}\n")
+        if not one_bot_per_vc_found:
+            new_lines.append(f"ONE_BOT_PER_VC={ONE_BOT_PER_VC}\n")
 
         with open(env_path, "w", encoding="utf-8") as f:
             f.writelines(new_lines)
@@ -2524,6 +2531,12 @@ async def handle_command(raw):
             show_status()
             return
 
+        if cmd in ("onebot", "spread1", "one_bot_per_vc"):
+            handler = WebHandler(None, ("127.0.0.1", 0), None)
+            res = handler.execute_action({"action": "one_bot_per_vc", "guild_id": GUILD_ID, "strict_one_per_vc": True})
+            print(f"🎯 [1-Bot-Per-VC] {res.get('message', 'Completed')}")
+            return
+
         if cmd == "account":
             if len(parts) < 3:
                 print("Usage: account <id|name|uid> <action> [args]")
@@ -2956,6 +2969,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             "activity_name": CUSTOM_ACTIVITY_NAME,
             "activity_type": CUSTOM_ACTIVITY_TYPE,
             "stealth_delay": STEALTH_DELAY,
+            "one_bot_per_vc": ONE_BOT_PER_VC,
             "rotator_enabled": ROTATOR_ENABLED,
             "rotator_interval": ROTATOR_INTERVAL,
             "speaking_sim": SPEAKING_SIM,
@@ -3170,7 +3184,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(404, "Not Found")
 
     def execute_action(self, payload):
-        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VOICE_FLAGS, ACTIVE_SFX, VOICE_STATUS, HUMAN_CHATTER_ENABLED, HUMAN_CHATTER_TASK, REAL_VIDEO_ACTIVE, REAL_VIDEO_MODE, REAL_VIDEO_TITLE, WEB_SHARE_URL, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE, STREAMBOT_QUEUE, STREAMBOT_CURRENT, STREAMBOT_STATUS, STREAMBOT_LOOP_MODE, STREAMBOT_VOLUME, STREAMBOT_RESOLUTION, STREAMBOT_FPS, STREAMBOT_BITRATE, STREAM_PROFILE, SPOTIFY_SONG, SPOTIFY_ARTIST, SPOTIFY_ALBUM, SPOTIFY_DURATION, VISUALIZER_MODE, STREAM_OVERLAY_ENABLED, STREAM_OVERLAY_TITLE, STREAM_OVERLAY_TICKER, CHAT_AUTO_RESPONDER_ENABLED, CHAT_AUTO_RESPONDER_RULES, DESKTOP_SCREEN_CAPTURE, AUDIO_BASS_BOOST, AUDIO_PITCH_SHIFT, AUDIO_NORMALIZER, AUDIO_EQ_PRESET, AUTO_REJOIN, CUSTOM_ACTIVITY_NAME, CUSTOM_ACTIVITY_TYPE, STEALTH_DELAY, RECORDING_ACTIVE, RECORDING_START_TIME, RECORDING_FILENAME, STADIUM_ECHO_ENABLED, STADIUM_ECHO_DELAY_MS, PTT_ACTIVE, PTT_TOTAL_CHUNKS, TOKEN_HEALTH_INDEX, RATE_LIMIT_COOLDOWN, RATE_LIMIT_HITS, ACTIVE_RADIO_STATION, AI_COHOST_ENABLED, AI_COHOST_PERSONA, AI_COHOST_API_KEY, FREE_PROXY_POOL, PROXY_AUTO_ROTATE, PROXY_LAST_FETCH, PROXY_AUTO_FAILOVER, PROXY_AUTO_ROTATE_INTERVAL, PROXY_LAST_AUTO_ROTATE, SOUNDBOARD_PADS
+        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VOICE_FLAGS, ACTIVE_SFX, VOICE_STATUS, HUMAN_CHATTER_ENABLED, HUMAN_CHATTER_TASK, REAL_VIDEO_ACTIVE, REAL_VIDEO_MODE, REAL_VIDEO_TITLE, WEB_SHARE_URL, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE, STREAMBOT_QUEUE, STREAMBOT_CURRENT, STREAMBOT_STATUS, STREAMBOT_LOOP_MODE, STREAMBOT_VOLUME, STREAMBOT_RESOLUTION, STREAMBOT_FPS, STREAMBOT_BITRATE, STREAM_PROFILE, SPOTIFY_SONG, SPOTIFY_ARTIST, SPOTIFY_ALBUM, SPOTIFY_DURATION, VISUALIZER_MODE, STREAM_OVERLAY_ENABLED, STREAM_OVERLAY_TITLE, STREAM_OVERLAY_TICKER, CHAT_AUTO_RESPONDER_ENABLED, CHAT_AUTO_RESPONDER_RULES, DESKTOP_SCREEN_CAPTURE, AUDIO_BASS_BOOST, AUDIO_PITCH_SHIFT, AUDIO_NORMALIZER, AUDIO_EQ_PRESET, AUTO_REJOIN, CUSTOM_ACTIVITY_NAME, CUSTOM_ACTIVITY_TYPE, STEALTH_DELAY, ONE_BOT_PER_VC, RECORDING_ACTIVE, RECORDING_START_TIME, RECORDING_FILENAME, STADIUM_ECHO_ENABLED, STADIUM_ECHO_DELAY_MS, PTT_ACTIVE, PTT_TOTAL_CHUNKS, TOKEN_HEALTH_INDEX, RATE_LIMIT_COOLDOWN, RATE_LIMIT_HITS, ACTIVE_RADIO_STATION, AI_COHOST_ENABLED, AI_COHOST_PERSONA, AI_COHOST_API_KEY, FREE_PROXY_POOL, PROXY_AUTO_ROTATE, PROXY_LAST_FETCH, PROXY_AUTO_FAILOVER, PROXY_AUTO_ROTATE_INTERVAL, PROXY_LAST_AUTO_ROTATE, SOUNDBOARD_PADS
         action = payload.get("action", "")
 
         if action == "set_desktop_screen_capture":
@@ -3251,23 +3265,115 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 "message": f"Audio DSP updated ({AUDIO_EQ_PRESET.upper()})"
             }
 
-        if action == "spread_accounts_to_channels":
+        if action == "set_one_bot_per_vc":
+            ONE_BOT_PER_VC = bool(payload.get("enabled", payload.get("one_bot_per_vc", True)))
+            save_env_config()
+            log(f"🎯 1-Bot-Per-VC Mode: {'ENABLED' if ONE_BOT_PER_VC else 'DISABLED'}")
+            return {"success": True, "one_bot_per_vc": ONE_BOT_PER_VC, "message": f"1-Bot-Per-VC Mode {'Enabled' if ONE_BOT_PER_VC else 'Disabled'}"}
+
+        if action in ("one_bot_per_vc", "spread_one_bot_per_vc", "spread_bots_across_vcs", "spread_accounts_to_channels"):
             ch_list = payload.get("channels", [])
             target_gid = str(payload.get("guild_id", "")).strip() or GUILD_ID
-            if not ch_list or not isinstance(ch_list, list):
-                return {"success": False, "error": "No channels list provided"}
+            strict_one = bool(payload.get("strict_one_per_vc", False)) or (action != "spread_accounts_to_channels") or ONE_BOT_PER_VC
+
+            # If channels list is empty or not provided, fetch guild voice channels automatically from Discord
+            if not ch_list:
+                def _fetch_vcs_sync():
+                    token = next((a["token"] for a in ACCOUNTS.values() if a.get("online") and a.get("token")), None)
+                    if not token:
+                        token = next((a["token"] for a in ACCOUNTS.values() if a.get("token")), None)
+                    if not token:
+                        return []
+                    try:
+                        auth = token if token.startswith("Bot ") else token
+                        req = urllib.request.Request(
+                            f"https://discord.com/api/v10/guilds/{target_gid}/channels",
+                            headers={"Authorization": auth, "User-Agent": "Mozilla/5.0"}
+                        )
+                        with urllib.request.urlopen(req, timeout=8) as resp:
+                            if resp.status == 200:
+                                all_ch = json.loads(resp.read().decode("utf-8"))
+                                vcs = [c for c in all_ch if c.get("type") in (2, 13)]
+                                vcs.sort(key=lambda c: (c.get("position", 0), c.get("id", "")))
+                                return [c["id"] for c in vcs]
+                    except Exception as err:
+                        log(f"[1-Bot-Per-VC] Guild channels fetch error: {err}")
+                    return []
+
+                ch_list = _fetch_vcs_sync()
+
+            clean_channels = []
+            if isinstance(ch_list, list):
+                for item in ch_list:
+                    if isinstance(item, dict) and "id" in item:
+                        clean_channels.append(str(item["id"]).strip())
+                    elif isinstance(item, (str, int)):
+                        c_str = str(item).strip()
+                        if c_str:
+                            clean_channels.append(c_str)
+
+            if not clean_channels:
+                if action == "spread_accounts_to_channels" and not payload.get("channels"):
+                    return {"success": False, "error": "No channels list provided"}
+                return {"success": False, "error": f"No voice channels found for Server {target_gid}. Provide channel IDs or check bot permissions."}
+
             online_accs = [a for a in ACCOUNTS.values() if a.get("online") or a.get("token")]
-            count = 0
-            for i, a in enumerate(online_accs):
-                ch_id = str(ch_list[i % len(ch_list)]).strip()
-                if ch_id:
-                    a["voice_channel"] = ch_id
-                    a["guild_id"] = target_gid
-                    if MAIN_LOOP and MAIN_LOOP.is_running():
-                        asyncio.run_coroutine_threadsafe(apply([a], channel=ch_id, guild=target_gid), MAIN_LOOP)
+            assigned = []
+            overflow = []
+
+            if strict_one:
+                # STRICT: At most 1 bot per VC!
+                for i, acc in enumerate(online_accs):
+                    if i < len(clean_channels):
+                        assigned.append((acc, clean_channels[i]))
+                    else:
+                        overflow.append(acc)
+            else:
+                for i, acc in enumerate(online_accs):
+                    ch_id = clean_channels[i % len(clean_channels)]
+                    assigned.append((acc, ch_id))
+
+            async def _distribute_sequence():
+                count = 0
+                for acc, ch_id in assigned:
+                    acc["voice_channel"] = ch_id
+                    acc["desired_channel"] = ch_id
+                    acc["guild_id"] = target_gid
+                    acc["desired_guild"] = target_gid
+                    await apply([acc], channel=ch_id, guild=target_gid)
                     count += 1
-            log(f"🔀 Distributed {count} account(s) across {len(ch_list)} voice channels")
-            return {"success": True, "count": count, "channels": ch_list, "channels_count": len(ch_list), "message": f"Distributed {count} bot(s) across {len(ch_list)} channels"}
+                    if STEALTH_DELAY > 0.05 and count < len(assigned):
+                        await asyncio.sleep(STEALTH_DELAY)
+
+                for acc in overflow:
+                    acc["voice_channel"] = None
+                    acc["desired_channel"] = None
+                    acc["user_left_intentional"] = True
+                    await apply([acc], channel=None, guild=target_gid)
+                    if STEALTH_DELAY > 0.05:
+                        await asyncio.sleep(STEALTH_DELAY)
+
+            if MAIN_LOOP and MAIN_LOOP.is_running():
+                asyncio.run_coroutine_threadsafe(_distribute_sequence(), MAIN_LOOP)
+            else:
+                for acc, ch_id in assigned:
+                    acc["voice_channel"] = ch_id
+                    acc["desired_channel"] = ch_id
+                for acc in overflow:
+                    acc["voice_channel"] = None
+                    acc["desired_channel"] = None
+
+            log(f"🎯 [1-Bot-Per-VC] Assigned {len(assigned)} bot(s) to separate voice channels ({len(clean_channels)} channels available, {len(overflow)} overflow left idle)")
+            return {
+                "success": True,
+                "count": len(assigned),
+                "assigned_count": len(assigned),
+                "overflow_count": len(overflow),
+                "channels": clean_channels,
+                "channels_count": len(clean_channels),
+                "strict_one_per_vc": strict_one,
+                "message": f"Distributed {len(assigned)} bot(s) across {len(clean_channels)} channels (1 bot per VC). {len(overflow)} overflow bot(s) kept idle."
+            }
 
         if action == "gather_accounts_to_channel":
             target_ch = str(payload.get("channel_id", CHANNEL_ID)).strip()
@@ -3290,6 +3396,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 "channel_id": CHANNEL_ID,
                 "auto_rejoin": AUTO_REJOIN,
                 "stealth_delay": STEALTH_DELAY,
+            "one_bot_per_vc": ONE_BOT_PER_VC,
                 "accounts": [{"id": a["id"], "token": a["token"], "name": a.get("name")} for a in ACCOUNTS.values()],
                 "presets": get_channel_presets(),
                 "soundboard_pads": SOUNDBOARD_PADS,
@@ -4920,6 +5027,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 "activity_name": ACTIVITY_NAME,
                 "activity_type": ACTIVITY_TYPE,
                 "stealth_delay": STEALTH_DELAY,
+            "one_bot_per_vc": ONE_BOT_PER_VC,
                 "rotator_enabled": ROTATOR_ENABLED,
                 "rotator_interval": ROTATOR_INTERVAL,
                 "tokens": token_list,
@@ -5351,6 +5459,39 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
 
     async def _run_move(self, channel_id, percent):
         targets = pick_targets(percent, online_accounts())
+        if ONE_BOT_PER_VC and len(targets) > 1:
+            # Query guild channels to spread 1 bot per VC instead of grouping all into one channel
+            vcs = []
+            token = next((a["token"] for a in ACCOUNTS.values() if a.get("online") and a.get("token")), None)
+            if token and GUILD_ID:
+                try:
+                    auth = token if token.startswith("Bot ") else token
+                    req = urllib.request.Request(
+                        f"https://discord.com/api/v10/guilds/{GUILD_ID}/channels",
+                        headers={"Authorization": auth, "User-Agent": "Mozilla/5.0"}
+                    )
+                    with urllib.request.urlopen(req, timeout=5) as resp:
+                        if resp.status == 200:
+                            all_ch = json.loads(resp.read().decode("utf-8"))
+                            ch_objs = [c for c in all_ch if c.get("type") in (2, 13)]
+                            ch_objs.sort(key=lambda c: (c.get("position", 0), c.get("id", "")))
+                            vcs = [c["id"] for c in ch_objs]
+                except Exception:
+                    pass
+            if vcs:
+                if channel_id in vcs:
+                    vcs.remove(channel_id)
+                    vcs.insert(0, channel_id)
+                assigned_count = 0
+                for i, t in enumerate(targets):
+                    if i < len(vcs):
+                        await apply([t], channel=vcs[i], guild=GUILD_ID)
+                        assigned_count += 1
+                    else:
+                        await apply([t], channel=None, guild=GUILD_ID)
+                    if STEALTH_DELAY > 0.05:
+                        await asyncio.sleep(STEALTH_DELAY)
+                return f"{assigned_count}/{len(targets)} account(s) moved to separate voice channels (1 bot per VC)"
         done = await apply(targets, channel=channel_id)
         return f"{done}/{len(targets)} account(s) moved to {channel_id}"
 

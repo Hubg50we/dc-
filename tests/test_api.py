@@ -1329,6 +1329,27 @@ def run_tests():
     except Exception as e:
         check("Extended Meme Soundboard Pack & Dynamic Audio Synthesis (105th Milestone Function)", False, str(e))
 
+    # 106. 1-Bot-Per-VC Automatic Distribution & Anti-Clustering Engine
+    try:
+        st_set, d_set = http_post("/api/action", {"action": "set_one_bot_per_vc", "enabled": True})
+        st_st, d_st = http_get("/api/status")
+        st_one, d_one = http_post("/api/action", {
+            "action": "one_bot_per_vc",
+            "channels": ["vc_alpha_101", "vc_beta_102", "vc_gamma_103"],
+            "strict_one_per_vc": True
+        })
+        one_ok = (
+            st_set == 200 and d_set.get("success") is True and d_set.get("one_bot_per_vc") is True and
+            d_st.get("one_bot_per_vc") is True and
+            st_one == 200 and d_one.get("success") is True and d_one.get("strict_one_per_vc") is True and
+            d_one.get("channels_count") == 3
+        )
+        # Reset back
+        http_post("/api/action", {"action": "set_one_bot_per_vc", "enabled": False})
+        check("1-Bot-Per-VC Automatic Distribution & Anti-Clustering Engine (106th Milestone Function)", one_ok)
+    except Exception as e:
+        check("1-Bot-Per-VC Automatic Distribution & Anti-Clustering Engine (106th Milestone Function)", False, str(e))
+
     # Summary
     passed = sum(1 for _, ok, _ in results if ok)
     total = len(results)

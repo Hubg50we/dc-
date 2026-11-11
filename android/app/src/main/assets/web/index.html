@@ -1172,6 +1172,7 @@
           <button class="btn btn-secondary" onclick="triggerAction('unmute')">🔊 Unmute All</button>
           <button class="btn btn-warning" onclick="triggerAction('deafen')">🎧 Deafen All</button>
           <button class="btn btn-secondary" onclick="triggerAction('undeafen')">🎧 Undeafen All</button>
+          <button class="btn btn-secondary" style="border-color:#c084fc; color:#c084fc; font-weight:700;" onclick="spreadOneBotPerVc()" title="Evenly distribute 1 bot per voice channel across the server">🎯 1 Bot Per VC</button>
         </div>
       </div>
 
@@ -1185,21 +1186,24 @@
           <span class="badge" style="background:rgba(168, 85, 247, 0.25); color:#e9d5ff; font-weight:700;">v1.6.5</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">
-          Distribute bot accounts across multiple voice channels simultaneously, or gather all accounts into a single room with 1 tap.
+          Distribute bot accounts across multiple voice channels (or enforce 1 bot per VC max), or gather all accounts into a single room with 1 tap.
         </p>
 
         <div class="field-group">
           <label class="field-label">
-            <span>Target Channels (One ID per line or comma-separated)</span>
+            <span>Target Channels (Optional if using 1 Bot Per VC Auto-Spread)</span>
           </label>
-          <textarea id="spreader-channel-list" rows="3" placeholder="123456789012345678&#10;987654321098765432&#10;555666777888999000" style="width:100%; font-family:monospace; font-size:0.8rem; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text); padding:8px; resize:vertical;"></textarea>
+          <textarea id="spreader-channel-list" rows="3" placeholder="Leave blank to auto-detect server VCs, or paste:&#10;123456789012345678&#10;987654321098765432&#10;555666777888999000" style="width:100%; font-family:monospace; font-size:0.8rem; background:var(--bg-dark); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text); padding:8px; resize:vertical;"></textarea>
         </div>
 
-        <div style="display:flex; gap:8px; margin-top:8px;">
-          <button class="btn btn-primary" style="flex:1;" onclick="spreadAccountsToChannels()">
-            🔀 Spread Bots
+        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;">
+          <button class="btn btn-primary" style="flex:1; min-width:140px; background:linear-gradient(135deg, #9333ea, #c084fc); border:none; font-weight:700;" onclick="spreadOneBotPerVc()">
+            🎯 1 Bot Per VC (Auto-Spread)
           </button>
-          <button class="btn btn-secondary" style="flex:1;" onclick="gatherAccountsToChannel()">
+          <button class="btn btn-secondary" style="flex:1; min-width:110px;" onclick="spreadAccountsToChannels()">
+            🔀 Spread To Listed
+          </button>
+          <button class="btn btn-secondary" style="flex:1; min-width:110px;" onclick="gatherAccountsToChannel()">
             📥 Gather All Here
           </button>
         </div>
@@ -2122,6 +2126,14 @@
               <div style="font-size:0.68rem; color:var(--text-muted);">Anti-kick guard</div>
             </div>
             <input type="checkbox" id="master-rejoin-shield" onchange="toggleRejoinShield(this.checked)" style="width:18px; height:18px; accent-color:#10b981;">
+          </div>
+
+          <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-size:0.8rem; font-weight:700; color:#fff;">🎯 1 Bot Per VC</div>
+              <div style="font-size:0.68rem; color:var(--text-muted);">Spread 1 bot per room</div>
+            </div>
+            <input type="checkbox" id="master-one-bot-per-vc" onchange="toggleOneBotPerVc(this.checked)" style="width:18px; height:18px; accent-color:#c084fc;">
           </div>
         </div>
       </div>
@@ -4070,6 +4082,9 @@
 
       const mChat = document.getElementById('master-chat-responder');
       if (mChat && document.activeElement !== mChat && data.chat_auto_responder_enabled !== undefined) mChat.checked = !!data.chat_auto_responder_enabled;
+
+      const m1b = document.getElementById('master-one-bot-per-vc');
+      if (m1b && document.activeElement !== m1b && data.one_bot_per_vc !== undefined) m1b.checked = !!data.one_bot_per_vc;
 
       const mShd = document.getElementById('master-rejoin-shield');
       if (mShd && document.activeElement !== mShd && data.rejoin_shield_enabled !== undefined) mShd.checked = !!data.rejoin_shield_enabled;
@@ -8044,6 +8059,62 @@
         }
       } catch (e) {
         showToast('Shizuku auth error: ' + e.message, true);
+      }
+    }
+
+    // 🎯 1 Bot Per VC (Auto-Distribution & Enforcement)
+    async function spreadOneBotPerVc() {
+      vibrate(25);
+      const gid = (document.getElementById('target-guild-id') ? document.getElementById('target-guild-id').value : '').trim();
+      const listArea = document.getElementById('spreader-channel-list');
+      const text = (listArea ? listArea.value : '').trim();
+      let rawChannels = [];
+      if (text) {
+        rawChannels = text.split(/[\r\n,]+/).map(c => c.trim()).filter(Boolean);
+      }
+      logToConsole(`🎯 [1-Bot-Per-VC] Distributing bots across voice channels (1 bot per VC max)...`);
+      showToast("Distributing bots: 1 bot per VC...");
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'one_bot_per_vc',
+            guild_id: gid,
+            channels: rawChannels.length > 0 ? rawChannels : undefined,
+            strict_one_per_vc: true
+          })
+        });
+        const json = await res.json();
+        if (json.success) {
+          showToast(json.message || `Assigned ${json.assigned_count} bot(s) to separate voice channels`);
+          logToConsole(`✅ [1-Bot-Per-VC] ${json.message}`);
+        } else {
+          showToast('1-Bot-Per-VC error: ' + (json.error || 'Failed'), true);
+          logToConsole(`❌ [1-Bot-Per-VC] Error: ${json.error}`);
+        }
+        fetchStatus();
+      } catch (e) {
+        showToast('1-Bot-Per-VC network error: ' + e.message, true);
+      }
+    }
+
+    async function toggleOneBotPerVc(enabled) {
+      vibrate(20);
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'set_one_bot_per_vc',
+            enabled: !!enabled
+          })
+        });
+        const json = await res.json();
+        showToast(json.message || `1-Bot-Per-VC mode: ${enabled ? 'Enabled' : 'Disabled'}`);
+        fetchStatus();
+      } catch (e) {
+        showToast('Failed to toggle 1-bot-per-vc: ' + e.message, true);
       }
     }
 
