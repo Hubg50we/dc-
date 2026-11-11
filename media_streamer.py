@@ -379,10 +379,24 @@ class DiscordMediaConnection:
             src = f"lavfi:sine=frequency=659.25:duration={dur}"
         elif "wow" in snd:
             src = f"lavfi:sine=frequency=587.33:duration={dur}"
-        elif "ping" in snd or "bell" in snd:
+        elif "ping" in snd or "bell" in snd or "taco" in snd:
             src = f"lavfi:sine=frequency=784:duration={dur}"
         elif "siren" in snd:
             src = f"lavfi:sine=frequency=880:duration={dur}"
+        elif "fbi" in snd or "open_up" in snd:
+            src = f"lavfi:sine=frequency=950:duration={dur},volume=3"
+        elif "emotional" in snd or "damage" in snd:
+            src = f"lavfi:sine=frequency=220:duration={dur}"
+        elif "mlg" in snd:
+            src = f"lavfi:sine=frequency=554.37:duration={dur},volume=3"
+        elif "illuminati" in snd:
+            src = f"lavfi:sine=frequency=528:duration={dur}"
+        elif "run" in snd:
+            src = f"lavfi:sine=frequency=150:duration={dur}"
+        elif "oof" in snd:
+            src = f"lavfi:sine=frequency=280:duration={dur}"
+        elif "quandale" in snd:
+            src = f"lavfi:sine=frequency=330:duration={dur}"
         else:
             src = f"lavfi:sine=frequency=440:duration={dur}"
         self.stream_native_audio(src)

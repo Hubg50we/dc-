@@ -3019,6 +3019,28 @@
           </div>
         </div>
 
+        <!-- Automation & Protection Controls -->
+        <div style="background:rgba(0,0,0,0.4); border:1px solid rgba(0,180,216,0.25); border-radius:10px; padding:10px 14px; margin-bottom:12px; display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.82rem; font-weight:700; color:#fff;">
+              <input type="checkbox" id="chk-proxy-failover" onchange="toggleAutoFailover()" checked style="width:16px; height:16px; accent-color:#00b4d8;">
+              🛡️ Auto-Failover Watchdog (Dead Proxy Re-bind)
+            </label>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.82rem; font-weight:700; color:#fff;">
+              <input type="checkbox" id="chk-proxy-auto-rotate" onchange="toggleAutoRotate()" style="width:16px; height:16px; accent-color:#00b4d8;">
+              🔄 Scheduled Auto-Rotate
+            </label>
+            <select id="sel-proxy-rotate-interval" onchange="updateProxyRotateInterval()" style="background:#111; color:#00b4d8; border:1px solid rgba(0,180,216,0.3); border-radius:6px; padding:4px 8px; font-size:0.75rem;">
+              <option value="300">Every 5 min</option>
+              <option value="900">Every 15 min</option>
+              <option value="1800" selected>Every 30 min</option>
+              <option value="3600">Every 1 hr</option>
+            </select>
+          </div>
+        </div>
+
         <!-- 1-Click Action Commands -->
         <div style="display:flex; flex-wrap:wrap; gap:8px;">
           <button class="btn btn-primary" onclick="fetchFreeProxies('socks5')" id="btn-fetch-socks5" style="flex:1; min-width:140px; background:#00b4d8; border-color:#00b4d8;">
@@ -3333,11 +3355,17 @@
       const elOnline = document.getElementById('proxy-stat-online');
       const elAssigned = document.getElementById('proxy-stat-assigned');
       const elPing = document.getElementById('proxy-stat-ping');
+      const chkFailover = document.getElementById('chk-proxy-failover');
+      const chkRotate = document.getElementById('chk-proxy-auto-rotate');
+      const selInterval = document.getElementById('sel-proxy-rotate-interval');
 
       if (elTotal) elTotal.innerText = summary.total || 0;
       if (elOnline) elOnline.innerText = summary.online || 0;
       if (elAssigned) elAssigned.innerText = (summary.assigned_to_bots || 0) + ' Bots';
       if (elPing) elPing.innerText = summary.avg_ping ? (summary.avg_ping + ' ms') : '-- ms';
+      if (chkFailover && summary.auto_failover !== undefined) chkFailover.checked = !!summary.auto_failover;
+      if (chkRotate && summary.auto_rotate !== undefined) chkRotate.checked = !!summary.auto_rotate;
+      if (selInterval && summary.auto_rotate_interval) selInterval.value = summary.auto_rotate_interval;
 
       renderProxyCards();
     }
@@ -3478,6 +3506,46 @@
           updateProxyUI(res.summary);
         }
       } catch (e) {}
+    }
+
+    async function toggleAutoFailover() {
+      vibrate(20);
+      try {
+        const res = await sendPost('/api/action', { action: 'toggle_auto_failover' });
+        if (res.success) {
+          showToast(`Auto-Failover Watchdog: ${res.auto_failover ? 'ENABLED 🛡️' : 'DISABLED'}`);
+          if (res.summary) updateProxyUI(res.summary);
+        }
+      } catch (e) {
+        showToast('Failover toggle failed: ' + e.message, true);
+      }
+    }
+
+    async function toggleAutoRotate() {
+      vibrate(20);
+      try {
+        const res = await sendPost('/api/action', { action: 'toggle_auto_rotate' });
+        if (res.success) {
+          showToast(`Proxy Auto-Rotate: ${res.auto_rotate ? 'ACTIVE 🔄' : 'STOPPED'}`);
+          if (res.summary) updateProxyUI(res.summary);
+        }
+      } catch (e) {
+        showToast('Auto-rotate toggle failed: ' + e.message, true);
+      }
+    }
+
+    async function updateProxyRotateInterval() {
+      const sel = document.getElementById('sel-proxy-rotate-interval');
+      const interval = sel ? parseInt(sel.value, 10) : 1800;
+      try {
+        const res = await sendPost('/api/action', { action: 'set_proxy_auto_rotate', interval: interval });
+        if (res.success) {
+          showToast(`Auto-Rotate interval set to ${Math.round(interval/60)}m`);
+          if (res.summary) updateProxyUI(res.summary);
+        }
+      } catch (e) {
+        showToast('Interval update failed: ' + e.message, true);
+      }
     }
 
     async function testSingleProxyPing(url) {

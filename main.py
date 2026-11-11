@@ -144,7 +144,15 @@ SOUNDBOARD_PADS = [
     {"id": "what", "name": "What?! ❓", "emoji": "❓", "flags": 5, "duration": 2.0, "custom_file": "", "custom_name": ""},
     {"id": "wow", "name": "Anime Wow ✨", "emoji": "✨", "flags": 5, "duration": 2.5, "custom_file": "", "custom_name": ""},
     {"id": "scream", "name": "Scream FX 😱", "emoji": "😱", "flags": 5, "duration": 3.0, "custom_file": "", "custom_name": ""},
-    {"id": "discord_ping", "name": "Discord Ping 🔔", "emoji": "🔔", "flags": 5, "duration": 1.5, "custom_file": "", "custom_name": ""}
+    {"id": "discord_ping", "name": "Discord Ping 🔔", "emoji": "🔔", "flags": 5, "duration": 1.5, "custom_file": "", "custom_name": ""},
+    {"id": "fbi_open_up", "name": "FBI Open Up 🚨", "emoji": "🚨", "flags": 5, "duration": 3.0, "custom_file": "", "custom_name": ""},
+    {"id": "emotional_damage", "name": "Emotional Damage 💔", "emoji": "💔", "flags": 5, "duration": 2.5, "custom_file": "", "custom_name": ""},
+    {"id": "mlg_horn", "name": "MLG 360 Horn 📯", "emoji": "📯", "flags": 5, "duration": 3.0, "custom_file": "", "custom_name": ""},
+    {"id": "illuminati", "name": "Illuminati 👁️", "emoji": "👁️", "flags": 5, "duration": 4.0, "custom_file": "", "custom_name": ""},
+    {"id": "run_meme", "name": "RUN! 🏃‍♂️", "emoji": "🏃‍♂️", "flags": 5, "duration": 2.5, "custom_file": "", "custom_name": ""},
+    {"id": "oof", "name": "Roblox Oof 💀", "emoji": "💀", "flags": 5, "duration": 1.5, "custom_file": "", "custom_name": ""},
+    {"id": "quandale", "name": "What's Up Guys 🗣️", "emoji": "🗣️", "flags": 5, "duration": 3.0, "custom_file": "", "custom_name": ""},
+    {"id": "taco_bell", "name": "Taco Bell Bong 🔔", "emoji": "🔔", "flags": 5, "duration": 2.0, "custom_file": "", "custom_name": ""}
 ]
 
 # Elite Audio Call Recording
@@ -201,7 +209,11 @@ ACTIVE_RADIO_STATION = None
 # 🌐 Free Proxy Server & Anti-Ban Pool Engine
 FREE_PROXY_POOL = []  # [{"url": str, "protocol": str, "ip": str, "port": int, "ping": int, "status": "online"|"offline"|"untested", "assigned_to": list of aid}]
 PROXY_AUTO_ROTATE = False
+PROXY_AUTO_ROTATE_INTERVAL = 1800  # Default: 30 minutes (1800s)
+PROXY_LAST_AUTO_ROTATE = 0
+PROXY_AUTO_FAILOVER = True
 PROXY_LAST_FETCH = 0
+PROXY_WATCHDOG_TASK = None
 
 
 def ping_proxy_socket(host, port, timeout=1.5):
@@ -288,14 +300,17 @@ def get_free_proxy_summary():
         "assigned_to_bots": assigned_count,
         "avg_ping": avg_ping,
         "auto_rotate": PROXY_AUTO_ROTATE,
+        "auto_rotate_interval": PROXY_AUTO_ROTATE_INTERVAL,
+        "auto_failover": PROXY_AUTO_FAILOVER,
+        "last_auto_rotate": PROXY_LAST_AUTO_ROTATE,
         "last_fetch": PROXY_LAST_FETCH,
         "proxies": FREE_PROXY_POOL
     }
 
 
-def distribute_free_proxies_to_bots():
-    global FREE_PROXY_POOL
-    if not FREE_PROXY_POOL:
+def distribute_free_proxies_to_bots(refresh_pool=False):
+    global FREE_PROXY_POOL, PROXY_LAST_AUTO_ROTATE
+    if refresh_pool or not FREE_PROXY_POOL:
         fetch_free_proxies_sync(limit=30, protocol="socks5")
 
     online = [p for p in FREE_PROXY_POOL if p.get("status") == "online"]
@@ -315,9 +330,73 @@ def distribute_free_proxies_to_bots():
         p_obj["assigned_to"].append(aid)
         assigned += 1
 
+    PROXY_LAST_AUTO_ROTATE = int(time.time())
     sync_tokens_file()
     log(f"🎯 [Proxy Engine] Distributed free proxies to {assigned} bot accounts.")
     return {"success": True, "assigned": assigned, "total_accounts": len(ACCOUNTS)}
+
+
+def auto_failover_account_proxy(aid):
+    """Auto-switches a bot with a dead proxy to the next best online proxy in the pool."""
+    global FREE_PROXY_POOL
+    acc = ACCOUNTS.get(aid)
+    if not acc:
+        return False
+    old_proxy = acc.get("proxy")
+    if not old_proxy:
+        return False
+
+    # Mark old proxy offline
+    for p in FREE_PROXY_POOL:
+        if p.get("url") == old_proxy:
+            p["status"] = "offline"
+            if aid in p.get("assigned_to", []):
+                p["assigned_to"].remove(aid)
+
+    # Find next candidate with lowest ping
+    online = [p for p in FREE_PROXY_POOL if p.get("status") == "online" and p.get("url") != old_proxy]
+    if not online:
+        fetch_free_proxies_sync(limit=25, protocol="socks5")
+        online = [p for p in FREE_PROXY_POOL if p.get("status") == "online" and p.get("url") != old_proxy]
+
+    if online:
+        online.sort(key=lambda x: x.get("ping") if x.get("ping", 0) > 0 else 9999)
+        new_p = online[0]
+        acc["proxy"] = new_p["url"]
+        if aid not in new_p.setdefault("assigned_to", []):
+            new_p["assigned_to"].append(aid)
+        sync_tokens_file()
+        log(f"🛡️ [Auto-Failover Watchdog] Bot #{aid} ({acc.get('name')}) dead proxy '{mask_proxy(old_proxy)}' -> Failed over to '{mask_proxy(new_p['url'])}' (Ping: {new_p.get('ping')}ms)")
+        return True
+    return False
+
+
+async def proxy_auto_watchdog_loop():
+    """Background watchdog monitoring bot proxy health and performing scheduled auto-rotations."""
+    global PROXY_LAST_AUTO_ROTATE
+    while RUNNING:
+        try:
+            now = time.time()
+            if PROXY_AUTO_ROTATE and PROXY_AUTO_ROTATE_INTERVAL > 0 and ACCOUNTS:
+                if PROXY_LAST_AUTO_ROTATE == 0:
+                    PROXY_LAST_AUTO_ROTATE = now
+                elif now - PROXY_LAST_AUTO_ROTATE >= PROXY_AUTO_ROTATE_INTERVAL:
+                    log(f"🔄 [Auto-Rotate Watchdog] Rotating bot proxies on schedule ({PROXY_AUTO_ROTATE_INTERVAL}s interval)...")
+                    distribute_free_proxies_to_bots(refresh_pool=True)
+                    for aid, a in ACCOUNTS.items():
+                        if a.get("online"):
+                            asyncio.create_task(restart_account(aid))
+                    PROXY_LAST_AUTO_ROTATE = now
+        except Exception as e:
+            log(f"[Proxy Watchdog] Error: {e}")
+        await asyncio.sleep(15)
+
+
+def ensure_proxy_watchdog_task():
+    global PROXY_WATCHDOG_TASK
+    if PROXY_WATCHDOG_TASK is None or PROXY_WATCHDOG_TASK.done():
+        if MAIN_LOOP and MAIN_LOOP.is_running():
+            PROXY_WATCHDOG_TASK = asyncio.run_coroutine_threadsafe(proxy_auto_watchdog_loop(), MAIN_LOOP)
 
 
 def clear_all_bot_proxies():
@@ -2078,6 +2157,10 @@ async def run_account(aid):
                 break
             print(f"[Account {aid}] Error for {acc.get('name')}: {e}. Reconnecting in {delay}s...")
             acc["error"] = str(e)
+            if PROXY_AUTO_FAILOVER and acc.get("proxy"):
+                err_lower = str(e).lower()
+                if any(x in err_lower for x in ("proxy", "socks", "timeout", "timed out", "connection refused", "reset by peer", "handshake", "10061", "111", "closed", "1006")):
+                    auto_failover_account_proxy(aid)
         finally:
             if acc.get("ws") is ws:
                 acc["ws"] = None
@@ -2986,7 +3069,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(404, "Not Found")
 
     def execute_action(self, payload):
-        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VOICE_FLAGS, ACTIVE_SFX, VOICE_STATUS, HUMAN_CHATTER_ENABLED, HUMAN_CHATTER_TASK, REAL_VIDEO_ACTIVE, REAL_VIDEO_MODE, REAL_VIDEO_TITLE, WEB_SHARE_URL, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE, STREAMBOT_QUEUE, STREAMBOT_CURRENT, STREAMBOT_STATUS, STREAMBOT_LOOP_MODE, STREAMBOT_VOLUME, STREAMBOT_RESOLUTION, STREAMBOT_FPS, STREAMBOT_BITRATE, STREAM_PROFILE, SPOTIFY_SONG, SPOTIFY_ARTIST, SPOTIFY_ALBUM, SPOTIFY_DURATION, VISUALIZER_MODE, STREAM_OVERLAY_ENABLED, STREAM_OVERLAY_TITLE, STREAM_OVERLAY_TICKER, CHAT_AUTO_RESPONDER_ENABLED, CHAT_AUTO_RESPONDER_RULES, DESKTOP_SCREEN_CAPTURE, AUDIO_BASS_BOOST, AUDIO_PITCH_SHIFT, AUDIO_NORMALIZER, AUDIO_EQ_PRESET, AUTO_REJOIN, CUSTOM_ACTIVITY_NAME, CUSTOM_ACTIVITY_TYPE, STEALTH_DELAY, RECORDING_ACTIVE, RECORDING_START_TIME, RECORDING_FILENAME, STADIUM_ECHO_ENABLED, STADIUM_ECHO_DELAY_MS, PTT_ACTIVE, PTT_TOTAL_CHUNKS, TOKEN_HEALTH_INDEX, RATE_LIMIT_COOLDOWN, RATE_LIMIT_HITS, ACTIVE_RADIO_STATION, AI_COHOST_ENABLED, AI_COHOST_PERSONA, AI_COHOST_API_KEY, FREE_PROXY_POOL, PROXY_AUTO_ROTATE, PROXY_LAST_FETCH
+        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VOICE_FLAGS, ACTIVE_SFX, VOICE_STATUS, HUMAN_CHATTER_ENABLED, HUMAN_CHATTER_TASK, REAL_VIDEO_ACTIVE, REAL_VIDEO_MODE, REAL_VIDEO_TITLE, WEB_SHARE_URL, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE, STREAMBOT_QUEUE, STREAMBOT_CURRENT, STREAMBOT_STATUS, STREAMBOT_LOOP_MODE, STREAMBOT_VOLUME, STREAMBOT_RESOLUTION, STREAMBOT_FPS, STREAMBOT_BITRATE, STREAM_PROFILE, SPOTIFY_SONG, SPOTIFY_ARTIST, SPOTIFY_ALBUM, SPOTIFY_DURATION, VISUALIZER_MODE, STREAM_OVERLAY_ENABLED, STREAM_OVERLAY_TITLE, STREAM_OVERLAY_TICKER, CHAT_AUTO_RESPONDER_ENABLED, CHAT_AUTO_RESPONDER_RULES, DESKTOP_SCREEN_CAPTURE, AUDIO_BASS_BOOST, AUDIO_PITCH_SHIFT, AUDIO_NORMALIZER, AUDIO_EQ_PRESET, AUTO_REJOIN, CUSTOM_ACTIVITY_NAME, CUSTOM_ACTIVITY_TYPE, STEALTH_DELAY, RECORDING_ACTIVE, RECORDING_START_TIME, RECORDING_FILENAME, STADIUM_ECHO_ENABLED, STADIUM_ECHO_DELAY_MS, PTT_ACTIVE, PTT_TOTAL_CHUNKS, TOKEN_HEALTH_INDEX, RATE_LIMIT_COOLDOWN, RATE_LIMIT_HITS, ACTIVE_RADIO_STATION, AI_COHOST_ENABLED, AI_COHOST_PERSONA, AI_COHOST_API_KEY, FREE_PROXY_POOL, PROXY_AUTO_ROTATE, PROXY_LAST_FETCH, PROXY_AUTO_FAILOVER, PROXY_AUTO_ROTATE_INTERVAL, PROXY_LAST_AUTO_ROTATE
         action = payload.get("action", "")
 
         if action == "set_desktop_screen_capture":
@@ -5022,9 +5105,25 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             ok, ping = ping_proxy_socket(host, int(port), timeout=2.0)
             return {"success": True, "online": ok, "ping": ping}
         elif action == "toggle_auto_rotate":
-            global PROXY_AUTO_ROTATE
             PROXY_AUTO_ROTATE = not PROXY_AUTO_ROTATE
-            return {"success": True, "auto_rotate": PROXY_AUTO_ROTATE}
+            ensure_proxy_watchdog_task()
+            return {"success": True, "auto_rotate": PROXY_AUTO_ROTATE, "interval": PROXY_AUTO_ROTATE_INTERVAL, "summary": get_free_proxy_summary()}
+        elif action == "set_proxy_auto_rotate":
+            if "enabled" in payload:
+                PROXY_AUTO_ROTATE = bool(payload["enabled"])
+            if "interval" in payload and str(payload["interval"]).isdigit():
+                PROXY_AUTO_ROTATE_INTERVAL = max(60, int(payload["interval"]))
+            ensure_proxy_watchdog_task()
+            return {"success": True, "auto_rotate": PROXY_AUTO_ROTATE, "interval": PROXY_AUTO_ROTATE_INTERVAL, "summary": get_free_proxy_summary()}
+        elif action == "toggle_auto_failover":
+            PROXY_AUTO_FAILOVER = not PROXY_AUTO_FAILOVER
+            return {"success": True, "auto_failover": PROXY_AUTO_FAILOVER, "summary": get_free_proxy_summary()}
+        elif action == "auto_failover_account":
+            aid = payload.get("id") or payload.get("account_id")
+            if aid is not None and str(aid).isdigit():
+                res = auto_failover_account_proxy(int(aid))
+                return {"success": res, "account_id": int(aid), "proxy": ACCOUNTS.get(int(aid), {}).get("proxy"), "summary": get_free_proxy_summary()}
+            return {"success": False, "error": "Invalid account ID"}
         elif action == "batch_action":
             aids = [int(x) for x in payload.get("ids", []) if str(x).isdigit()]
             sub = payload.get("sub_action", "")
@@ -5298,7 +5397,7 @@ async def main():
     print(MENU_TEXT)
 
     try:
-        await asyncio.gather(command_loop(), command_file_loop())
+        await asyncio.gather(command_loop(), command_file_loop(), proxy_auto_watchdog_loop())
     except (asyncio.CancelledError, Exception) as e:
         print(f"Exiting loop: {e}")
     finally:

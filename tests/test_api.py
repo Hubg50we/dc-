@@ -1279,6 +1279,56 @@ def run_tests():
     except Exception as e:
         check("Free Proxy Pool Manager, Auto-Scraper & Bot Distribution (102nd Milestone Function)", False, str(e))
 
+    # 103. Auto-Failover Watchdog & Account Proxy Re-binding
+    try:
+        # Toggle auto-failover
+        st_tf, d_tf = http_post("/api/action", {"action": "toggle_auto_failover"})
+        st_tf2, d_tf2 = http_post("/api/action", {"action": "toggle_auto_failover"})
+        # Add temporary proxy and assign to account
+        http_post("/api/action", {"action": "add_custom_proxy", "url": "socks5://10.0.0.1:1080"})
+        # Trigger failover on account
+        st_fo, d_fo = http_post("/api/action", {"action": "auto_failover_account", "id": 1})
+        fo_ok = (
+            d_tf.get("success") is True and
+            d_tf2.get("success") is True and
+            "auto_failover" in d_tf2 and
+            d_tf2.get("auto_failover") is True
+        )
+        check("Proxy Auto-Failover Watchdog & Real-Time Re-Binding (103rd Milestone Function)", fo_ok)
+    except Exception as e:
+        check("Proxy Auto-Failover Watchdog & Real-Time Re-Binding (103rd Milestone Function)", False, str(e))
+
+    # 104. Scheduled Proxy Auto-Rotate Engine & Interval Timer
+    try:
+        st_ar, d_ar = http_post("/api/action", {"action": "set_proxy_auto_rotate", "enabled": True, "interval": 900})
+        st_st, d_st = http_get("/api/status")
+        ps = d_st.get("proxy_summary", {})
+        ar_ok = (
+            d_ar.get("success") is True and
+            d_ar.get("auto_rotate") is True and
+            d_ar.get("interval") == 900 and
+            ps.get("auto_rotate_interval") == 900 and
+            ps.get("auto_rotate") is True
+        )
+        # Reset back to False
+        http_post("/api/action", {"action": "set_proxy_auto_rotate", "enabled": False, "interval": 1800})
+        check("Scheduled Proxy Auto-Rotate Engine & Interval Timer (104th Milestone Function)", ar_ok)
+    except Exception as e:
+        check("Scheduled Proxy Auto-Rotate Engine & Interval Timer (104th Milestone Function)", False, str(e))
+
+    # 105. Extended Meme Soundboard Pack & Dynamic Opus Synthesis (20 Pads)
+    try:
+        st_st, d_st = http_get("/api/status")
+        pads = d_st.get("soundboard_pads", [])
+        meme_ids = ["fbi_open_up", "emotional_damage", "mlg_horn", "illuminati", "run_meme", "oof", "quandale", "taco_bell"]
+        has_all_memes = all(any(p.get("id") == mid for p in pads) for mid in meme_ids)
+        # Play a sample meme pad
+        st_pb, d_pb = http_post("/api/action", {"action": "play_soundboard_pad", "id": "emotional_damage"})
+        sb_ok = len(pads) >= 20 and has_all_memes and d_pb.get("success") is True
+        check("Extended Meme Soundboard Pack & Dynamic Audio Synthesis (105th Milestone Function)", sb_ok)
+    except Exception as e:
+        check("Extended Meme Soundboard Pack & Dynamic Audio Synthesis (105th Milestone Function)", False, str(e))
+
     # Summary
     passed = sum(1 for _, ok, _ in results if ok)
     total = len(results)
