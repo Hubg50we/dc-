@@ -757,6 +757,89 @@ public class DiscordManager {
                     res.put("enabled", this.keySystemEnabled);
                 }
                 return res;
+            } else if ("create_user_key".equals(action) || "add_key".equals(action)) {
+                String reqKey = payload.optString("admin_key", payload.optString("key", "")).trim();
+                if (!this.accessKey.equalsIgnoreCase(reqKey)) {
+                    res.put("success", false);
+                    res.put("error", "Unauthorized: Only master admin (hubg50) can create user keys");
+                } else {
+                    String newK = payload.optString("new_key", payload.optString("key", "")).trim();
+                    String name = payload.optString("name", "Space (" + newK + ")").trim();
+                    if (newK.isEmpty()) {
+                        res.put("success", false);
+                        res.put("error", "Key string cannot be empty");
+                    } else {
+                        String existing = prefs.getString("user_keys", "[]");
+                        try {
+                            JSONArray arr = new JSONArray(existing);
+                            JSONObject newObj = new JSONObject();
+                            newObj.put("key", newK);
+                            newObj.put("name", name);
+                            newObj.put("created_at", System.currentTimeMillis() / 1000);
+                            arr.put(newObj);
+                            prefs.edit().putString("user_keys", arr.toString()).apply();
+                            res.put("success", true);
+                            res.put("key", newK);
+                            res.put("name", name);
+                            res.put("message", "User space '" + newK + "' created successfully!");
+                        } catch (Exception e) {
+                            res.put("success", false);
+                            res.put("error", e.getMessage());
+                        }
+                    }
+                }
+                return res;
+            } else if ("delete_user_key".equals(action) || "remove_key".equals(action)) {
+                String reqKey = payload.optString("admin_key", payload.optString("key", "")).trim();
+                if (!this.accessKey.equalsIgnoreCase(reqKey)) {
+                    res.put("success", false);
+                    res.put("error", "Unauthorized: Only master admin (hubg50) can delete user keys");
+                } else {
+                    String targetKey = payload.optString("target_key", "").trim();
+                    if (this.accessKey.equalsIgnoreCase(targetKey)) {
+                        res.put("success", false);
+                        res.put("error", "Cannot delete master admin key");
+                    } else {
+                        String existing = prefs.getString("user_keys", "[]");
+                        try {
+                            JSONArray arr = new JSONArray(existing);
+                            JSONArray filtered = new JSONArray();
+                            boolean found = false;
+                            for (int i = 0; i < arr.length(); i++) {
+                                JSONObject obj = arr.getJSONObject(i);
+                                if (obj.optString("key", "").equalsIgnoreCase(targetKey)) {
+                                    found = true;
+                                } else {
+                                    filtered.put(obj);
+                                }
+                            }
+                            prefs.edit().putString("user_keys", filtered.toString()).apply();
+                            res.put("success", found);
+                            res.put("message", found ? "User space deleted" : "Key not found");
+                        } catch (Exception e) {
+                            res.put("success", false);
+                            res.put("error", e.getMessage());
+                        }
+                    }
+                }
+                return res;
+            } else if ("list_user_keys".equals(action) || "list_workspaces".equals(action)) {
+                JSONArray resArr = new JSONArray();
+                JSONObject master = new JSONObject();
+                master.put("key", this.accessKey);
+                master.put("name", "Master Workspace");
+                master.put("is_admin", true);
+                master.put("total_accounts", accounts.size());
+                resArr.put(master);
+                try {
+                    JSONArray arr = new JSONArray(prefs.getString("user_keys", "[]"));
+                    for (int i = 0; i < arr.length(); i++) {
+                        resArr.put(arr.getJSONObject(i));
+                    }
+                } catch (Exception ignored) {}
+                res.put("success", true);
+                res.put("workspaces", resArr);
+                return res;
             }
 
             // 1. Token Addition (Single & Bulk)

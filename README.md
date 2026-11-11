@@ -252,3 +252,24 @@ You can type these commands into the running console:
 | `token save [file]` | Save current tokens to a file | `token save tokens.txt` |
 | `account <id\|name> <action>` | Control a single account (`move`, `mute`, `deafen`, etc.) | `account 1 mute` |
 | `shutdown` (or `quit` / `exit`) | Safely disconnect all accounts and shut down | `quit` |
+
+---
+
+## 🔐 Website Login & Multi-User Isolated Workspaces (v1.6.6)
+
+Starting in **v1.6.6 Build 67**, `dc-` provides an enterprise-grade **Multi-User / Multi-Tenant Isolation Engine**:
+
+1. **Frosted-Glass Website Login Portal**:
+   - Access to the dashboard is secured by a login gate requiring a valid Access Key.
+   - Master Admin Key: `hubg50`.
+
+2. **100% Isolated Workspaces (Data Does Not Mix)**:
+   - When new access keys are generated, each key gets its own completely dedicated workspace (`workspaces.json`).
+   - Accounts, bots, voice channels, default servers, and presets are strictly partitioned to the logged-in user.
+   - Users cannot see, command, or delete bots belonging to another key or the master space.
+
+3. **Master Admin Space Management (`hubg50`)**:
+   - Master admin can create new user keys with custom space names and default server IDs.
+   - Master admin can list, inspect bot metrics, switch spaces, or delete expired user keys.
+   - Shareable direct URLs: Users can access their space directly via `https://<dashboard>/?key=<user_key>`.
+

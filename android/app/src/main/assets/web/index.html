@@ -1059,6 +1059,11 @@
       <span class="brand-badge">PRO</span>
     </div>
     <div class="header-actions">
+      <div id="active-workspace-pill" onclick="switchOrViewWorkspace()" style="display:flex; align-items:center; gap:6px; font-size:0.75rem; background:linear-gradient(135deg, rgba(88,101,242,0.18), rgba(168,85,247,0.18)); border:1px solid rgba(139,92,246,0.35); padding:4px 10px; border-radius:16px; cursor:pointer;" title="Active Isolated Space (Click to Switch/Manage)">
+        <span>🏢</span>
+        <span id="active-space-name" style="font-weight:700; color:#c084fc;">Space: Master</span>
+        <span id="active-space-role" style="font-size:0.65rem; background:rgba(88,101,242,0.4); padding:1px 5px; border-radius:8px; color:#fff;">Admin</span>
+      </div>
       <div id="live-indicator-pill" style="display:flex; align-items:center; gap:6px; font-size:0.75rem; background:var(--bg-card); border:1px solid var(--border); padding:4px 10px; border-radius:16px;">
         <span style="width:8px; height:8px; border-radius:50%; background:var(--success); display:inline-block;" id="status-bulb"></span>
         <span id="gateway-status-txt">📱 Mobile Gateway</span>
@@ -2259,6 +2264,69 @@
               <span>🔒</span>
               <span>Lock / Logout Now</span>
             </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Multi-User Workspaces & Isolated Tenant Spaces Card -->
+      <div class="card" style="border-color: rgba(56, 189, 248, 0.45);">
+        <div class="card-title" style="color:#7dd3fc;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.2rem;">🏢</span>
+            <span>Multi-User Workspaces & Isolated Space Engine</span>
+          </div>
+          <span class="badge" style="background:rgba(56, 189, 248, 0.25); color:#bae6fd; font-weight:700;" id="current-space-badge">ISOLATED SPACES</span>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px;">
+          Each access key gets its own 100% dedicated, isolated workspace. Bots, voice channels, server IDs, and presets do <strong>not mix</strong> between keys.
+        </p>
+
+        <!-- Admin Only Key Creator -->
+        <div id="admin-workspace-creator" style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:12px; margin-bottom:14px;">
+          <strong style="font-size:0.85rem; color:#f1f5f9; display:block; margin-bottom:8px;">➕ Create New User Key & Isolated Space</strong>
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:8px; margin-bottom:10px;">
+            <div>
+              <label style="font-size:0.72rem; color:var(--text-muted); display:block; margin-bottom:3px;">User Key Code (Login Secret):</label>
+              <input type="text" id="new-user-key-input" placeholder="e.g. user_alpha, gamer123" style="width:100%; padding:8px 10px; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; color:#fff; font-family:monospace; font-size:0.82rem;">
+            </div>
+            <div>
+              <label style="font-size:0.72rem; color:var(--text-muted); display:block; margin-bottom:3px;">Space / Team Name:</label>
+              <input type="text" id="new-user-space-name" placeholder="e.g. Alpha Squad Space" style="width:100%; padding:8px 10px; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; color:#fff; font-size:0.82rem;">
+            </div>
+            <div>
+              <label style="font-size:0.72rem; color:var(--text-muted); display:block; margin-bottom:3px;">Default Server (Guild ID) [Optional]:</label>
+              <input type="text" id="new-user-guild-id" placeholder="e.g. 1535504524121473145" style="width:100%; padding:8px 10px; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; color:#fff; font-size:0.82rem;">
+            </div>
+          </div>
+          <button onclick="createNewUserKey()" class="btn btn-primary btn-sm" style="background:linear-gradient(135deg, #0284c7, #06b6d4); border:none; display:flex; align-items:center; gap:6px;">
+            <span>➕</span>
+            <span>Generate User Space & Key</span>
+          </button>
+        </div>
+
+        <!-- Workspaces Table / List -->
+        <div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <strong style="font-size:0.85rem; color:#f1f5f9;">Active User Spaces & Data Segments</strong>
+            <button onclick="loadWorkspacesList()" class="btn btn-secondary btn-sm" style="font-size:0.7rem; padding:3px 8px;">↻ Refresh Spaces</button>
+          </div>
+          <div style="overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:0.78rem;" id="workspaces-table">
+              <thead>
+                <tr style="border-bottom:1px solid var(--border); color:var(--text-muted); text-align:left;">
+                  <th style="padding:6px;">Space Name</th>
+                  <th style="padding:6px;">Access Key</th>
+                  <th style="padding:6px;">Bots</th>
+                  <th style="padding:6px;">Role</th>
+                  <th style="padding:6px; text-align:right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="workspaces-table-body">
+                <tr>
+                  <td colspan="5" style="padding:10px; text-align:center; color:var(--text-muted);">Loading user spaces...</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -3585,6 +3653,26 @@
       }
     })();
 
+    // 🌐 Multi-Tenant Request Interceptor: Attach X-Access-Key to all fetch calls
+    const _origFetch = window.fetch;
+    window.fetch = function(url, options = {}) {
+      options = options || {};
+      options.headers = options.headers || {};
+      const key = (typeof currentAccessKey !== 'undefined' && currentAccessKey) || localStorage.getItem('dc_access_key') || sessionStorage.getItem('dc_access_key') || '';
+      if (key) {
+        if (options.headers instanceof Headers) {
+          if (!options.headers.has('X-Access-Key')) {
+            options.headers.append('X-Access-Key', key);
+          }
+        } else {
+          if (!options.headers['X-Access-Key']) {
+            options.headers['X-Access-Key'] = key;
+          }
+        }
+      }
+      return _origFetch.call(this, url, options);
+    };
+
     let currentPercent = 100;
     let accountsData = [];
     let savedPresets = [];
@@ -4109,6 +4197,29 @@
         const badge = document.getElementById('key-system-badge');
         if (badge) {
           badge.innerText = isKeySystemAuthenticated ? 'AUTHENTICATED' : (data.key_system.enabled ? 'ACTIVE' : 'DISABLED');
+        }
+      }
+
+      // Workspace and Multi-User Status Sync
+      if (data.workspace) {
+        const ws = data.workspace;
+        const nameEl = document.getElementById('active-space-name');
+        const roleEl = document.getElementById('active-space-role');
+        const badgeEl = document.getElementById('current-space-badge');
+        if (nameEl) nameEl.innerText = ws.name ? `Space: ${ws.name}` : `Space: (${ws.key})`;
+        if (roleEl) {
+          roleEl.innerText = ws.is_admin ? 'Admin' : 'User';
+          roleEl.style.background = ws.is_admin ? 'rgba(168,85,247,0.45)' : 'rgba(56,189,248,0.35)';
+        }
+        if (badgeEl) {
+          badgeEl.innerText = ws.name ? ws.name.toUpperCase() : 'ISOLATED';
+        }
+        const adminCreator = document.getElementById('admin-workspace-creator');
+        if (adminCreator) {
+          adminCreator.style.display = ws.is_admin ? 'block' : 'none';
+        }
+        if (ws.all_workspaces && Array.isArray(ws.all_workspaces)) {
+          renderWorkspacesTable(ws.all_workspaces, ws.key, ws.is_admin);
         }
       }
 
@@ -8916,19 +9027,22 @@
     // ==========================================
     // 🔐 Website Login & Access Key System
     // ==========================================
-    let currentAccessKey = localStorage.getItem('dc_access_key') || sessionStorage.getItem('dc_access_key') || '';
+    let currentAccessKey = (function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlKey = urlParams.get('key') || urlParams.get('access_key');
+      if (urlKey && urlKey.trim()) {
+        const clean = urlKey.trim();
+        localStorage.setItem('dc_access_key', clean);
+        document.cookie = "dc_access_key=" + encodeURIComponent(clean) + "; path=/; max-age=31536000; SameSite=Lax";
+        return clean;
+      }
+      return localStorage.getItem('dc_access_key') || sessionStorage.getItem('dc_access_key') || '';
+    })();
     let isKeySystemAuthenticated = false;
 
     function initKeySystem() {
       const portal = document.getElementById('login-portal-screen');
       if (!portal) return;
-
-      if (currentAccessKey && currentAccessKey.trim().toLowerCase() === 'hubg50') {
-        isKeySystemAuthenticated = true;
-        portal.style.display = 'none';
-        updateKeySettingsUI(currentAccessKey, true);
-        return;
-      }
 
       if (currentAccessKey) {
         verifyStoredKey(currentAccessKey);
@@ -8994,6 +9108,7 @@
 
         if (data && (data.valid || data.authenticated || val.toLowerCase() === 'hubg50')) {
           currentAccessKey = val;
+          document.cookie = "dc_access_key=" + encodeURIComponent(val) + "; path=/; max-age=31536000; SameSite=Lax";
           const remember = document.getElementById('login-remember-me');
           if (remember && remember.checked) {
             localStorage.setItem('dc_access_key', val);
@@ -9056,6 +9171,7 @@
     function logoutDashboard() {
       localStorage.removeItem('dc_access_key');
       sessionStorage.removeItem('dc_access_key');
+      document.cookie = "dc_access_key=; path=/; max-age=0;";
       currentAccessKey = '';
       const inp = document.getElementById('login-key-input');
       if (inp) inp.value = '';
@@ -9074,6 +9190,178 @@
         badge.style.background = isAuthed ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)';
         badge.style.color = isAuthed ? '#6ee7b7' : '#fca5a5';
       }
+    }
+
+    // ==========================================
+    // 🏢 Multi-User Workspaces & Isolated Tenant Spaces
+    // ==========================================
+    function renderWorkspacesTable(workspaces, currentKey, isAdmin) {
+      const tbody = document.getElementById('workspaces-table-body');
+      if (!tbody) return;
+      if (!workspaces || !workspaces.length) {
+        tbody.innerHTML = '<tr><td colspan="5" style="padding:10px; text-align:center; color:var(--text-muted);">No user spaces registered yet.</td></tr>';
+        return;
+      }
+      const cur = (currentKey || currentAccessKey || 'hubg50').toLowerCase();
+      let html = '';
+      workspaces.forEach(ws => {
+        const k = (ws.key || '').trim();
+        const isCurrent = k.toLowerCase() === cur;
+        const isWsAdmin = Boolean(ws.is_admin || k.toLowerCase() === 'hubg50');
+        const botCount = ws.total_accounts !== undefined ? ws.total_accounts : 0;
+        const onlineCount = ws.online_accounts !== undefined ? ws.online_accounts : 0;
+        const name = ws.name || (isWsAdmin ? 'Master Workspace' : `Space (${k})`);
+
+        html += `
+          <tr style="border-bottom:1px solid rgba(255,255,255,0.06); background:${isCurrent ? 'rgba(88,101,242,0.12)' : 'transparent'};">
+            <td style="padding:8px 6px;">
+              <div style="font-weight:700; color:${isCurrent ? '#c084fc' : '#fff'}; display:flex; align-items:center; gap:5px;">
+                <span>${isWsAdmin ? '👑' : '📁'}</span>
+                <span>${name}</span>
+                ${isCurrent ? '<span style="font-size:0.65rem; background:rgba(168,85,247,0.3); color:#e9d5ff; padding:1px 5px; border-radius:6px;">ACTIVE</span>' : ''}
+              </div>
+            </td>
+            <td style="padding:8px 6px;">
+              <code style="background:rgba(0,0,0,0.35); padding:2px 6px; border-radius:4px; color:#93c5fd; font-size:0.75rem;">${k}</code>
+            </td>
+            <td style="padding:8px 6px;">
+              <span style="font-weight:600; color:${botCount > 0 ? '#4ade80' : 'var(--text-muted)'};">${botCount}</span>
+              <span style="font-size:0.68rem; color:var(--text-muted);">(${onlineCount} on)</span>
+            </td>
+            <td style="padding:8px 6px;">
+              <span class="badge" style="font-size:0.65rem; background:${isWsAdmin ? 'rgba(168,85,247,0.25)' : 'rgba(56,189,248,0.25)'}; color:${isWsAdmin ? '#e9d5ff' : '#bae6fd'};">
+                ${isWsAdmin ? 'Admin' : 'User'}
+              </span>
+            </td>
+            <td style="padding:8px 6px; text-align:right;">
+              <div style="display:inline-flex; gap:5px;">
+                ${!isCurrent ? `
+                  <button onclick="switchWorkspace('${k}')" class="btn btn-secondary btn-sm" style="font-size:0.68rem; padding:2px 8px; border-color:rgba(139,92,246,0.35); color:#c084fc;" title="Enter this space">
+                    Switch
+                  </button>
+                ` : ''}
+                <button onclick="copyWorkspaceLink('${k}')" class="btn btn-secondary btn-sm" style="font-size:0.68rem; padding:2px 6px;" title="Copy shareable link with key">
+                  🔗
+                </button>
+                ${(isAdmin && !isWsAdmin) ? `
+                  <button onclick="deleteUserKey('${k}')" class="btn btn-secondary btn-sm" style="font-size:0.68rem; padding:2px 6px; color:#f87171; border-color:rgba(239,68,68,0.3);" title="Delete this user space">
+                    🗑️
+                  </button>
+                ` : ''}
+              </div>
+            </td>
+          </tr>
+        `;
+      });
+      tbody.innerHTML = html;
+    }
+
+    async function loadWorkspacesList() {
+      try {
+        const res = await fetch('/api/workspaces');
+        const data = await res.json();
+        if (data && data.success && data.workspaces) {
+          renderWorkspacesTable(data.workspaces, currentAccessKey, data.is_admin);
+        }
+      } catch (e) {
+        console.error('Error loading workspaces:', e);
+      }
+    }
+
+    async function createNewUserKey() {
+      const keyInput = document.getElementById('new-user-key-input');
+      const nameInput = document.getElementById('new-user-space-name');
+      const gidInput = document.getElementById('new-user-guild-id');
+      if (!keyInput) return;
+
+      const keyVal = keyInput.value.trim();
+      const nameVal = (nameInput && nameInput.value.trim()) || `Space (${keyVal})`;
+      const gidVal = (gidInput && gidInput.value.trim()) || '';
+
+      if (!keyVal) {
+        showToast('⚠️ Please enter a user key code', true);
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'create_user_key',
+            key: keyVal,
+            name: nameVal,
+            guild_id: gidVal
+          })
+        });
+        const data = await res.json();
+        if (data && data.success) {
+          showToast(`🏢 User space '${keyVal}' created successfully!`);
+          keyInput.value = '';
+          if (nameInput) nameInput.value = '';
+          if (gidInput) gidInput.value = '';
+          fetchStatus();
+          loadWorkspacesList();
+        } else {
+          showToast(data.error || 'Failed to create user space', true);
+        }
+      } catch (e) {
+        showToast('Error: ' + e.message, true);
+      }
+    }
+
+    async function deleteUserKey(targetKey) {
+      if (!confirm(`Are you sure you want to delete user space '${targetKey}'? This will remove all bots owned by this key.`)) {
+        return;
+      }
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'delete_user_key',
+            key: targetKey
+          })
+        });
+        const data = await res.json();
+        if (data && data.success) {
+          showToast(`🗑️ User space '${targetKey}' deleted`);
+          fetchStatus();
+          loadWorkspacesList();
+        } else {
+          showToast(data.error || 'Failed to delete user space', true);
+        }
+      } catch (e) {
+        showToast('Error: ' + e.message, true);
+      }
+    }
+
+    function switchWorkspace(targetKey) {
+      if (!targetKey) return;
+      currentAccessKey = targetKey;
+      localStorage.setItem('dc_access_key', targetKey);
+      document.cookie = "dc_access_key=" + encodeURIComponent(targetKey) + "; path=/; max-age=31536000; SameSite=Lax";
+      showToast(`🏢 Switched to space: ${targetKey}`);
+      fetchStatus();
+      loadWorkspacesList();
+    }
+
+    function switchOrViewWorkspace() {
+      // Switches tab to settings where workspaces are listed
+      switchTab('settings');
+      setTimeout(() => {
+        const el = document.getElementById('workspaces-table');
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      }, 200);
+    }
+
+    function copyWorkspaceLink(key) {
+      const url = `${window.location.origin}/?key=${encodeURIComponent(key)}`;
+      navigator.clipboard.writeText(url).then(() => {
+        showToast(`🔗 Share link for '${key}' copied to clipboard!`);
+      }).catch(() => {
+        prompt('Shareable link for this space:', url);
+      });
     }
 
     async function updateAccessKeyFromSettings() {

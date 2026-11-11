@@ -99,6 +99,95 @@ STEALTH_DELAY = float(os.environ.get("STEALTH_DELAY", "3.0"))
 ONE_BOT_PER_VC = os.environ.get("ONE_BOT_PER_VC", "false").lower() in ("true", "1", "yes")
 ACCESS_KEY = os.environ.get("DC_ACCESS_KEY", "hubg50")
 KEY_SYSTEM_ENABLED = os.environ.get("KEY_SYSTEM_ENABLED", "true").lower() in ("true", "1", "yes")
+
+# Multi-User Workspaces & Isolated Space Registry
+WORKSPACES_FILE = "workspaces.json"
+USER_WORKSPACES = {}
+
+def load_workspaces():
+    global USER_WORKSPACES
+    default_ws = {
+        ACCESS_KEY.lower(): {
+            "key": ACCESS_KEY,
+            "name": "Master Workspace",
+            "is_admin": True,
+            "created_at": int(time.time()),
+            "guild_id": GUILD_ID,
+            "channel_id": CHANNEL_ID,
+            "presets": []
+        }
+    }
+    if os.path.exists(WORKSPACES_FILE):
+        try:
+            with open(WORKSPACES_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, dict) and data:
+                    USER_WORKSPACES = data
+                else:
+                    USER_WORKSPACES = default_ws
+        except Exception:
+            USER_WORKSPACES = default_ws
+    else:
+        USER_WORKSPACES = default_ws
+
+    if ACCESS_KEY.lower() not in USER_WORKSPACES:
+        USER_WORKSPACES[ACCESS_KEY.lower()] = default_ws[ACCESS_KEY.lower()]
+
+def save_workspaces():
+    try:
+        with open(WORKSPACES_FILE, "w", encoding="utf-8") as f:
+            json.dump(USER_WORKSPACES, f, indent=2)
+    except Exception as e:
+        print(f"[!] Could not save {WORKSPACES_FILE}: {e}")
+
+load_workspaces()
+
+def get_workspace_info(key):
+    k = (key or ACCESS_KEY).strip().lower()
+    if k in USER_WORKSPACES:
+        return USER_WORKSPACES[k]
+    if k == ACCESS_KEY.lower():
+        return {
+            "key": ACCESS_KEY,
+            "name": "Master Workspace",
+            "is_admin": True,
+            "guild_id": GUILD_ID,
+            "channel_id": CHANNEL_ID,
+            "presets": []
+        }
+    return None
+
+def is_admin_key(key):
+    k = (key or "").strip().lower()
+    if k == ACCESS_KEY.lower():
+        return True
+    ws = USER_WORKSPACES.get(k)
+    return bool(ws and ws.get("is_admin"))
+
+def get_workspace_accounts(key):
+    k = (key or ACCESS_KEY).strip().lower()
+    if k == "all":
+        return ACCOUNTS
+    return {
+        aid: a for aid, a in ACCOUNTS.items()
+        if a.get("owner_key", ACCESS_KEY).lower() == k
+    }
+
+def list_all_workspaces_summary():
+    res = []
+    for k, ws in USER_WORKSPACES.items():
+        accs = get_workspace_accounts(k)
+        res.append({
+            "key": ws.get("key", k),
+            "name": ws.get("name", f"Space ({k})"),
+            "is_admin": bool(ws.get("is_admin") or k == ACCESS_KEY.lower()),
+            "created_at": ws.get("created_at", 0),
+            "total_accounts": len(accs),
+            "online_accounts": sum(1 for a in accs.values() if a.get("online")),
+            "guild_id": ws.get("guild_id", ""),
+            "channel_id": ws.get("channel_id", "")
+        })
+    return res
 ROTATOR_ENABLED = False
 ROTATOR_INTERVAL = 300
 ROTATOR_CHANNELS = []
@@ -1925,11 +2014,17 @@ def find_account(identifier):
     return None
 
 
-def online_accounts():
+def online_accounts(key=None):
+    if key and key.lower() != "all":
+        k = key.strip().lower()
+        return [a for a in ACCOUNTS.values() if a.get("online") and a.get("ws") is not None and a.get("owner_key", ACCESS_KEY).lower() == k]
     return [a for a in ACCOUNTS.values() if a.get("online") and a.get("ws") is not None]
 
 
-def voice_accounts():
+def voice_accounts(key=None):
+    if key and key.lower() != "all":
+        k = key.strip().lower()
+        return [a for a in ACCOUNTS.values() if a.get("online") and a.get("voice_channel") is not None and a.get("owner_key", ACCESS_KEY).lower() == k]
     return [a for a in ACCOUNTS.values() if a.get("online") and a.get("voice_channel") is not None]
 
 
@@ -2026,7 +2121,7 @@ async def apply(targets, channel="keep", mute="keep", deaf="keep", video="keep",
     return done
 
 
-async def add_account(token, proxy=None):
+async def add_account(token, proxy=None, owner_key=None):
     global NEXT_ID
     if not proxy:
         token, proxy = parse_token_and_proxy(token)
@@ -2034,6 +2129,8 @@ async def add_account(token, proxy=None):
         token = clean_token(token)
     if not token:
         return None
+
+    resolved_owner = (owner_key or ACCESS_KEY).strip().lower()
 
     # 🛡️ Auto-Assign Free Proxy from pool if no proxy was explicitly provided
     if not proxy and FREE_PROXY_POOL:
@@ -2059,6 +2156,7 @@ async def add_account(token, proxy=None):
             "id": aid, "token": token, "proxy": proxy, "task": None, "ws": None, "hb": None,
             "user_id": None, "name": None, "online": False, "voice_channel": None,
             "mute": False, "deaf": False, "removed": False, "error": err,
+            "owner_key": resolved_owner
         }
         ACCOUNTS[aid] = acc
         print(f"[Account {aid}] Invalid token ({err}): {token[:10]}... (added as offline, proxy={mask_proxy(proxy) or 'Direct'})")
@@ -2068,11 +2166,12 @@ async def add_account(token, proxy=None):
         "id": aid, "token": token, "proxy": proxy, "task": None, "ws": None, "hb": None,
         "user_id": user["id"], "name": user.get("username", "Unknown"), "online": False,
         "voice_channel": None, "mute": False, "deaf": False, "removed": False, "error": None,
+        "owner_key": resolved_owner
     }
     ACCOUNTS[aid] = acc
     task = asyncio.create_task(run_account(aid))
     acc["task"] = task
-    print(f"[Account {aid}] Added: {acc['name']} ({acc['user_id']}) - Proxy: {mask_proxy(proxy) or 'Direct'}")
+    print(f"[Account {aid}] Added: {acc['name']} ({acc['user_id']}) [Owner: {resolved_owner}] - Proxy: {mask_proxy(proxy) or 'Direct'}")
     sync_tokens_file()
     return aid
 
@@ -3051,20 +3150,63 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         # Suppress periodic polling logs to keep terminal output clean
         return
 
+    def get_request_key(self, payload=None):
+        # 1. Header X-Access-Key
+        key = self.headers.get("X-Access-Key") or self.headers.get("Authorization")
+        if key:
+            key = key.replace("Bearer ", "").strip()
+            if key:
+                return key
+        # 2. Query parameter (?key=... or ?access_key=...)
+        if "?" in self.path:
+            try:
+                from urllib.parse import urlparse, parse_qs
+                qs = parse_qs(urlparse(self.path).query)
+                if "key" in qs:
+                    return qs["key"][0].strip()
+                if "access_key" in qs:
+                    return qs["access_key"][0].strip()
+            except Exception:
+                pass
+        # 3. Payload key / access_key
+        if payload and isinstance(payload, dict):
+            k = payload.get("key") or payload.get("access_key")
+            if k and isinstance(k, str) and k.strip():
+                return k.strip()
+        # 4. Cookie dc_access_key
+        cookie_header = self.headers.get("Cookie", "")
+        if "dc_access_key=" in cookie_header:
+            for part in cookie_header.split(";"):
+                if "dc_access_key=" in part:
+                    return part.split("dc_access_key=")[1].strip()
+        return ACCESS_KEY
+
     def do_GET(self):
         if self.path == "/" or self.path.startswith("/?"):
             self.serve_file()
         elif self.path == "/manifest.json":
             self.serve_manifest()
-        elif self.path == "/api/status":
+        elif self.path == "/api/status" or self.path.startswith("/api/status?"):
             self.serve_status()
         elif self.path == "/api/logs":
             self.serve_logs()
         elif self.path == "/api/update":
             self.serve_update()
-        elif self.path == "/api/tokens":
-            tokens = [a.get("token") for a in ACCOUNTS.values() if a.get("token") and not is_placeholder_token(a.get("token"))]
-            resp = json.dumps({"tokens": tokens, "count": len(tokens)}).encode("utf-8")
+        elif self.path == "/api/tokens" or self.path.startswith("/api/tokens?"):
+            req_key = self.get_request_key()
+            user_accs = get_workspace_accounts(req_key)
+            tokens = [a.get("token") for a in user_accs.values() if a.get("token") and not is_placeholder_token(a.get("token"))]
+            resp = json.dumps({"tokens": tokens, "count": len(tokens), "workspace": req_key}).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Content-Length", str(len(resp)))
+            self.end_headers()
+            self.wfile.write(resp)
+        elif self.path == "/api/workspaces" or self.path.startswith("/api/workspaces?"):
+            req_key = self.get_request_key()
+            ws_list = list_all_workspaces_summary() if is_admin_key(req_key) else [get_workspace_info(req_key)]
+            resp = json.dumps({"success": True, "workspaces": ws_list, "is_admin": is_admin_key(req_key)}).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Access-Control-Allow-Origin", "*")
@@ -3114,14 +3256,27 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(500, f"Error reading UI file: {e}")
 
     def serve_status(self):
+        req_key = self.get_request_key()
+        ws_info = get_workspace_info(req_key) or {
+            "key": req_key,
+            "name": f"Space ({req_key})",
+            "is_admin": is_admin_key(req_key),
+            "guild_id": GUILD_ID,
+            "channel_id": CHANNEL_ID,
+            "presets": []
+        }
+        user_accs = get_workspace_accounts(req_key)
+        online_list = [a for a in user_accs.values() if a.get("online")]
+        voice_list = [a for a in online_list if a.get("voice_channel")]
+
         data = {
-            "total_accounts": len(ACCOUNTS),
-            "online_accounts": sum(1 for a in ACCOUNTS.values() if a.get("online")),
-            "voice_accounts": len(voice_accounts()),
+            "total_accounts": len(user_accs),
+            "online_accounts": len(online_list),
+            "voice_accounts": len(voice_list),
             "version": APP_VERSION,
             "uptime": int(time.time() - START_TIME) if START_TIME else 0,
-            "default_guild": GUILD_ID,
-            "default_channel": CHANNEL_ID,
+            "default_guild": ws_info.get("guild_id") or GUILD_ID,
+            "default_channel": ws_info.get("channel_id") or CHANNEL_ID,
             "device_type": DEVICE_TYPE,
             "auto_rejoin": AUTO_REJOIN,
             "activity_name": CUSTOM_ACTIVITY_NAME,
@@ -3132,6 +3287,12 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 "enabled": KEY_SYSTEM_ENABLED,
                 "required": True,
                 "key_hint": "hubg50"
+            },
+            "workspace": {
+                "key": ws_info.get("key", req_key),
+                "name": ws_info.get("name", f"Space ({req_key})"),
+                "is_admin": is_admin_key(req_key),
+                "all_workspaces": list_all_workspaces_summary() if is_admin_key(req_key) else [{"key": ws_info.get("key", req_key), "name": ws_info.get("name")}]
             },
             "rotator_enabled": ROTATOR_ENABLED,
             "rotator_interval": ROTATOR_INTERVAL,
@@ -3249,12 +3410,12 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             "chat_auto_responder_enabled": CHAT_AUTO_RESPONDER_ENABLED,
             "chat_auto_responder_rules": CHAT_AUTO_RESPONDER_RULES,
             "soundboard_pads": SOUNDBOARD_PADS,
-            "presets": get_channel_presets(),
+            "presets": ws_info.get("presets") if ws_info.get("presets") else get_channel_presets(),
             "voice_telemetry": {
-                "voice_connections": len(voice_accounts()),
+                "voice_connections": len(voice_list),
                 "audio_packets_sent": sum(
                     getattr(a.get("voice_conn"), "packets_sent", 0)
-                    for a in ACCOUNTS.values()
+                    for a in user_accs.values()
                     if a.get("voice_conn")
                 ),
                 "active_sfx": ACTIVE_SFX,
@@ -3281,9 +3442,10 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                     "has_proxy": bool(a.get("proxy")),
                     "device_model": get_account_fingerprint(a.get("id", 0)).get("$device", "Mobile"),
                     "country": guess_country_from_ip(a.get("proxy").split("://", 1)[-1].split("@")[-1].split(":")[0]) if a.get("proxy") else "Direct IP",
+                    "owner_key": a.get("owner_key", "hubg50"),
                     "error": a.get("error"),
                 }
-                for a in sorted(ACCOUNTS.values(), key=lambda x: x.get("id", 0))
+                for a in sorted(user_accs.values(), key=lambda x: x.get("id", 0))
             ],
         }
         resp = json.dumps(data).encode("utf-8")
@@ -3351,6 +3513,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
     def execute_action(self, payload):
         global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VOICE_FLAGS, ACTIVE_SFX, VOICE_STATUS, HUMAN_CHATTER_ENABLED, HUMAN_CHATTER_TASK, REAL_VIDEO_ACTIVE, REAL_VIDEO_MODE, REAL_VIDEO_TITLE, WEB_SHARE_URL, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE, STREAMBOT_QUEUE, STREAMBOT_CURRENT, STREAMBOT_STATUS, STREAMBOT_LOOP_MODE, STREAMBOT_VOLUME, STREAMBOT_RESOLUTION, STREAMBOT_FPS, STREAMBOT_BITRATE, STREAM_PROFILE, SPOTIFY_SONG, SPOTIFY_ARTIST, SPOTIFY_ALBUM, SPOTIFY_DURATION, VISUALIZER_MODE, STREAM_OVERLAY_ENABLED, STREAM_OVERLAY_TITLE, STREAM_OVERLAY_TICKER, CHAT_AUTO_RESPONDER_ENABLED, CHAT_AUTO_RESPONDER_RULES, DESKTOP_SCREEN_CAPTURE, AUDIO_BASS_BOOST, AUDIO_PITCH_SHIFT, AUDIO_NORMALIZER, AUDIO_EQ_PRESET, AUTO_REJOIN, CUSTOM_ACTIVITY_NAME, CUSTOM_ACTIVITY_TYPE, STEALTH_DELAY, ONE_BOT_PER_VC, ACCESS_KEY, KEY_SYSTEM_ENABLED, RECORDING_ACTIVE, RECORDING_START_TIME, RECORDING_FILENAME, STADIUM_ECHO_ENABLED, STADIUM_ECHO_DELAY_MS, PTT_ACTIVE, PTT_TOTAL_CHUNKS, TOKEN_HEALTH_INDEX, RATE_LIMIT_COOLDOWN, RATE_LIMIT_HITS, ACTIVE_RADIO_STATION, AI_COHOST_ENABLED, AI_COHOST_PERSONA, AI_COHOST_API_KEY, FREE_PROXY_POOL, PROXY_AUTO_ROTATE, PROXY_LAST_FETCH, PROXY_AUTO_FAILOVER, PROXY_AUTO_ROTATE_INTERVAL, PROXY_LAST_AUTO_ROTATE, SOUNDBOARD_PADS
         action = payload.get("action", "")
+        req_key = self.get_request_key(payload)
 
         if action == "set_desktop_screen_capture":
             DESKTOP_SCREEN_CAPTURE = bool(payload.get("enabled", True))
@@ -3433,10 +3596,67 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         if action in ("verify_key", "validate_key", "login", "check_login"):
             provided = str(payload.get("key", payload.get("password", ""))).strip()
             if not KEY_SYSTEM_ENABLED:
-                return {"success": True, "valid": True, "authenticated": True, "message": "Login successful (Key system is disabled)", "key_system_enabled": False}
-            if provided.lower() == ACCESS_KEY.lower():
-                return {"success": True, "valid": True, "authenticated": True, "message": "Access Key Verified! Welcome to dc-.", "key_system_enabled": True}
-            return {"success": False, "valid": False, "authenticated": False, "error": "Invalid access key! Please check your credentials.", "key_system_enabled": True}
+                return {"success": True, "valid": True, "authenticated": True, "key": ACCESS_KEY, "is_admin": True, "workspace_name": "Open Access", "message": "Login successful (Key system is disabled)", "key_system_enabled": False}
+            k_low = provided.lower()
+            ws = get_workspace_info(k_low)
+            if ws is not None:
+                is_adm = bool(ws.get("is_admin") or k_low == ACCESS_KEY.lower())
+                return {
+                    "success": True, "valid": True, "authenticated": True,
+                    "key": ws.get("key", provided),
+                    "is_admin": is_adm,
+                    "workspace": ws,
+                    "message": f"Access Key Verified! Welcome to {ws.get('name', 'your space')}.",
+                    "key_system_enabled": True
+                }
+            return {"success": False, "valid": False, "authenticated": False, "error": "Invalid access key! Space not found. Check credentials.", "key_system_enabled": True}
+
+        if action in ("create_user_key", "add_key", "create_workspace"):
+            if not is_admin_key(req_key):
+                return {"success": False, "error": "Unauthorized: Only master admin (hubg50) can create new user keys"}
+            new_k = str(payload.get("key", payload.get("new_key", ""))).strip()
+            name = str(payload.get("name", payload.get("workspace_name", ""))).strip()
+            if not new_k:
+                return {"success": False, "error": "New key string cannot be empty"}
+            k_low = new_k.lower()
+            if k_low in USER_WORKSPACES:
+                return {"success": False, "error": f"Key '{new_k}' already exists"}
+            USER_WORKSPACES[k_low] = {
+                "key": new_k,
+                "name": name or f"Space ({new_k})",
+                "is_admin": False,
+                "created_at": int(time.time()),
+                "guild_id": str(payload.get("guild_id", "")).strip(),
+                "channel_id": str(payload.get("channel_id", "")).strip(),
+                "presets": []
+            }
+            save_workspaces()
+            log(f"🔑 [Multi-User] Created new isolated user space for key: '{new_k}' ('{USER_WORKSPACES[k_low]['name']}')")
+            return {"success": True, "key": new_k, "name": USER_WORKSPACES[k_low]["name"], "message": f"User space '{new_k}' created successfully!"}
+
+        if action in ("delete_user_key", "delete_key", "delete_workspace"):
+            if not is_admin_key(req_key):
+                return {"success": False, "error": "Unauthorized: Only master admin (hubg50) can delete user keys"}
+            target_key = str(payload.get("key", "")).strip().lower()
+            if target_key == ACCESS_KEY.lower():
+                return {"success": False, "error": "Cannot delete master admin key"}
+            if target_key not in USER_WORKSPACES:
+                return {"success": False, "error": f"Key '{target_key}' does not exist"}
+            to_remove = [aid for aid, a in ACCOUNTS.items() if a.get("owner_key", "").lower() == target_key]
+            for aid in to_remove:
+                asyncio.run_coroutine_threadsafe(remove_account(aid), MAIN_LOOP)
+            deleted_name = USER_WORKSPACES[target_key].get("name", target_key)
+            del USER_WORKSPACES[target_key]
+            save_workspaces()
+            log(f"🗑️ [Multi-User] Deleted user space '{target_key}' ({deleted_name}) and stopped {len(to_remove)} associated bot(s)")
+            return {"success": True, "key": target_key, "removed_bots": len(to_remove), "message": f"Deleted user space '{target_key}'"}
+
+        if action in ("list_user_keys", "list_workspaces"):
+            return {
+                "success": True,
+                "is_admin": is_admin_key(req_key),
+                "workspaces": list_all_workspaces_summary() if is_admin_key(req_key) else [get_workspace_info(req_key)]
+            }
 
         if action == "set_access_key":
             cur = str(payload.get("current_key", "")).strip()
@@ -5307,25 +5527,25 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         ch = payload.get("channel_id") or CHANNEL_ID
 
         if action in ("move", "join"):
-            coro = self._run_move(ch, percent)
+            coro = self._run_move(ch, percent, key=req_key)
         elif action == "disconnect":
-            coro = self._run_disconnect(percent)
+            coro = self._run_disconnect(percent, key=req_key)
         elif action == "mute":
-            coro = self._run_mute(percent, True)
+            coro = self._run_mute(percent, True, key=req_key)
         elif action == "unmute":
-            coro = self._run_mute(percent, False)
+            coro = self._run_mute(percent, False, key=req_key)
         elif action == "deafen":
-            coro = self._run_deaf(percent, True)
+            coro = self._run_deaf(percent, True, key=req_key)
         elif action == "undeafen":
-            coro = self._run_deaf(percent, False)
+            coro = self._run_deaf(percent, False, key=req_key)
         elif action in ("video", "camera_on"):
-            coro = self._run_video(percent, True)
+            coro = self._run_video(percent, True, key=req_key)
         elif action in ("unvideo", "camera_off"):
-            coro = self._run_video(percent, False)
+            coro = self._run_video(percent, False, key=req_key)
         elif action in ("screenshare", "screen_share_on"):
-            coro = self._run_screenshare(percent, True)
+            coro = self._run_screenshare(percent, True, key=req_key)
         elif action in ("unscreenshare", "screen_share_off"):
-            coro = self._run_screenshare(percent, False)
+            coro = self._run_screenshare(percent, False, key=req_key)
         elif action in ("set_stream", "stream"):
             STREAM_TITLE = str(payload.get("title", "Live Stream")).strip()
             STREAM_URL = str(payload.get("url", "https://twitch.tv/discord")).strip()
@@ -5502,12 +5722,12 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             prx = payload.get("proxy", "").strip() or None
             if not tok:
                 return {"success": False, "error": "Token is empty"}
-            coro = add_account(tok, proxy=prx)
+            coro = add_account(tok, proxy=prx, owner_key=req_key)
         elif action == "tokens_bulk_add":
             token_list = payload.get("tokens", [])
             if not token_list:
                 return {"success": False, "error": "No tokens provided"}
-            coro = self._run_bulk_add(token_list)
+            coro = self._run_bulk_add(token_list, owner_key=req_key)
         elif action == "set_account_proxy":
             aid = payload.get("id")
             prx = payload.get("proxy", "")
@@ -5593,7 +5813,8 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 return {"success": res, "account_id": int(aid), "proxy": ACCOUNTS.get(int(aid), {}).get("proxy"), "summary": get_free_proxy_summary()}
             return {"success": False, "error": "Invalid account ID"}
         elif action == "batch_action":
-            aids = [int(x) for x in payload.get("ids", []) if str(x).isdigit()]
+            user_scope = get_workspace_accounts(req_key) if not is_admin_key(req_key) else ACCOUNTS
+            aids = [int(x) for x in payload.get("ids", []) if str(x).isdigit() and int(x) in user_scope]
             sub = payload.get("sub_action", "")
             ch = payload.get("channel_id") or CHANNEL_ID
             target_gid = payload.get("guild_id")
@@ -5615,13 +5836,17 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             elif sub == "unvideo":
                 coro = apply(targets, video=False, guild=target_gid)
             elif sub == "screenshare":
-                coro = self._run_screenshare(100, True)
+                coro = self._run_screenshare(100, True, key=req_key)
             elif sub == "unscreenshare":
-                coro = self._run_screenshare(100, False)
+                coro = self._run_screenshare(100, False, key=req_key)
             else:
                 return {"success": False, "error": f"Unknown batch sub_action: {sub}"}
         elif action == "token_remove":
             aid = payload.get("id")
+            if not is_admin_key(req_key):
+                user_scope = get_workspace_accounts(req_key)
+                if aid is not None and int(aid) not in user_scope:
+                    return {"success": False, "error": "Unauthorized: Cannot remove another user's bot"}
             coro = remove_account(aid)
         elif action.startswith("account_"):
             aid = payload.get("id")
@@ -5637,7 +5862,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    async def _run_bulk_add(self, tokens):
+    async def _run_bulk_add(self, tokens, owner_key=None):
         count = 0
         for item in tokens:
             if isinstance(item, dict):
@@ -5649,12 +5874,12 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             tok, parsed_prx = parse_token_and_proxy(raw)
             final_proxy = prx or parsed_prx
             if tok and not is_placeholder_token(tok):
-                await add_account(tok, proxy=final_proxy)
+                await add_account(tok, proxy=final_proxy, owner_key=owner_key)
                 count += 1
         return f"Loaded {count} token(s)"
 
-    async def _run_move(self, channel_id, percent):
-        targets = pick_targets(percent, online_accounts())
+    async def _run_move(self, channel_id, percent, key=None):
+        targets = pick_targets(percent, online_accounts(key=key))
         if ONE_BOT_PER_VC and len(targets) > 1:
             # Query guild channels to spread 1 bot per VC instead of grouping all into one channel
             vcs = []
@@ -5691,32 +5916,32 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         done = await apply(targets, channel=channel_id)
         return f"{done}/{len(targets)} account(s) moved to {channel_id}"
 
-    async def _run_disconnect(self, percent):
-        targets = pick_targets(percent, voice_accounts())
+    async def _run_disconnect(self, percent, key=None):
+        targets = pick_targets(percent, voice_accounts(key=key))
         done = await apply(targets, channel=None)
         return f"{done}/{len(targets)} account(s) disconnected"
 
-    async def _run_mute(self, percent, state):
-        targets = pick_targets(percent, voice_accounts())
+    async def _run_mute(self, percent, state, key=None):
+        targets = pick_targets(percent, voice_accounts(key=key))
         done = await apply(targets, mute=state)
         return f"{done}/{len(targets)} account(s) mute={state}"
 
-    async def _run_deaf(self, percent, state):
-        targets = pick_targets(percent, voice_accounts())
+    async def _run_deaf(self, percent, state, key=None):
+        targets = pick_targets(percent, voice_accounts(key=key))
         done = await apply(targets, deaf=state)
         return f"{done}/{len(targets)} account(s) deafen={state}"
 
-    async def _run_video(self, percent, state):
+    async def _run_video(self, percent, state, key=None):
         global VIDEO_SIM
         VIDEO_SIM = state
-        targets = pick_targets(percent, voice_accounts())
+        targets = pick_targets(percent, voice_accounts(key=key))
         done = await apply(targets, video=state)
         return f"{done}/{len(targets)} account(s) video={state}"
 
-    async def _run_screenshare(self, percent, state):
+    async def _run_screenshare(self, percent, state, key=None):
         global SCREEN_SHARE_SIM
         SCREEN_SHARE_SIM = state
-        targets = pick_targets(percent, voice_accounts())
+        targets = pick_targets(percent, voice_accounts(key=key))
         for a in targets:
             ws = a.get("ws")
             if ws and a.get("voice_channel"):

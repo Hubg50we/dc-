@@ -17,16 +17,22 @@ TEST_VC = "1535504524121473145"
 
 BASE_URL = ""
 
-def http_get(path):
+def http_get(path, headers=None):
     url = f"{BASE_URL}{path}"
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    h = {"User-Agent": "Mozilla/5.0"}
+    if headers:
+        h.update(headers)
+    req = urllib.request.Request(url, headers=h)
     with urllib.request.urlopen(req, timeout=5) as resp:
         return resp.status, json.loads(resp.read().decode("utf-8"))
 
-def http_post(path, data):
+def http_post(path, data, headers=None):
     url = f"{BASE_URL}{path}"
     body = json.dumps(data).encode("utf-8")
-    req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"})
+    h = {"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
+    if headers:
+        h.update(headers)
+    req = urllib.request.Request(url, data=body, headers=h)
     with urllib.request.urlopen(req, timeout=10) as resp:
         return resp.status, json.loads(resp.read().decode("utf-8"))
 
@@ -1414,6 +1420,71 @@ def run_tests():
         check("Website Login & Access Key System ('hubg50' Authentication Gate) (109th Milestone Function)", login_system_ok)
     except Exception as e:
         check("Website Login & Access Key System ('hubg50' Authentication Gate) (109th Milestone Function)", False, str(e))
+
+    # 110. Multi-User Isolated Spaces & Data Partitioning per Access Key
+    try:
+        # 1. Admin creates a new user space
+        st_c, d_c = http_post("/api/action", {
+            "action": "create_user_key",
+            "key": "test_user_alpha",
+            "name": "Alpha Isolated Space",
+            "guild_id": "999888777",
+            "channel_id": "111222333"
+        }, headers={"X-Access-Key": "hubg50"})
+        created_ok = (st_c == 200 and d_c.get("success") is True and d_c.get("key") == "test_user_alpha")
+
+        # 2. Non-admin cannot create user keys
+        st_unauth, d_unauth = http_post("/api/action", {
+            "action": "create_user_key",
+            "key": "test_user_beta",
+            "name": "Beta Space"
+        }, headers={"X-Access-Key": "test_user_alpha"})
+        unauth_blocked = (st_unauth == 200 and d_unauth.get("success") is False and "Unauthorized" in d_unauth.get("error", ""))
+
+        # 3. User alpha logs in with their key
+        st_l, d_l = http_post("/api/action", {"action": "login", "key": "test_user_alpha"})
+        login_alpha_ok = (st_l == 200 and d_l.get("valid") is True and d_l.get("is_admin") is False)
+
+        # 4. User alpha adds a bot in their space
+        st_add, d_add = http_post("/api/action", {
+            "action": "token_add",
+            "token": "alpha_isolated_token_secret_123"
+        }, headers={"X-Access-Key": "test_user_alpha"})
+        add_ok = (st_add == 200 and d_add.get("success") is True)
+
+        # 5. Verify isolation: alpha's status shows their bot, hubg50's workspace does not show alpha's bot
+        st_alpha_s, d_alpha_s = http_get("/api/status", headers={"X-Access-Key": "test_user_alpha"})
+        alpha_bots = d_alpha_s.get("accounts", [])
+        alpha_sees_bot = any(a.get("owner_key") == "test_user_alpha" for a in alpha_bots)
+
+        st_master_s, d_master_s = http_get("/api/status", headers={"X-Access-Key": "hubg50"})
+        master_bots = d_master_s.get("accounts", [])
+        master_isolated = not any(a.get("owner_key") == "test_user_alpha" for a in master_bots)
+
+        # 6. User alpha cannot remove master's bot
+        master_aid = master_bots[0]["id"] if master_bots else 1
+        st_rem_bad, d_rem_bad = http_post("/api/action", {
+            "action": "token_remove",
+            "id": master_aid
+        }, headers={"X-Access-Key": "test_user_alpha"})
+        hijack_prevented = (st_rem_bad == 200 and d_rem_bad.get("success") is False)
+
+        # 7. Workspaces listing
+        st_ws, d_ws = http_get("/api/workspaces", headers={"X-Access-Key": "hubg50"})
+        ws_list = d_ws.get("workspaces", [])
+        ws_found = any(w.get("key") == "test_user_alpha" for w in ws_list)
+
+        # 8. Clean up: Delete user space
+        st_del, d_del = http_post("/api/action", {
+            "action": "delete_user_key",
+            "key": "test_user_alpha"
+        }, headers={"X-Access-Key": "hubg50"})
+        del_ok = (st_del == 200 and d_del.get("success") is True)
+
+        mu_ok = created_ok and unauth_blocked and login_alpha_ok and add_ok and alpha_sees_bot and master_isolated and hijack_prevented and ws_found and del_ok
+        check("Multi-User Isolated Spaces & Data Partitioning per Access Key (110th Milestone Function)", mu_ok)
+    except Exception as e:
+        check("Multi-User Isolated Spaces & Data Partitioning per Access Key (110th Milestone Function)", False, str(e))
 
     # Summary
     passed = sum(1 for _, ok, _ in results if ok)
