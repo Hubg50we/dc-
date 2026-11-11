@@ -4,9 +4,16 @@ on:
   workflow_dispatch:
     inputs:
       duration_hours:
-        description: 'Run duration (hours, max 6 per session)'
+        description: 'Run duration (hours)'
         required: false
         default: '6'
+  schedule:
+    # Auto-renew every 5 hours as a 24/7 heartbeat backup
+    - cron: '0 */5 * * *'
+
+permissions:
+  actions: write
+  contents: write
 
 jobs:
   run-server:
@@ -38,12 +45,80 @@ jobs:
           curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
           chmod +x /usr/local/bin/cloudflared
 
-      - name: Start dc- Server & Expose Live Link
+      - name: Start dc- Server & 24/7 Auto-Relay
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
+          WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
           python main.py > server.log 2>&1 &
           sleep 3
+
           echo "=========================================================="
-          echo "          dc- SERVER IS ACTIVE ON GITHUB RUNNER"
+          echo "          dc- 24/7 SERVER ACTIVE ON GITHUB RUNNER"
           echo "=========================================================="
-          echo "[*] Connecting public HTTPS URL..."
-          cloudflared tunnel --url http://localhost:5000
+
+          if [ -n "$CF_TOKEN" ]; then
+            echo "[*] Launching Permanent Cloudflare Named Tunnel..."
+            cloudflared tunnel run --token "$CF_TOKEN" > tunnel.log 2>&1 &
+            LIVE_URL="Permanent Named Tunnel Active"
+          else
+            echo "[*] Requesting live HTTPS tunnel..."
+            cloudflared tunnel --url http://localhost:5000 > tunnel.log 2>&1 &
+
+            LIVE_URL=""
+            for i in {1..30}; do
+              sleep 1
+              LIVE_URL=$(grep -o 'https://[-a-z0-9]*\.trycloudflare\.com' tunnel.log | head -n 1 || true)
+              if [ -n "$LIVE_URL" ]; then
+                break
+              fi
+            done
+          fi
+
+          echo "=========================================================="
+          echo "🌐 LIVE URL: $LIVE_URL"
+          echo "=========================================================="
+
+          # Post prominent clickable banner directly to GitHub Step Summary
+          echo "## 🚀 dc- Web Controller is LIVE (24/7 Mode)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -n "$LIVE_URL" ] && [ "$LIVE_URL" != "Permanent Named Tunnel Active" ]; then
+            echo "### 🌐 [👉 Click Here to Open dc- Controller]($LIVE_URL)" >> $GITHUB_STEP_SUMMARY
+            echo "**Active Link:** \`$LIVE_URL\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### 🌐 Permanent Cloudflare Tunnel Active!" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "> ⏱️ **Auto-Relay Protection:** This session will run for 5h 40m, then automatically trigger the next relay session so your server never stops." >> $GITHUB_STEP_SUMMARY
+
+          # Optional: Send live URL to Discord Webhook
+          if [ -n "$WEBHOOK_URL" ] && [ -n "$LIVE_URL" ]; then
+            curl -s -H "Content-Type: application/json" \
+              -X POST \
+              -d "{\"content\":\"🚀 **dc- 24/7 Server is Live!**\nAccess Web Controller: $LIVE_URL\"}" \
+              "$WEBHOOK_URL" || true
+          fi
+
+          # Auto-relay loop: Run for 340 minutes (5h 40m), then auto-dispatch next session before 6h timeout
+          echo "[*] Monitoring server and running 5h 40m countdown..."
+          RUN_SECONDS=20400  # 340 minutes (5 hours 40 minutes)
+
+          while [ $RUN_SECONDS -gt 0 ]; do
+            if ! pgrep -f "main.py" > /dev/null; then
+              echo "[!] Warning: main.py died unexpectedly. Restarting..."
+              python main.py >> server.log 2>&1 &
+            fi
+            sleep 60
+            RUN_SECONDS=$((RUN_SECONDS - 60))
+          done
+
+          echo "[*] Session reached 5h 40m! Automatically spawning next 24/7 relay session..."
+          curl -s -X POST \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            https://api.github.com/repos/${{ github.repository }}/actions/workflows/run-server.yml/dispatches \
+            -d '{"ref":"main"}' || true
+
+          echo "[*] Next session successfully triggered! Gracefully wrapping up."
+          sleep 10
