@@ -58,13 +58,62 @@
       --safe-bottom: env(safe-area-inset-bottom, 0px);
     }
 
-    body.amoled-mode {
+    body.amoled-mode,
+    body.theme-amoled {
       --bg-darker: #000000;
-      --bg-dark: #07080A;
-      --bg-card: #0D0E12;
-      --bg-hover: #14161C;
-      --bg-glass: rgba(10, 10, 13, 0.92);
-      --border: rgba(255, 255, 255, 0.06);
+      --bg-dark: #050608;
+      --bg-card: #0A0B0E;
+      --bg-hover: #12141A;
+      --bg-glass: rgba(5, 6, 8, 0.94);
+      --border: rgba(255, 255, 255, 0.07);
+    }
+    body.theme-cyberpunk {
+      --bg-darker: #050814;
+      --bg-dark: #091024;
+      --bg-card: #0d1733;
+      --bg-hover: #142247;
+      --bg-glass: rgba(9, 16, 36, 0.92);
+      --accent: #00b4d8;
+      --accent-hover: #0096c7;
+      --accent-glow: rgba(0, 180, 216, 0.4);
+      --border: rgba(0, 180, 216, 0.22);
+      --border-focus: rgba(0, 180, 216, 0.7);
+    }
+    body.theme-synthwave {
+      --bg-darker: #0c0418;
+      --bg-dark: #150829;
+      --bg-card: #200c3d;
+      --bg-hover: #2e1257;
+      --bg-glass: rgba(21, 8, 41, 0.92);
+      --accent: #ec4899;
+      --accent-hover: #db2777;
+      --accent-glow: rgba(236, 72, 153, 0.4);
+      --border: rgba(236, 72, 153, 0.22);
+      --border-focus: rgba(236, 72, 153, 0.7);
+    }
+    body.theme-matrix {
+      --bg-darker: #020a04;
+      --bg-dark: #041408;
+      --bg-card: #071f0d;
+      --bg-hover: #0c2f15;
+      --bg-glass: rgba(4, 20, 8, 0.92);
+      --accent: #10b981;
+      --accent-hover: #059669;
+      --accent-glow: rgba(16, 185, 129, 0.4);
+      --border: rgba(16, 185, 129, 0.22);
+      --border-focus: rgba(16, 185, 129, 0.7);
+    }
+    body.theme-midnight {
+      --bg-darker: #030a16;
+      --bg-dark: #081326;
+      --bg-card: #0e1e3b;
+      --bg-hover: #162c54;
+      --bg-glass: rgba(8, 19, 38, 0.92);
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --accent-glow: rgba(59, 130, 246, 0.4);
+      --border: rgba(59, 130, 246, 0.22);
+      --border-focus: rgba(59, 130, 246, 0.7);
     }
 
     body.low-end-mode {
@@ -1922,6 +1971,130 @@
     <!-- TAB 4: SETTINGS & POWER -->
     <div class="tab-content" id="tab-settings">
 
+      <!-- 🎛️ Master Quick Control Center -->
+      <div class="card" style="border-color: rgba(88, 101, 242, 0.5); background: linear-gradient(135deg, rgba(16, 24, 40, 0.95), rgba(18, 14, 38, 0.95)); box-shadow: 0 4px 20px rgba(88, 101, 242, 0.15);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.4rem;">🎛️</span>
+            <div>
+              <h2 style="font-size:1.15rem; font-weight:800; color:#fff; margin:0;">Master Control Hub</h2>
+              <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">All core engine, network, and bot behaviors in 1 glance</div>
+            </div>
+          </div>
+          <span class="badge" style="background:rgba(88,101,242,0.25); color:#a5b4fc; font-weight:700;">v1.6.5 Engine</span>
+        </div>
+
+        <!-- 8 Quick Power Toggles Grid -->
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:8px; margin-bottom:4px;">
+          <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-size:0.8rem; font-weight:700; color:#fff;">🛡️ Auto-Rejoin</div>
+              <div style="font-size:0.68rem; color:var(--text-muted);">Re-connect on kick</div>
+            </div>
+            <input type="checkbox" id="master-auto-rejoin" checked onchange="toggleAutoRejoin(this.checked)" style="width:18px; height:18px; accent-color:var(--success);">
+          </div>
+
+          <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-size:0.8rem; font-weight:700; color:#fff;">🛡️ Proxy Failover</div>
+              <div style="font-size:0.68rem; color:var(--text-muted);">Switch dead proxies</div>
+            </div>
+            <input type="checkbox" id="master-proxy-failover" checked onchange="toggleAutoFailover()" style="width:18px; height:18px; accent-color:#00b4d8;">
+          </div>
+
+          <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-size:0.8rem; font-weight:700; color:#fff;">🔄 Proxy Rotate</div>
+              <div style="font-size:0.68rem; color:var(--text-muted);">Auto-rotate timer</div>
+            </div>
+            <input type="checkbox" id="master-proxy-rotate" onchange="toggleAutoRotate()" style="width:18px; height:18px; accent-color:#00b4d8;">
+          </div>
+
+          <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-size:0.8rem; font-weight:700; color:#fff;">📱 Mobile Device</div>
+              <div style="font-size:0.68rem; color:var(--text-muted);">Phone status badge</div>
+            </div>
+            <input type="checkbox" id="master-device-type" onchange="setDeviceType(this.checked ? 'mobile' : 'desktop')" style="width:18px; height:18px; accent-color:var(--accent);">
+          </div>
+
+          <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-size:0.8rem; font-weight:700; color:#fff;">🎙️ Speaking Rings</div>
+              <div style="font-size:0.68rem; color:var(--text-muted);">Green voice aura</div>
+            </div>
+            <input type="checkbox" id="master-speaking-sim" onchange="toggleSpeakingSim(this.checked)" style="width:18px; height:18px; accent-color:var(--success);">
+          </div>
+
+          <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-size:0.8rem; font-weight:700; color:#fff;">⚡ Battery Saver</div>
+              <div style="font-size:0.68rem; color:var(--text-muted);">Low-end hardware</div>
+            </div>
+            <input type="checkbox" id="master-low-end" onchange="toggleLowEndMode(this.checked)" style="width:18px; height:18px; accent-color:#f59e0b;">
+          </div>
+
+          <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-size:0.8rem; font-weight:700; color:#fff;">🤖 Chat Responder</div>
+              <div style="font-size:0.68rem; color:var(--text-muted);">Auto-reply rules</div>
+            </div>
+            <input type="checkbox" id="master-chat-responder" onchange="toggleChatAutoResponder(this.checked)" style="width:18px; height:18px; accent-color:#a855f7;">
+          </div>
+
+          <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-size:0.8rem; font-weight:700; color:#fff;">🛡️ Rejoin Shield</div>
+              <div style="font-size:0.68rem; color:var(--text-muted);">Anti-kick guard</div>
+            </div>
+            <input type="checkbox" id="master-rejoin-shield" onchange="toggleRejoinShield(this.checked)" style="width:18px; height:18px; accent-color:#10b981;">
+          </div>
+        </div>
+      </div>
+
+      <!-- 🎨 UI Themes & Visual Styling Card -->
+      <div class="card" style="border-color: rgba(0, 180, 216, 0.45); background: linear-gradient(135deg, rgba(8, 20, 36, 0.95), rgba(12, 16, 28, 0.95));">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.25rem;">🎨</span>
+            <strong style="font-size:1rem; color:#00b4d8;">UI Themes & Visual Styling</strong>
+          </div>
+          <span class="badge" id="current-theme-badge" style="background:rgba(0,180,216,0.2); color:#00b4d8; font-weight:700;">Discord Blurple</span>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px;">
+          Personalize your dashboard with custom neon palettes, true AMOLED black, and responsive glass accents.
+        </p>
+
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:8px; margin-bottom:12px;">
+          <button class="btn btn-secondary btn-sm" onclick="setAppTheme('default')" id="theme-btn-default" style="display:flex; align-items:center; justify-content:center; gap:6px; padding:8px;">
+            <span>👾</span> <span>Blurple</span>
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="setAppTheme('cyberpunk')" id="theme-btn-cyberpunk" style="display:flex; align-items:center; justify-content:center; gap:6px; padding:8px; border-color:#00b4d8; color:#00b4d8;">
+            <span>🌌</span> <span>Cyberpunk</span>
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="setAppTheme('amoled')" id="theme-btn-amoled" style="display:flex; align-items:center; justify-content:center; gap:6px; padding:8px;">
+            <span>🖤</span> <span>AMOLED</span>
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="setAppTheme('matrix')" id="theme-btn-matrix" style="display:flex; align-items:center; justify-content:center; gap:6px; padding:8px; border-color:#10b981; color:#10b981;">
+            <span>🟢</span> <span>Matrix</span>
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="setAppTheme('synthwave')" id="theme-btn-synthwave" style="display:flex; align-items:center; justify-content:center; gap:6px; padding:8px; border-color:#ec4899; color:#ec4899;">
+            <span>🌆</span> <span>Synthwave</span>
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="setAppTheme('midnight')" id="theme-btn-midnight" style="display:flex; align-items:center; justify-content:center; gap:6px; padding:8px; border-color:#3b82f6; color:#3b82f6;">
+            <span>🌃</span> <span>Midnight</span>
+          </button>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-dark); padding:8px 12px; border-radius:var(--radius-sm);">
+          <div>
+            <strong style="font-size:0.82rem; color:var(--text-heading);">Haptic Touch & Vibration Feedback</strong>
+            <div style="font-size:0.7rem; color:var(--text-muted);">Tactile vibration on mobile screen taps</div>
+          </div>
+          <input type="checkbox" id="haptic-toggle" checked onchange="toggleHapticFeedback(this.checked)" style="width:18px; height:18px; accent-color:var(--accent);">
+        </div>
+      </div>
+
       <!-- App Updates & Version Card -->
       <div class="card" style="border-color: rgba(88, 101, 242, 0.45);">
         <div class="card-title" style="color:var(--accent);">
@@ -3247,14 +3420,61 @@
     let selectedAccountIds = new Set();
     let tokenHealthMap = {};
     let isAmoled = false;
+    let hapticEnabled = localStorage.getItem('dc_haptic') !== 'false';
 
     function vibrate(ms = 15) {
+      if (!hapticEnabled) return;
       if (window.AndroidBridge && window.AndroidBridge.vibrate) {
         try { window.AndroidBridge.vibrate(ms); return; } catch (e) {}
       }
       if (navigator.vibrate) {
         try { navigator.vibrate(ms); } catch (e) {}
       }
+    }
+
+    function toggleHapticFeedback(enabled) {
+      hapticEnabled = !!enabled;
+      localStorage.setItem('dc_haptic', hapticEnabled ? 'true' : 'false');
+      if (hapticEnabled) vibrate(25);
+      showToast(hapticEnabled ? 'Haptics: Enabled' : 'Haptics: Disabled');
+    }
+
+    function setAppTheme(theme) {
+      document.body.classList.remove('theme-amoled', 'theme-cyberpunk', 'theme-synthwave', 'theme-matrix', 'theme-midnight', 'amoled-mode');
+      const badge = document.getElementById('current-theme-badge');
+      const meta = document.getElementById('meta-theme-color');
+      
+      let badgeName = 'Discord Blurple';
+      let metaColor = '#1e1f22';
+      
+      if (theme === 'amoled') {
+        document.body.classList.add('theme-amoled', 'amoled-mode');
+        badgeName = 'AMOLED Black 🖤';
+        metaColor = '#000000';
+      } else if (theme === 'cyberpunk') {
+        document.body.classList.add('theme-cyberpunk');
+        badgeName = 'Cyberpunk Neon 🌌';
+        metaColor = '#050814';
+      } else if (theme === 'matrix') {
+        document.body.classList.add('theme-matrix');
+        badgeName = 'Matrix Emerald 🟢';
+        metaColor = '#020a04';
+      } else if (theme === 'synthwave') {
+        document.body.classList.add('theme-synthwave');
+        badgeName = 'Synthwave 80s 🌆';
+        metaColor = '#0c0418';
+      } else if (theme === 'midnight') {
+        document.body.classList.add('theme-midnight');
+        badgeName = 'Midnight Navy 🌃';
+        metaColor = '#030a16';
+      }
+      
+      if (badge) badge.innerText = badgeName;
+      if (meta) meta.setAttribute('content', metaColor);
+      localStorage.setItem('dc_theme', theme);
+      vibrate(20);
+      showToast(`Theme applied: ${badgeName}`);
+    }
     }
 
     function copyTextToClipboard(text) {
@@ -3753,6 +3973,31 @@
           spBadge.className = data.speaking_sim ? 'badge badge-online' : 'badge badge-voice';
         }
       }
+
+      // Master Quick Toggles Synchronization
+      const mAr = document.getElementById('master-auto-rejoin');
+      if (mAr && document.activeElement !== mAr && data.auto_rejoin !== undefined) mAr.checked = !!data.auto_rejoin;
+
+      const mPf = document.getElementById('master-proxy-failover');
+      if (mPf && document.activeElement !== mPf && data.proxy_summary && data.proxy_summary.auto_failover !== undefined) mPf.checked = !!data.proxy_summary.auto_failover;
+
+      const mPr = document.getElementById('master-proxy-rotate');
+      if (mPr && document.activeElement !== mPr && data.proxy_summary && data.proxy_summary.auto_rotate !== undefined) mPr.checked = !!data.proxy_summary.auto_rotate;
+
+      const mDev = document.getElementById('master-device-type');
+      if (mDev && document.activeElement !== mDev && data.device_type !== undefined) mDev.checked = data.device_type === 'mobile';
+
+      const mSpk = document.getElementById('master-speaking-sim');
+      if (mSpk && document.activeElement !== mSpk && data.speaking_sim !== undefined) mSpk.checked = !!data.speaking_sim;
+
+      const mLow = document.getElementById('master-low-end');
+      if (mLow && document.activeElement !== mLow) mLow.checked = document.body.classList.contains('low-end-mode');
+
+      const mChat = document.getElementById('master-chat-responder');
+      if (mChat && document.activeElement !== mChat && data.chat_auto_responder_enabled !== undefined) mChat.checked = !!data.chat_auto_responder_enabled;
+
+      const mShd = document.getElementById('master-rejoin-shield');
+      if (mShd && document.activeElement !== mShd && data.rejoin_shield_enabled !== undefined) mShd.checked = !!data.rejoin_shield_enabled;
 
       if (data.rotator_enabled !== undefined) {
         const rToggle = document.getElementById('rotator-toggle');
@@ -8412,6 +8657,12 @@
     // Initialize saved language
     const savedLang = localStorage.getItem('dc_lang') || 'en';
     switchLanguage(savedLang);
+
+    // Initialize saved theme & haptics
+    const savedTheme = localStorage.getItem('dc_theme') || 'default';
+    setAppTheme(savedTheme);
+    const hapticToggle = document.getElementById('haptic-toggle');
+    if (hapticToggle) hapticToggle.checked = hapticEnabled;
 
     fetchStatus();
     fetchLogs();
