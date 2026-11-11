@@ -1930,8 +1930,14 @@ async def run_account(aid):
         ws = None
         ws_kwargs = {"max_size": 50 * 1024 * 1024}
         proxy_url = acc.get("proxy")
+        # Ensure websockets version supports native proxy argument; fallback to direct if proxy kwarg unsupported
         if proxy_url:
-            ws_kwargs["proxy"] = proxy_url
+            import inspect
+            sig = inspect.signature(websockets.connect)
+            if "proxy" in sig.parameters:
+                ws_kwargs["proxy"] = proxy_url
+            else:
+                log(f"[Account {aid}] Notice: installed websockets doesn't support 'proxy' kwarg, connecting direct.")
         try:
             async with websockets.connect(uri, **ws_kwargs) as ws:
                 hello = json.loads(await asyncio.wait_for(ws.recv(), timeout=15))
