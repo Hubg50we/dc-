@@ -1023,10 +1023,15 @@
         This Discord Controller is protected. Enter the authorized access key to log in.
       </p>
 
+      <div style="margin-bottom:12px; text-align:left;">
+        <label style="font-size:0.75rem; font-weight:700; color:#cbd5e1; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:5px; display:block;">👤 Username</label>
+        <input type="text" id="login-username-input" placeholder="Enter username..." style="width:100%; padding:12px 14px; background:rgba(0,0,0,0.45); border:1px solid rgba(255,255,255,0.18); border-radius:12px; color:#fff; font-size:0.95rem; font-family:inherit; outline:none; transition:border 0.2s;" onfocus="this.style.borderColor='#818cf8'" onblur="this.style.borderColor='rgba(255,255,255,0.18)'" onkeydown="if(event.key==='Enter') document.getElementById('login-password-input').focus()">
+      </div>
+
       <div style="margin-bottom:16px; text-align:left;">
-        <label style="font-size:0.75rem; font-weight:700; color:#cbd5e1; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:6px; display:block;">Access Key / Password</label>
+        <label style="font-size:0.75rem; font-weight:700; color:#cbd5e1; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:5px; display:block;">🔒 Password</label>
         <div style="position:relative; display:flex; align-items:center;">
-          <input type="password" id="login-key-input" placeholder="Enter your access key..." style="width:100%; padding:13px 44px 13px 14px; background:rgba(0,0,0,0.45); border:1px solid rgba(255,255,255,0.18); border-radius:12px; color:#fff; font-size:1rem; font-family:monospace; outline:none; transition:border 0.2s;" onfocus="this.style.borderColor='#818cf8'" onblur="this.style.borderColor='rgba(255,255,255,0.18)'" onkeydown="if(event.key==='Enter') submitLogin()">
+          <input type="password" id="login-password-input" placeholder="Enter password..." style="width:100%; padding:12px 44px 12px 14px; background:rgba(0,0,0,0.45); border:1px solid rgba(255,255,255,0.18); border-radius:12px; color:#fff; font-size:0.95rem; font-family:monospace; outline:none; transition:border 0.2s;" onfocus="this.style.borderColor='#818cf8'" onblur="this.style.borderColor='rgba(255,255,255,0.18)'" onkeydown="if(event.key==='Enter') submitLogin()">
           <span onclick="toggleLoginKeyVisibility()" style="position:absolute; right:14px; cursor:pointer; font-size:1.15rem; user-select:none; opacity:0.75;" title="Toggle Password Visibility">👁️</span>
         </div>
         <div id="login-error-msg" style="display:none; color:#f87171; font-size:0.8rem; margin-top:8px; font-weight:600; text-align:left; background:rgba(239,68,68,0.12); padding:6px 10px; border-radius:8px; border:1px solid rgba(239,68,68,0.25);"></div>
@@ -2284,41 +2289,46 @@
           Each access key gets its own 100% dedicated, isolated workspace. Bots, voice channels, server IDs, and presets do <strong>not mix</strong> between keys.
         </p>
 
-        <!-- Admin Only Key Creator -->
+        <!-- Admin Only User Account & Space Creator -->
         <div id="admin-workspace-creator" style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:12px; margin-bottom:14px;">
-          <strong style="font-size:0.85rem; color:#f1f5f9; display:block; margin-bottom:8px;">➕ Create New User Key & Isolated Space</strong>
+          <strong style="font-size:0.85rem; color:#f1f5f9; display:block; margin-bottom:8px;">➕ Create New User Account & Space</strong>
           <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:8px; margin-bottom:10px;">
             <div>
-              <label style="font-size:0.72rem; color:var(--text-muted); display:block; margin-bottom:3px;">User Key Code (Login Secret):</label>
-              <input type="text" id="new-user-key-input" placeholder="e.g. user_alpha, gamer123" style="width:100%; padding:8px 10px; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; color:#fff; font-family:monospace; font-size:0.82rem;">
+              <label style="font-size:0.72rem; color:var(--text-muted); display:block; margin-bottom:3px;">👤 Username (Login):</label>
+              <input type="text" id="new-user-username-input" placeholder="e.g. user_alpha" style="width:100%; padding:8px 10px; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; color:#fff; font-size:0.82rem;">
             </div>
             <div>
-              <label style="font-size:0.72rem; color:var(--text-muted); display:block; margin-bottom:3px;">Space / Team Name:</label>
+              <label style="font-size:0.72rem; color:var(--text-muted); display:block; margin-bottom:3px;">🔒 Password:</label>
+              <input type="password" id="new-user-password-input" placeholder="e.g. secretPass123" style="width:100%; padding:8px 10px; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; color:#fff; font-family:monospace; font-size:0.82rem;">
+            </div>
+            <div>
+              <label style="font-size:0.72rem; color:var(--text-muted); display:block; margin-bottom:3px;">📁 Space / Team Name:</label>
               <input type="text" id="new-user-space-name" placeholder="e.g. Alpha Squad Space" style="width:100%; padding:8px 10px; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; color:#fff; font-size:0.82rem;">
             </div>
             <div>
-              <label style="font-size:0.72rem; color:var(--text-muted); display:block; margin-bottom:3px;">Default Server (Guild ID) [Optional]:</label>
+              <label style="font-size:0.72rem; color:var(--text-muted); display:block; margin-bottom:3px;">🌐 Default Server ID [Optional]:</label>
               <input type="text" id="new-user-guild-id" placeholder="e.g. 1535504524121473145" style="width:100%; padding:8px 10px; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; color:#fff; font-size:0.82rem;">
             </div>
           </div>
           <button onclick="createNewUserKey()" class="btn btn-primary btn-sm" style="background:linear-gradient(135deg, #0284c7, #06b6d4); border:none; display:flex; align-items:center; gap:6px;">
             <span>➕</span>
-            <span>Generate User Space & Key</span>
+            <span>Create User Account & Space</span>
           </button>
         </div>
 
         <!-- Workspaces Table / List -->
         <div>
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <strong style="font-size:0.85rem; color:#f1f5f9;">Active User Spaces & Data Segments</strong>
-            <button onclick="loadWorkspacesList()" class="btn btn-secondary btn-sm" style="font-size:0.7rem; padding:3px 8px;">↻ Refresh Spaces</button>
+            <strong style="font-size:0.85rem; color:#f1f5f9;">Active User Accounts & Isolated Spaces</strong>
+            <button onclick="loadWorkspacesList()" class="btn btn-secondary btn-sm" style="font-size:0.7rem; padding:3px 8px;">↻ Refresh Users</button>
           </div>
           <div style="overflow-x:auto;">
             <table style="width:100%; border-collapse:collapse; font-size:0.78rem;" id="workspaces-table">
               <thead>
                 <tr style="border-bottom:1px solid var(--border); color:var(--text-muted); text-align:left;">
+                  <th style="padding:6px;">Username</th>
                   <th style="padding:6px;">Space Name</th>
-                  <th style="padding:6px;">Access Key</th>
+                  <th style="padding:6px;">Password</th>
                   <th style="padding:6px;">Bots</th>
                   <th style="padding:6px;">Role</th>
                   <th style="padding:6px; text-align:right;">Actions</th>
@@ -2326,7 +2336,7 @@
               </thead>
               <tbody id="workspaces-table-body">
                 <tr>
-                  <td colspan="5" style="padding:10px; text-align:center; color:var(--text-muted);">Loading user spaces...</td>
+                  <td colspan="6" style="padding:10px; text-align:center; color:var(--text-muted);">Loading user spaces...</td>
                 </tr>
               </tbody>
             </table>
@@ -9047,7 +9057,12 @@
       const portal = document.getElementById('login-portal-screen');
       if (!portal) return;
 
-      if (currentAccessKey) {
+      const savedUser = localStorage.getItem('dc_username') || sessionStorage.getItem('dc_username') || '';
+      const savedPass = localStorage.getItem('dc_password') || sessionStorage.getItem('dc_password') || currentAccessKey;
+
+      if (savedUser && savedPass) {
+        verifyStoredCredentials(savedUser, savedPass);
+      } else if (currentAccessKey) {
         verifyStoredKey(currentAccessKey);
       } else {
         showLoginPortal();
@@ -9060,11 +9075,13 @@
       if (portal) {
         portal.style.display = 'flex';
         setTimeout(() => {
-          const inp = document.getElementById('login-key-input');
-          if (inp) {
-            inp.focus();
-            if (!inp.value && currentAccessKey) inp.value = currentAccessKey;
+          const uInp = document.getElementById('login-username-input');
+          const pInp = document.getElementById('login-password-input');
+          if (uInp && !uInp.value) {
+            uInp.value = localStorage.getItem('dc_username') || 'admin';
           }
+          if (uInp && !uInp.value) uInp.focus();
+          else if (pInp) pInp.focus();
         }, 150);
       }
     }
@@ -9078,21 +9095,23 @@
     }
 
     function toggleLoginKeyVisibility() {
-      const inp = document.getElementById('login-key-input');
+      const inp = document.getElementById('login-password-input');
       if (!inp) return;
       inp.type = inp.type === 'password' ? 'text' : 'password';
     }
 
     async function submitLogin() {
-      const inp = document.getElementById('login-key-input');
+      const uInp = document.getElementById('login-username-input');
+      const pInp = document.getElementById('login-password-input');
       const err = document.getElementById('login-error-msg');
       const btn = document.getElementById('btn-login-submit');
-      if (!inp) return;
 
-      const val = inp.value.trim();
-      if (!val) {
+      const uVal = (uInp && uInp.value.trim()) || '';
+      const pVal = (pInp && pInp.value.trim()) || '';
+
+      if (!pVal) {
         if (err) {
-          err.innerText = '⚠️ Please enter your access key.';
+          err.innerText = '⚠️ Please enter your password.';
           err.style.display = 'block';
         }
         return;
@@ -9105,36 +9124,61 @@
         const res = await fetch('/api/action', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'login', key: val })
+          body: JSON.stringify({ action: 'login', username: uVal, password: pVal })
         });
         const data = await res.json();
 
-        if (data && (data.valid || data.authenticated || val.toLowerCase() === 'hubg50')) {
-          currentAccessKey = val;
-          document.cookie = "dc_access_key=" + encodeURIComponent(val) + "; path=/; max-age=31536000; SameSite=Lax";
+        if (data && (data.valid || data.authenticated)) {
+          const resolvedUser = data.username || uVal || 'admin';
+          currentAccessKey = data.key || resolvedUser;
+          document.cookie = "dc_access_key=" + encodeURIComponent(currentAccessKey) + "; path=/; max-age=31536000; SameSite=Lax";
+          document.cookie = "dc_username=" + encodeURIComponent(resolvedUser) + "; path=/; max-age=31536000; SameSite=Lax";
           const remember = document.getElementById('login-remember-me');
           if (remember && remember.checked) {
-            localStorage.setItem('dc_access_key', val);
+            localStorage.setItem('dc_access_key', currentAccessKey);
+            localStorage.setItem('dc_username', resolvedUser);
+            localStorage.setItem('dc_password', pVal);
           } else {
-            sessionStorage.setItem('dc_access_key', val);
+            sessionStorage.setItem('dc_access_key', currentAccessKey);
+            sessionStorage.setItem('dc_username', resolvedUser);
+            sessionStorage.setItem('dc_password', pVal);
           }
           hideLoginPortal();
-          updateKeySettingsUI(val, true);
-          showToast('🔓 Access Granted! Welcome to dc- v1.6.6');
+          updateKeySettingsUI(currentAccessKey, true);
+          showToast(`🔓 Access Granted! Welcome, ${resolvedUser}`);
           fetchStatus();
         } else {
           if (err) {
-            err.innerText = data.error || '❌ Invalid access key. Please check your credentials.';
+            err.innerText = data.error || '❌ Invalid username or password.';
             err.style.display = 'block';
           }
         }
       } catch (e) {
         if (err) {
-          err.innerText = '❌ Invalid access key. Please try again.';
+          err.innerText = '❌ Authentication error. Please try again.';
           err.style.display = 'block';
         }
       } finally {
         if (btn) btn.innerHTML = '<span>🔓</span><span>Login to Dashboard</span>';
+      }
+    }
+
+    async function verifyStoredCredentials(username, password) {
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'login', username: username, password: password })
+        });
+        const data = await res.json();
+        if (data && (data.valid || data.authenticated)) {
+          hideLoginPortal();
+          updateKeySettingsUI(username, true);
+        } else {
+          showLoginPortal();
+        }
+      } catch (e) {
+        showLoginPortal();
       }
     }
 
@@ -9175,11 +9219,16 @@
 
     function logoutDashboard() {
       localStorage.removeItem('dc_access_key');
+      localStorage.removeItem('dc_username');
+      localStorage.removeItem('dc_password');
       sessionStorage.removeItem('dc_access_key');
+      sessionStorage.removeItem('dc_username');
+      sessionStorage.removeItem('dc_password');
       document.cookie = "dc_access_key=; path=/; max-age=0;";
+      document.cookie = "dc_username=; path=/; max-age=0;";
       currentAccessKey = '';
-      const inp = document.getElementById('login-key-input');
-      if (inp) inp.value = '';
+      const pInp = document.getElementById('login-password-input');
+      if (pInp) pInp.value = '';
       const err = document.getElementById('login-error-msg');
       if (err) err.style.display = 'none';
       showLoginPortal();
@@ -9204,32 +9253,35 @@
       const tbody = document.getElementById('workspaces-table-body');
       if (!tbody) return;
       if (!workspaces || !workspaces.length) {
-        tbody.innerHTML = '<tr><td colspan="5" style="padding:10px; text-align:center; color:var(--text-muted);">No user spaces registered yet.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="padding:10px; text-align:center; color:var(--text-muted);">No user spaces registered yet.</td></tr>';
         return;
       }
       const cur = (currentKey || currentAccessKey || '').toLowerCase();
       let html = '';
       workspaces.forEach(ws => {
-        const k = (ws.key || '').trim();
-        const isCurrent = k.toLowerCase() === cur;
+        const u = (ws.username || ws.key || '').trim();
+        const isCurrent = u.toLowerCase() === cur;
         const isWsAdmin = Boolean(ws.is_admin);
         const botCount = ws.total_accounts !== undefined ? ws.total_accounts : 0;
         const onlineCount = ws.online_accounts !== undefined ? ws.online_accounts : 0;
-        const name = ws.name || (isWsAdmin ? 'Master Workspace' : `Space (${k})`);
+        const name = ws.name || (isWsAdmin ? 'Master Workspace' : `Space (${u})`);
 
         html += `
           <tr style="border-bottom:1px solid rgba(255,255,255,0.06); background:${isCurrent ? 'rgba(88,101,242,0.12)' : 'transparent'};">
             <td style="padding:8px 6px;">
               <div style="font-weight:700; color:${isCurrent ? '#c084fc' : '#fff'}; display:flex; align-items:center; gap:5px;">
-                <span>${isWsAdmin ? '👑' : '📁'}</span>
-                <span>${name}</span>
+                <span>${isWsAdmin ? '👑' : '👤'}</span>
+                <span>${u}</span>
                 ${isCurrent ? '<span style="font-size:0.65rem; background:rgba(168,85,247,0.3); color:#e9d5ff; padding:1px 5px; border-radius:6px;">ACTIVE</span>' : ''}
               </div>
             </td>
+            <td style="padding:8px 6px; color:#e2e8f0; font-weight:600;">
+              ${name}
+            </td>
             <td style="padding:8px 6px;">
               <div style="display:flex; align-items:center; gap:4px;">
-                <span id="key-display-${k}" style="font-family:monospace; background:rgba(0,0,0,0.35); padding:2px 6px; border-radius:4px; color:#93c5fd; font-size:0.75rem;">••••••••</span>
-                <button onclick="toggleKeyReveal('${k}')" class="btn btn-secondary btn-sm" style="font-size:0.6rem; padding:1px 4px;" title="Reveal Key">👁️</button>
+                <span id="key-display-${u}" style="font-family:monospace; background:rgba(0,0,0,0.35); padding:2px 6px; border-radius:4px; color:#93c5fd; font-size:0.75rem;">••••••••</span>
+                <button onclick="toggleKeyReveal('${u}')" class="btn btn-secondary btn-sm" style="font-size:0.6rem; padding:1px 4px;" title="Reveal Password">👁️</button>
               </div>
             </td>
             <td style="padding:8px 6px;">
@@ -9244,15 +9296,15 @@
             <td style="padding:8px 6px; text-align:right;">
               <div style="display:inline-flex; gap:5px;">
                 ${!isCurrent ? `
-                  <button onclick="switchWorkspace('${k}')" class="btn btn-secondary btn-sm" style="font-size:0.68rem; padding:2px 8px; border-color:rgba(139,92,246,0.35); color:#c084fc;" title="Enter this space">
+                  <button onclick="switchWorkspace('${u}')" class="btn btn-secondary btn-sm" style="font-size:0.68rem; padding:2px 8px; border-color:rgba(139,92,246,0.35); color:#c084fc;" title="Enter this space">
                     Switch
                   </button>
                 ` : ''}
-                <button onclick="copyWorkspaceLink('${k}')" class="btn btn-secondary btn-sm" style="font-size:0.68rem; padding:2px 6px;" title="Copy shareable link with key">
+                <button onclick="copyWorkspaceLink('${u}')" class="btn btn-secondary btn-sm" style="font-size:0.68rem; padding:2px 6px;" title="Copy shareable link">
                   🔗
                 </button>
                 ${(isAdmin && !isWsAdmin) ? `
-                  <button onclick="deleteUserKey('${k}')" class="btn btn-secondary btn-sm" style="font-size:0.68rem; padding:2px 6px; color:#f87171; border-color:rgba(239,68,68,0.3);" title="Delete this user space">
+                  <button onclick="deleteUserKey('${u}')" class="btn btn-secondary btn-sm" style="font-size:0.68rem; padding:2px 6px; color:#f87171; border-color:rgba(239,68,68,0.3);" title="Delete this user space">
                     🗑️
                   </button>
                 ` : ''}
@@ -9277,17 +9329,22 @@
     }
 
     async function createNewUserKey() {
-      const keyInput = document.getElementById('new-user-key-input');
-      const nameInput = document.getElementById('new-user-space-name');
-      const gidInput = document.getElementById('new-user-guild-id');
-      if (!keyInput) return;
+      const uInp = document.getElementById('new-user-username-input');
+      const pInp = document.getElementById('new-user-password-input');
+      const nameInp = document.getElementById('new-user-space-name');
+      const gidInp = document.getElementById('new-user-guild-id');
 
-      const keyVal = keyInput.value.trim();
-      const nameVal = (nameInput && nameInput.value.trim()) || `Space (${keyVal})`;
-      const gidVal = (gidInput && gidInput.value.trim()) || '';
+      const uVal = (uInp && uInp.value.trim()) || '';
+      const pVal = (pInp && pInp.value.trim()) || '';
+      const nameVal = (nameInp && nameInp.value.trim()) || `Space (${uVal})`;
+      const gidVal = (gidInp && gidInp.value.trim()) || '';
 
-      if (!keyVal) {
-        showToast('⚠️ Please enter a user key code', true);
+      if (!uVal) {
+        showToast('⚠️ Please enter a username', true);
+        return;
+      }
+      if (!pVal) {
+        showToast('⚠️ Please enter a password', true);
         return;
       }
 
@@ -9296,18 +9353,29 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            action: 'create_user_key',
-            key: keyVal,
+            action: 'create_user',
+            username: uVal,
+            password: pVal,
             name: nameVal,
             guild_id: gidVal
           })
         });
         const data = await res.json();
         if (data && data.success) {
-          showToast(`🏢 User space '${keyVal}' created successfully!`);
-          keyInput.value = '';
-          if (nameInput) nameInput.value = '';
-          if (gidInput) gidInput.value = '';
+          showToast(`🏢 User '${uVal}' created successfully!`);
+          if (uInp) uInp.value = '';
+          if (pInp) pInp.value = '';
+          if (nameInp) nameInp.value = '';
+          if (gidInp) gidInp.value = '';
+          fetchStatus();
+          loadWorkspacesList();
+        } else {
+          showToast(data.error || 'Failed to create user space', true);
+        }
+      } catch (e) {
+        showToast('Error: ' + e.message, true);
+      }
+    }
           fetchStatus();
           loadWorkspacesList();
         } else {

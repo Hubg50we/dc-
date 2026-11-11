@@ -97,7 +97,9 @@ CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
 CUSTOM_ACTIVITY_TYPE = int(os.environ.get("ACTIVITY_TYPE", "0"))
 STEALTH_DELAY = float(os.environ.get("STEALTH_DELAY", "3.0"))
 ONE_BOT_PER_VC = os.environ.get("ONE_BOT_PER_VC", "false").lower() in ("true", "1", "yes")
-ACCESS_KEY = os.environ.get("DC_ACCESS_KEY", "hubg50")
+ADMIN_USERNAME = os.environ.get("DC_ADMIN_USER", "admin")
+ADMIN_PASSWORD = os.environ.get("DC_ACCESS_KEY", "hubg50")
+ACCESS_KEY = ADMIN_PASSWORD
 KEY_SYSTEM_ENABLED = os.environ.get("KEY_SYSTEM_ENABLED", "true").lower() in ("true", "1", "yes")
 
 # Multi-User Workspaces & Isolated Space Registry
@@ -107,8 +109,10 @@ USER_WORKSPACES = {}
 def load_workspaces():
     global USER_WORKSPACES
     default_ws = {
-        ACCESS_KEY.lower(): {
-            "key": ACCESS_KEY,
+        ADMIN_USERNAME.lower(): {
+            "username": ADMIN_USERNAME,
+            "password": ADMIN_PASSWORD,
+            "key": ADMIN_USERNAME,
             "name": "Master Workspace",
             "is_admin": True,
             "created_at": int(time.time()),
@@ -130,8 +134,14 @@ def load_workspaces():
     else:
         USER_WORKSPACES = default_ws
 
-    if ACCESS_KEY.lower() not in USER_WORKSPACES:
-        USER_WORKSPACES[ACCESS_KEY.lower()] = default_ws[ACCESS_KEY.lower()]
+    admin_key = ADMIN_USERNAME.lower()
+    if admin_key not in USER_WORKSPACES:
+        USER_WORKSPACES[admin_key] = default_ws[admin_key]
+    else:
+        if not USER_WORKSPACES[admin_key].get("password"):
+            USER_WORKSPACES[admin_key]["password"] = ADMIN_PASSWORD
+        if not USER_WORKSPACES[admin_key].get("username"):
+            USER_WORKSPACES[admin_key]["username"] = ADMIN_USERNAME
 
 def save_workspaces():
     try:
@@ -142,13 +152,65 @@ def save_workspaces():
 
 load_workspaces()
 
+def authenticate_user(username=None, password=None):
+    u = (username or "").strip().lower()
+    p = (password or "").strip()
+
+    # 1. Master admin match
+    if (u in (ADMIN_USERNAME.lower(), "admin", "hubg50", "") and p == ADMIN_PASSWORD) or (p == ADMIN_PASSWORD and not u):
+        return {
+            "valid": True,
+            "username": ADMIN_USERNAME,
+            "key": ADMIN_USERNAME,
+            "name": "Master Workspace",
+            "is_admin": True,
+            "guild_id": GUILD_ID,
+            "channel_id": CHANNEL_ID,
+            "presets": []
+        }
+
+    # 2. Match against registered user workspaces
+    for ws_k, ws in USER_WORKSPACES.items():
+        ws_user = (ws.get("username") or ws.get("key") or ws_k).strip().lower()
+        ws_pass = (ws.get("password") or ws.get("key") or "").strip()
+        # Direct username and password match
+        if u and u == ws_user and p and p == ws_pass:
+            return {
+                "valid": True,
+                "username": ws.get("username", ws_k),
+                "key": ws.get("key", ws_k),
+                "name": ws.get("name", f"Space ({ws_k})"),
+                "is_admin": bool(ws.get("is_admin") or ws_user == ADMIN_USERNAME.lower()),
+                "guild_id": ws.get("guild_id", ""),
+                "channel_id": ws.get("channel_id", ""),
+                "presets": ws.get("presets", [])
+            }
+        # Fallback if user passed key as password or single credential
+        if not u and p and (ws_pass == p or ws_k == p.lower()):
+            return {
+                "valid": True,
+                "username": ws.get("username", ws_k),
+                "key": ws.get("key", ws_k),
+                "name": ws.get("name", f"Space ({ws_k})"),
+                "is_admin": bool(ws.get("is_admin") or ws_k == ADMIN_USERNAME.lower()),
+                "guild_id": ws.get("guild_id", ""),
+                "channel_id": ws.get("channel_id", ""),
+                "presets": ws.get("presets", [])
+            }
+
+    return None
+
 def get_workspace_info(key):
-    k = (key or ACCESS_KEY).strip().lower()
+    k = (key or ADMIN_USERNAME).strip().lower()
     if k in USER_WORKSPACES:
         return USER_WORKSPACES[k]
-    if k == ACCESS_KEY.lower():
+    for ws_k, ws in USER_WORKSPACES.items():
+        if (ws.get("username", "").strip().lower() == k) or (ws.get("key", "").strip().lower() == k):
+            return ws
+    if k in (ADMIN_USERNAME.lower(), ACCESS_KEY.lower(), "admin", "hubg50"):
         return {
-            "key": ACCESS_KEY,
+            "username": ADMIN_USERNAME,
+            "key": ADMIN_USERNAME,
             "name": "Master Workspace",
             "is_admin": True,
             "guild_id": GUILD_ID,
@@ -159,28 +221,35 @@ def get_workspace_info(key):
 
 def is_admin_key(key):
     k = (key or "").strip().lower()
-    if k == ACCESS_KEY.lower():
+    if k in (ADMIN_USERNAME.lower(), ACCESS_KEY.lower(), "admin", "hubg50"):
         return True
-    ws = USER_WORKSPACES.get(k)
+    ws = get_workspace_info(k)
     return bool(ws and ws.get("is_admin"))
 
 def get_workspace_accounts(key):
-    k = (key or ACCESS_KEY).strip().lower()
+    k = (key or ADMIN_USERNAME).strip().lower()
     if k == "all":
         return ACCOUNTS
+    if is_admin_key(k):
+        return {
+            aid: a for aid, a in ACCOUNTS.items()
+            if a.get("owner_key", ADMIN_USERNAME).lower() in (ADMIN_USERNAME.lower(), ACCESS_KEY.lower(), "admin", "hubg50")
+        }
     return {
         aid: a for aid, a in ACCOUNTS.items()
-        if a.get("owner_key", ACCESS_KEY).lower() == k
+        if a.get("owner_key", "").lower() == k
     }
 
 def list_all_workspaces_summary():
     res = []
     for k, ws in USER_WORKSPACES.items():
-        accs = get_workspace_accounts(k)
+        user_id = ws.get("username", ws.get("key", k))
+        accs = get_workspace_accounts(user_id)
         res.append({
-            "key": ws.get("key", k),
-            "name": ws.get("name", f"Space ({k})"),
-            "is_admin": bool(ws.get("is_admin") or k == ACCESS_KEY.lower()),
+            "username": ws.get("username", user_id),
+            "key": ws.get("key", user_id),
+            "name": ws.get("name", f"Space ({user_id})"),
+            "is_admin": bool(ws.get("is_admin") or user_id.lower() in (ADMIN_USERNAME.lower(), "admin", "hubg50")),
             "created_at": ws.get("created_at", 0),
             "total_accounts": len(accs),
             "online_accounts": sum(1 for a in accs.values() if a.get("online")),
@@ -3593,36 +3662,50 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             }
 
         if action in ("verify_key", "validate_key", "login", "check_login"):
-            provided = str(payload.get("key", payload.get("password", ""))).strip()
+            username = str(payload.get("username", payload.get("user", ""))).strip()
+            password = str(payload.get("password", payload.get("pass", payload.get("key", "")))).strip()
             if not KEY_SYSTEM_ENABLED:
-                return {"success": True, "valid": True, "authenticated": True, "key": ACCESS_KEY, "is_admin": True, "workspace_name": "Open Access", "message": "Login successful (Key system is disabled)", "key_system_enabled": False}
-            k_low = provided.lower()
-            ws = get_workspace_info(k_low)
-            if ws is not None:
-                is_adm = bool(ws.get("is_admin") or k_low == ACCESS_KEY.lower())
                 return {
                     "success": True, "valid": True, "authenticated": True,
-                    "key": ws.get("key", provided),
-                    "is_admin": is_adm,
-                    "workspace": ws,
-                    "message": f"Access Key Verified! Welcome to {ws.get('name', 'your space')}.",
+                    "username": "guest", "key": "guest", "is_admin": True,
+                    "workspace_name": "Open Access", "message": "Login successful (Auth system is disabled)",
+                    "key_system_enabled": False
+                }
+            auth_res = authenticate_user(username=username, password=password)
+            if auth_res:
+                return {
+                    "success": True, "valid": True, "authenticated": True,
+                    "username": auth_res.get("username"),
+                    "key": auth_res.get("key"),
+                    "is_admin": auth_res.get("is_admin"),
+                    "workspace": auth_res,
+                    "message": f"Welcome {auth_res.get('username')}! Logged into {auth_res.get('name')}.",
                     "key_system_enabled": True
                 }
-            return {"success": False, "valid": False, "authenticated": False, "error": "Invalid access key! Space not found. Check credentials.", "key_system_enabled": True}
+            return {
+                "success": False, "valid": False, "authenticated": False,
+                "error": "Invalid username or password! Please check your credentials.",
+                "key_system_enabled": True
+            }
 
-        if action in ("create_user_key", "add_key", "create_workspace"):
+        if action in ("create_user_key", "add_key", "create_workspace", "create_user"):
             if not is_admin_key(req_key):
-                return {"success": False, "error": "Unauthorized: Only master admin can create new user keys"}
-            new_k = str(payload.get("key", payload.get("new_key", ""))).strip()
+                return {"success": False, "error": "Unauthorized: Only master admin can create new user accounts"}
+            new_u = str(payload.get("username", payload.get("key", payload.get("new_key", "")))).strip()
+            new_p = str(payload.get("password", payload.get("pass", payload.get("key", "")))).strip()
             name = str(payload.get("name", payload.get("workspace_name", ""))).strip()
-            if not new_k:
-                return {"success": False, "error": "New key string cannot be empty"}
-            k_low = new_k.lower()
-            if k_low in USER_WORKSPACES:
-                return {"success": False, "error": f"Key '{new_k}' already exists"}
-            USER_WORKSPACES[k_low] = {
-                "key": new_k,
-                "name": name or f"Space ({new_k})",
+            if not new_u:
+                return {"success": False, "error": "Username cannot be empty"}
+            if not new_p:
+                return {"success": False, "error": "Password cannot be empty"}
+            u_low = new_u.lower()
+            if u_low in USER_WORKSPACES:
+                return {"success": False, "error": f"User '{new_u}' already exists"}
+            USER_WORKSPACES[u_low] = {
+                "username": new_u,
+                "password": new_p,
+                "key": new_u,
+                "name": name or f"Space ({new_u})",
                 "is_admin": False,
                 "created_at": int(time.time()),
                 "guild_id": str(payload.get("guild_id", "")).strip(),
@@ -3630,44 +3713,48 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 "presets": []
             }
             save_workspaces()
-            log(f"🔑 [Multi-User] Created new isolated user space for key: '{new_k}' ('{USER_WORKSPACES[k_low]['name']}')")
-            return {"success": True, "key": new_k, "name": USER_WORKSPACES[k_low]["name"], "message": f"User space '{new_k}' created successfully!"}
+            log(f"🔑 [Multi-User] Created user account & space: '{new_u}' ('{USER_WORKSPACES[u_low]['name']}')")
+            return {"success": True, "username": new_u, "key": new_u, "name": USER_WORKSPACES[u_low]["name"], "message": f"User account '{new_u}' created successfully!"}
 
-        if action in ("delete_user_key", "delete_key", "delete_workspace"):
+        if action in ("delete_user_key", "delete_key", "delete_workspace", "delete_user"):
             if not is_admin_key(req_key):
                 return {"success": False, "error": "Unauthorized: Only master admin can delete user keys"}
-            target_key = str(payload.get("key", "")).strip().lower()
-            if target_key == ACCESS_KEY.lower():
-                return {"success": False, "error": "Cannot delete master admin key"}
+            target_key = str(payload.get("username", payload.get("key", ""))).strip().lower()
+            if target_key in (ACCESS_KEY.lower(), ADMIN_USERNAME.lower(), "admin", "hubg50"):
+                return {"success": False, "error": "Cannot delete master admin account"}
             if target_key not in USER_WORKSPACES:
-                return {"success": False, "error": f"Key '{target_key}' does not exist"}
+                return {"success": False, "error": f"User '{target_key}' does not exist"}
             to_remove = [aid for aid, a in ACCOUNTS.items() if a.get("owner_key", "").lower() == target_key]
             for aid in to_remove:
                 asyncio.run_coroutine_threadsafe(remove_account(aid), MAIN_LOOP)
             deleted_name = USER_WORKSPACES[target_key].get("name", target_key)
             del USER_WORKSPACES[target_key]
             save_workspaces()
-            log(f"🗑️ [Multi-User] Deleted user space '{target_key}' ({deleted_name}) and stopped {len(to_remove)} associated bot(s)")
-            return {"success": True, "key": target_key, "removed_bots": len(to_remove), "message": f"Deleted user space '{target_key}'"}
+            log(f"🗑️ [Multi-User] Deleted user account '{target_key}' ({deleted_name}) and stopped {len(to_remove)} associated bot(s)")
+            return {"success": True, "key": target_key, "removed_bots": len(to_remove), "message": f"Deleted user '{target_key}'"}
 
-        if action in ("list_user_keys", "list_workspaces"):
+        if action in ("list_user_keys", "list_workspaces", "list_users"):
             return {
                 "success": True,
                 "is_admin": is_admin_key(req_key),
                 "workspaces": list_all_workspaces_summary() if is_admin_key(req_key) else [get_workspace_info(req_key)]
             }
 
-        if action == "set_access_key":
-            cur = str(payload.get("current_key", "")).strip()
-            new_k = str(payload.get("new_key", "")).strip()
+        if action in ("set_access_key", "change_password", "set_password"):
+            cur = str(payload.get("current_key", payload.get("current_password", ""))).strip()
+            new_k = str(payload.get("new_key", payload.get("new_password", ""))).strip()
             if cur.lower() != ACCESS_KEY.lower():
-                return {"success": False, "error": "Current access key is incorrect."}
+                return {"success": False, "error": "Current password is incorrect."}
             if not new_k:
-                return {"success": False, "error": "New access key cannot be empty."}
+                return {"success": False, "error": "New password cannot be empty."}
+            ADMIN_PASSWORD = new_k
             ACCESS_KEY = new_k
+            if ADMIN_USERNAME.lower() in USER_WORKSPACES:
+                USER_WORKSPACES[ADMIN_USERNAME.lower()]["password"] = new_k
+            save_workspaces()
             save_env_config()
-            log(f"🔐 Access key updated to: {ACCESS_KEY}")
-            return {"success": True, "key": ACCESS_KEY, "message": "Access key updated successfully"}
+            log("🔐 Admin credentials updated successfully")
+            return {"success": True, "key": ACCESS_KEY, "message": "Password updated successfully"}
 
         if action == "toggle_key_system":
             k = str(payload.get("key", "")).strip()

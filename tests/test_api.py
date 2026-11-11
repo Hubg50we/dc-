@@ -1392,18 +1392,18 @@ def run_tests():
     except Exception as e:
         check("Device Fingerprint Diversifier & Rate-Limit Quarantine Engine (108th Milestone Function)", False, str(e))
 
-    # 109. Website Login & Access Key System ('hubg50' Authentication Gate)
+    # 109. Website Login & User/Password Authentication Gate
     try:
-        # Invalid key rejection
-        st_bad, d_bad = http_post("/api/action", {"action": "login", "key": "incorrect_key_123"})
+        # Invalid credentials rejection
+        st_bad, d_bad = http_post("/api/action", {"action": "login", "username": "admin", "password": "wrong_password_999"})
         bad_rejected = (st_bad == 200 and d_bad.get("valid") is False and d_bad.get("authenticated") is False)
 
-        # Valid key acceptance ('hubg50')
-        st_good, d_good = http_post("/api/action", {"action": "login", "key": "hubg50"})
-        good_accepted = (st_good == 200 and d_good.get("valid") is True and d_good.get("authenticated") is True)
+        # Valid master credentials acceptance ('admin' / 'hubg50')
+        st_good, d_good = http_post("/api/action", {"action": "login", "username": "admin", "password": "hubg50"})
+        good_accepted = (st_good == 200 and d_good.get("valid") is True and d_good.get("authenticated") is True and d_good.get("is_admin") is True)
 
-        # verify_key alias
-        st_v, d_v = http_post("/api/action", {"action": "verify_key", "key": "hubg50"})
+        # Legacy / single password login compatibility
+        st_v, d_v = http_post("/api/action", {"action": "login", "password": "hubg50"})
         v_ok = (st_v == 200 and d_v.get("valid") is True)
 
         # Status schema key_system check (Verifies key is NOT leaked publicly in status)
@@ -1411,48 +1411,61 @@ def run_tests():
         ks = st_data.get("key_system", {})
         ks_ok = (ks.get("enabled") is True and "key_hint" not in ks)
 
-        # Test key update and restore
+        # Test password update and restore
         st_ch, d_ch = http_post("/api/action", {"action": "set_access_key", "current_key": "hubg50", "new_key": "hubg50_temp"})
         ch_ok = (st_ch == 200 and d_ch.get("success") is True)
         http_post("/api/action", {"action": "set_access_key", "current_key": "hubg50_temp", "new_key": "hubg50"})
 
         login_system_ok = bad_rejected and good_accepted and v_ok and ks_ok and ch_ok
-        check("Website Login & Access Key System ('hubg50' Authentication Gate) (109th Milestone Function)", login_system_ok)
+        check("Website Login & User/Password Authentication Gate (109th Milestone Function)", login_system_ok)
     except Exception as e:
-        check("Website Login & Access Key System ('hubg50' Authentication Gate) (109th Milestone Function)", False, str(e))
+        check("Website Login & User/Password Authentication Gate (109th Milestone Function)", False, str(e))
 
-    # 110. Multi-User Isolated Spaces & Data Partitioning per Access Key
+    # 110. Multi-User Isolated Spaces & Data Partitioning per User Account
     try:
-        # 1. Admin creates a new user space
+        # 1. Admin creates a new user account with username & password
         st_c, d_c = http_post("/api/action", {
-            "action": "create_user_key",
-            "key": "test_user_alpha",
+            "action": "create_user",
+            "username": "test_user_alpha",
+            "password": "alpha_secure_pass_123",
             "name": "Alpha Isolated Space",
             "guild_id": "999888777",
             "channel_id": "111222333"
         }, headers={"X-Access-Key": "hubg50"})
-        created_ok = (st_c == 200 and d_c.get("success") is True and d_c.get("key") == "test_user_alpha")
+        created_ok = (st_c == 200 and d_c.get("success") is True and d_c.get("username") == "test_user_alpha")
 
-        # 2. Non-admin cannot create user keys
+        # 2. Non-admin cannot create users
         st_unauth, d_unauth = http_post("/api/action", {
-            "action": "create_user_key",
-            "key": "test_user_beta",
-            "name": "Beta Space"
+            "action": "create_user",
+            "username": "test_user_beta",
+            "password": "beta_password"
         }, headers={"X-Access-Key": "test_user_alpha"})
         unauth_blocked = (st_unauth == 200 and d_unauth.get("success") is False and "Unauthorized" in d_unauth.get("error", ""))
 
-        # 3. User alpha logs in with their key
-        st_l, d_l = http_post("/api/action", {"action": "login", "key": "test_user_alpha"})
+        # 3. User alpha logs in with username & password
+        st_l, d_l = http_post("/api/action", {
+            "action": "login",
+            "username": "test_user_alpha",
+            "password": "alpha_secure_pass_123"
+        })
         login_alpha_ok = (st_l == 200 and d_l.get("valid") is True and d_l.get("is_admin") is False)
 
-        # 4. User alpha adds a bot in their space
+        # 4. User alpha with wrong password is rejected
+        st_l_bad, d_l_bad = http_post("/api/action", {
+            "action": "login",
+            "username": "test_user_alpha",
+            "password": "wrong_password_xyz"
+        })
+        user_bad_rejected = (st_l_bad == 200 and d_l_bad.get("valid") is False)
+
+        # 5. User alpha adds a bot in their space
         st_add, d_add = http_post("/api/action", {
             "action": "token_add",
             "token": "alpha_isolated_token_secret_123"
         }, headers={"X-Access-Key": "test_user_alpha"})
         add_ok = (st_add == 200 and d_add.get("success") is True)
 
-        # 5. Verify isolation: alpha's status shows their bot, hubg50's workspace does not show alpha's bot
+        # 6. Verify isolation: alpha's status shows their bot, admin workspace does not show alpha's bot
         st_alpha_s, d_alpha_s = http_get("/api/status", headers={"X-Access-Key": "test_user_alpha"})
         alpha_bots = d_alpha_s.get("accounts", [])
         alpha_sees_bot = any(a.get("owner_key") == "test_user_alpha" for a in alpha_bots)
@@ -1461,7 +1474,7 @@ def run_tests():
         master_bots = d_master_s.get("accounts", [])
         master_isolated = not any(a.get("owner_key") == "test_user_alpha" for a in master_bots)
 
-        # 6. User alpha cannot remove master's bot
+        # 7. User alpha cannot remove master's bot
         master_aid = master_bots[0]["id"] if master_bots else 1
         st_rem_bad, d_rem_bad = http_post("/api/action", {
             "action": "token_remove",
@@ -1469,22 +1482,23 @@ def run_tests():
         }, headers={"X-Access-Key": "test_user_alpha"})
         hijack_prevented = (st_rem_bad == 200 and d_rem_bad.get("success") is False)
 
-        # 7. Workspaces listing
+        # 8. Workspaces listing
         st_ws, d_ws = http_get("/api/workspaces", headers={"X-Access-Key": "hubg50"})
         ws_list = d_ws.get("workspaces", [])
-        ws_found = any(w.get("key") == "test_user_alpha" for w in ws_list)
+        ws_found = any(w.get("username") == "test_user_alpha" or w.get("key") == "test_user_alpha" for w in ws_list)
 
-        # 8. Clean up: Delete user space
+        # 9. Clean up: Delete user space
         st_del, d_del = http_post("/api/action", {
-            "action": "delete_user_key",
-            "key": "test_user_alpha"
+            "action": "delete_user",
+            "username": "test_user_alpha"
         }, headers={"X-Access-Key": "hubg50"})
         del_ok = (st_del == 200 and d_del.get("success") is True)
 
-        mu_ok = created_ok and unauth_blocked and login_alpha_ok and add_ok and alpha_sees_bot and master_isolated and hijack_prevented and ws_found and del_ok
-        check("Multi-User Isolated Spaces & Data Partitioning per Access Key (110th Milestone Function)", mu_ok)
+        mu_ok = (created_ok and unauth_blocked and login_alpha_ok and user_bad_rejected and
+                 add_ok and alpha_sees_bot and master_isolated and hijack_prevented and ws_found and del_ok)
+        check("Multi-User Isolated Spaces & Data Partitioning per User Account (110th Milestone Function)", mu_ok)
     except Exception as e:
-        check("Multi-User Isolated Spaces & Data Partitioning per Access Key (110th Milestone Function)", False, str(e))
+        check("Multi-User Isolated Spaces & Data Partitioning per User Account (110th Milestone Function)", False, str(e))
 
     # Summary
     passed = sum(1 for _, ok, _ in results if ok)

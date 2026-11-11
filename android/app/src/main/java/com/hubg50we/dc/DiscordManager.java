@@ -705,25 +705,52 @@ public class DiscordManager {
 
             // 0. Key System & Login Authentication
             if ("verify_key".equals(action) || "validate_key".equals(action) || "login".equals(action) || "check_login".equals(action)) {
-                String k = payload.optString("key", payload.optString("password", "")).trim();
+                String u = payload.optString("username", payload.optString("user", "")).trim();
+                String p = payload.optString("password", payload.optString("pass", payload.optString("key", ""))).trim();
                 if (!this.keySystemEnabled) {
                     res.put("success", true);
                     res.put("valid", true);
                     res.put("authenticated", true);
+                    res.put("username", "guest");
                     res.put("key_system_enabled", false);
-                    res.put("message", "Login successful (Key system is disabled)");
-                } else if (this.accessKey.equalsIgnoreCase(k)) {
+                    res.put("message", "Login successful (Auth system is disabled)");
+                } else if (this.accessKey.equalsIgnoreCase(p) || (("admin".equalsIgnoreCase(u) || u.isEmpty()) && this.accessKey.equalsIgnoreCase(p))) {
                     res.put("success", true);
                     res.put("valid", true);
                     res.put("authenticated", true);
+                    res.put("username", "admin");
+                    res.put("key", "admin");
+                    res.put("is_admin", true);
                     res.put("key_system_enabled", true);
-                    res.put("message", "Access Key Verified! Welcome to dc-.");
+                    res.put("message", "Welcome Admin! Login successful.");
                 } else {
-                    res.put("success", false);
-                    res.put("valid", false);
-                    res.put("authenticated", false);
-                    res.put("key_system_enabled", true);
-                    res.put("error", "Invalid access key! Please check your credentials.");
+                    boolean found = false;
+                    try {
+                        JSONArray arr = new JSONArray(prefs.getString("user_keys", "[]"));
+                        for (int i = 0; i < arr.length(); i++) {
+                            JSONObject obj = arr.getJSONObject(i);
+                            String wsUser = obj.optString("username", obj.optString("key", ""));
+                            String wsPass = obj.optString("password", obj.optString("key", ""));
+                            if (wsUser.equalsIgnoreCase(u) && wsPass.equals(p)) {
+                                res.put("success", true);
+                                res.put("valid", true);
+                                res.put("authenticated", true);
+                                res.put("username", wsUser);
+                                res.put("key", wsUser);
+                                res.put("is_admin", false);
+                                res.put("message", "Welcome, " + wsUser + "! Logged into " + obj.optString("name", "Space"));
+                                found = true;
+                                break;
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                    if (!found) {
+                        res.put("success", false);
+                        res.put("valid", false);
+                        res.put("authenticated", false);
+                        res.put("key_system_enabled", true);
+                        res.put("error", "Invalid username or password! Please check your credentials.");
+                    }
                 }
                 return res;
             } else if ("set_access_key".equals(action)) {
