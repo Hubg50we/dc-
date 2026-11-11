@@ -1534,6 +1534,9 @@ def sync_tokens_file():
     """Keep tokens.txt synchronized when accounts are added or removed."""
     try:
         seen = set()
+        # Safety guard: Never wipe tokens.txt completely if accounts are temporarily unloaded
+        if not ACCOUNTS and os.path.exists("tokens.txt") and os.path.getsize("tokens.txt") > 0:
+            return
         with open("tokens.txt", "w", encoding="utf-8") as f:
             for a in ACCOUNTS.values():
                 tok = a.get("token", "").strip()
