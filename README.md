@@ -185,7 +185,7 @@ bash start.sh
    - **Masked Token Security**: Displays masked tokens (`MTAx...w0wQ`) with 1-tap delete.
 
 5. **⚙️ Settings Tab**:
-   - **🔐 Access Key & Website Login System**: Full security gate protecting the controller and bot tokens. Master authorized access key is `hubg50`, with live key rotation and 1-tap browser lock/logout.
+   - **🔐 Access Key & Website Login System**: Full security gate protecting the controller and bot tokens with your configured master access key, live key rotation, and 1-tap browser lock/logout.
    - **1-Bot-Per-VC Toggle**: Enable or disable strict 1-bot-per-channel distribution mode.
    - **Device Appearance Toggle**: Choose between **📱 Discord Android (Green Mobile Icon)** or **💻 Desktop/Browser**.
    - **Channel Presets Manager**: Create, rename, edit, and delete custom voice channel shortcuts.
@@ -261,15 +261,16 @@ Starting in **v1.6.6 Build 67**, `dc-` provides an enterprise-grade **Multi-User
 
 1. **Frosted-Glass Website Login Portal**:
    - Access to the dashboard is secured by a login gate requiring a valid Access Key.
-   - Master Admin Key: `hubg50`.
+   - Master Admin Key: Configured securely via `DC_ACCESS_KEY` environment variable.
 
 2. **100% Isolated Workspaces (Data Does Not Mix)**:
    - When new access keys are generated, each key gets its own completely dedicated workspace (`workspaces.json`).
    - Accounts, bots, voice channels, default servers, and presets are strictly partitioned to the logged-in user.
    - Users cannot see, command, or delete bots belonging to another key or the master space.
 
-3. **Master Admin Space Management (`hubg50`)**:
+3. **Master Admin Space Management**:
    - Master admin can create new user keys with custom space names and default server IDs.
    - Master admin can list, inspect bot metrics, switch spaces, or delete expired user keys.
+   - Keys are masked with `••••••••` to prevent shoulder-surfing and accidental public exposure.
    - Shareable direct URLs: Users can access their space directly via `https://<dashboard>/?key=<user_key>`.
 

@@ -3285,8 +3285,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             "one_bot_per_vc": ONE_BOT_PER_VC,
             "key_system": {
                 "enabled": KEY_SYSTEM_ENABLED,
-                "required": True,
-                "key_hint": "hubg50"
+                "required": True
             },
             "workspace": {
                 "key": ws_info.get("key", req_key),
@@ -3613,7 +3612,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
 
         if action in ("create_user_key", "add_key", "create_workspace"):
             if not is_admin_key(req_key):
-                return {"success": False, "error": "Unauthorized: Only master admin (hubg50) can create new user keys"}
+                return {"success": False, "error": "Unauthorized: Only master admin can create new user keys"}
             new_k = str(payload.get("key", payload.get("new_key", ""))).strip()
             name = str(payload.get("name", payload.get("workspace_name", ""))).strip()
             if not new_k:
@@ -3636,7 +3635,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
 
         if action in ("delete_user_key", "delete_key", "delete_workspace"):
             if not is_admin_key(req_key):
-                return {"success": False, "error": "Unauthorized: Only master admin (hubg50) can delete user keys"}
+                return {"success": False, "error": "Unauthorized: Only master admin can delete user keys"}
             target_key = str(payload.get("key", "")).strip().lower()
             if target_key == ACCESS_KEY.lower():
                 return {"success": False, "error": "Cannot delete master admin key"}

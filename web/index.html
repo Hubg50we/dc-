@@ -1026,7 +1026,7 @@
       <div style="margin-bottom:16px; text-align:left;">
         <label style="font-size:0.75rem; font-weight:700; color:#cbd5e1; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:6px; display:block;">Access Key / Password</label>
         <div style="position:relative; display:flex; align-items:center;">
-          <input type="password" id="login-key-input" placeholder="Enter key (hubg50)..." style="width:100%; padding:13px 44px 13px 14px; background:rgba(0,0,0,0.45); border:1px solid rgba(255,255,255,0.18); border-radius:12px; color:#fff; font-size:1rem; font-family:monospace; outline:none; transition:border 0.2s;" onfocus="this.style.borderColor='#818cf8'" onblur="this.style.borderColor='rgba(255,255,255,0.18)'" onkeydown="if(event.key==='Enter') submitLogin()">
+          <input type="password" id="login-key-input" placeholder="Enter your access key..." style="width:100%; padding:13px 44px 13px 14px; background:rgba(0,0,0,0.45); border:1px solid rgba(255,255,255,0.18); border-radius:12px; color:#fff; font-size:1rem; font-family:monospace; outline:none; transition:border 0.2s;" onfocus="this.style.borderColor='#818cf8'" onblur="this.style.borderColor='rgba(255,255,255,0.18)'" onkeydown="if(event.key==='Enter') submitLogin()">
           <span onclick="toggleLoginKeyVisibility()" style="position:absolute; right:14px; cursor:pointer; font-size:1.15rem; user-select:none; opacity:0.75;" title="Toggle Password Visibility">👁️</span>
         </div>
         <div id="login-error-msg" style="display:none; color:#f87171; font-size:0.8rem; margin-top:8px; font-weight:600; text-align:left; background:rgba(239,68,68,0.12); padding:6px 10px; border-radius:8px; border:1px solid rgba(239,68,68,0.25);"></div>
@@ -1037,7 +1037,7 @@
           <input type="checkbox" id="login-remember-me" checked style="cursor:pointer; accent-color:#5865f2;">
           <span>Remember login</span>
         </label>
-        <span style="background:rgba(88,101,242,0.18); color:#a5b4fc; padding:2px 8px; border-radius:6px; font-family:monospace; font-size:0.72rem; cursor:pointer;" onclick="document.getElementById('login-key-input').value='hubg50'" title="Click to autofill key">Key: hubg50</span>
+        <span style="color:var(--text-muted); font-size:0.72rem;">🔒 Private Isolated Spaces</span>
       </div>
 
       <button onclick="submitLogin()" class="btn btn-primary" id="btn-login-submit" style="width:100%; padding:13px; font-size:0.95rem; font-weight:700; border-radius:12px; display:flex; justify-content:center; align-items:center; gap:8px; background:linear-gradient(135deg, #5865F2, #8b5cf6); border:none; box-shadow:0 4px 15px rgba(88,101,242,0.4);">
@@ -2241,14 +2241,17 @@
           <span class="badge" style="background:rgba(168, 85, 247, 0.25); color:#e9d5ff; font-weight:700;" id="key-system-badge">AUTHENTICATED</span>
         </div>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px;">
-          Protect your dc- dashboard and bots from unauthorized access. The master authorized key is <code>hubg50</code>.
+          Protect your dc- dashboard and bots from unauthorized access. Each access key owns an isolated workspace.
         </p>
 
         <div style="display:flex; flex-direction:column; gap:10px;">
           <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
             <div style="flex:1; min-width:180px;">
               <label style="font-size:0.75rem; color:var(--text-muted); display:block; margin-bottom:4px; font-weight:600;">Active Authorized Key:</label>
-              <input type="text" id="settings-current-key" readonly style="width:100%; padding:8px 12px; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; color:#a5b4fc; font-family:monospace; font-size:0.85rem;" value="hubg50">
+              <div style="position:relative; display:flex; align-items:center;">
+                <input type="password" id="settings-current-key" readonly style="width:100%; padding:8px 36px 8px 12px; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; color:#a5b4fc; font-family:monospace; font-size:0.85rem;" value="••••••••">
+                <span onclick="toggleSettingsKeyVisibility()" style="position:absolute; right:10px; cursor:pointer; font-size:0.95rem; opacity:0.75;" title="Toggle Key Visibility">👁️</span>
+              </div>
             </div>
             <div style="flex:1; min-width:200px;">
               <label style="font-size:0.75rem; color:var(--text-muted); display:block; margin-bottom:4px; font-weight:600;">Change Access Key:</label>
@@ -9121,23 +9124,14 @@
           fetchStatus();
         } else {
           if (err) {
-            err.innerText = data.error || '❌ Invalid access key! Expected: hubg50';
+            err.innerText = data.error || '❌ Invalid access key. Please check your credentials.';
             err.style.display = 'block';
           }
         }
       } catch (e) {
-        if (val.toLowerCase() === 'hubg50') {
-          currentAccessKey = val;
-          localStorage.setItem('dc_access_key', val);
-          hideLoginPortal();
-          updateKeySettingsUI(val, true);
-          showToast('🔓 Access Granted! Welcome to dc-');
-          fetchStatus();
-        } else {
-          if (err) {
-            err.innerText = '❌ Invalid access key. Please try again.';
-            err.style.display = 'block';
-          }
+        if (err) {
+          err.innerText = '❌ Invalid access key. Please try again.';
+          err.style.display = 'block';
         }
       } finally {
         if (btn) btn.innerHTML = '<span>🔓</span><span>Login to Dashboard</span>';
@@ -9152,19 +9146,30 @@
           body: JSON.stringify({ action: 'login', key: key })
         });
         const data = await res.json();
-        if (data && (data.valid || data.authenticated || key.toLowerCase() === 'hubg50')) {
+        if (data && (data.valid || data.authenticated)) {
           hideLoginPortal();
           updateKeySettingsUI(key, true);
         } else {
           showLoginPortal();
         }
       } catch (e) {
-        if (key.toLowerCase() === 'hubg50') {
-          hideLoginPortal();
-          updateKeySettingsUI(key, true);
-        } else {
-          showLoginPortal();
-        }
+        showLoginPortal();
+      }
+    }
+
+    function toggleSettingsKeyVisibility() {
+      const inp = document.getElementById('settings-current-key');
+      if (!inp) return;
+      inp.type = inp.type === 'password' ? 'text' : 'password';
+    }
+
+    function toggleKeyReveal(k) {
+      const el = document.getElementById(`key-display-${k}`);
+      if (!el) return;
+      if (el.innerText === '••••••••') {
+        el.innerText = k;
+      } else {
+        el.innerText = '••••••••';
       }
     }
 
@@ -9183,12 +9188,12 @@
 
     function updateKeySettingsUI(key, isAuthed) {
       const curInput = document.getElementById('settings-current-key');
-      if (curInput) curInput.value = key || 'hubg50';
+      if (curInput) curInput.value = key || '';
       const badge = document.getElementById('key-system-badge');
       if (badge) {
         badge.innerText = isAuthed ? 'AUTHENTICATED' : 'LOCKED';
-        badge.style.background = isAuthed ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)';
-        badge.style.color = isAuthed ? '#6ee7b7' : '#fca5a5';
+        badge.style.background = isAuthed ? 'rgba(168, 85, 247, 0.25)' : 'rgba(239, 68, 68, 0.25)';
+        badge.style.color = isAuthed ? '#e9d5ff' : '#fca5a5';
       }
     }
 
@@ -9202,12 +9207,12 @@
         tbody.innerHTML = '<tr><td colspan="5" style="padding:10px; text-align:center; color:var(--text-muted);">No user spaces registered yet.</td></tr>';
         return;
       }
-      const cur = (currentKey || currentAccessKey || 'hubg50').toLowerCase();
+      const cur = (currentKey || currentAccessKey || '').toLowerCase();
       let html = '';
       workspaces.forEach(ws => {
         const k = (ws.key || '').trim();
         const isCurrent = k.toLowerCase() === cur;
-        const isWsAdmin = Boolean(ws.is_admin || k.toLowerCase() === 'hubg50');
+        const isWsAdmin = Boolean(ws.is_admin);
         const botCount = ws.total_accounts !== undefined ? ws.total_accounts : 0;
         const onlineCount = ws.online_accounts !== undefined ? ws.online_accounts : 0;
         const name = ws.name || (isWsAdmin ? 'Master Workspace' : `Space (${k})`);
@@ -9222,7 +9227,10 @@
               </div>
             </td>
             <td style="padding:8px 6px;">
-              <code style="background:rgba(0,0,0,0.35); padding:2px 6px; border-radius:4px; color:#93c5fd; font-size:0.75rem;">${k}</code>
+              <div style="display:flex; align-items:center; gap:4px;">
+                <span id="key-display-${k}" style="font-family:monospace; background:rgba(0,0,0,0.35); padding:2px 6px; border-radius:4px; color:#93c5fd; font-size:0.75rem;">••••••••</span>
+                <button onclick="toggleKeyReveal('${k}')" class="btn btn-secondary btn-sm" style="font-size:0.6rem; padding:1px 4px;" title="Reveal Key">👁️</button>
+              </div>
             </td>
             <td style="padding:8px 6px;">
               <span style="font-weight:600; color:${botCount > 0 ? '#4ade80' : 'var(--text-muted)'};">${botCount}</span>

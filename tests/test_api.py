@@ -1406,10 +1406,10 @@ def run_tests():
         st_v, d_v = http_post("/api/action", {"action": "verify_key", "key": "hubg50"})
         v_ok = (st_v == 200 and d_v.get("valid") is True)
 
-        # Status schema key_system check
+        # Status schema key_system check (Verifies key is NOT leaked publicly in status)
         _, st_data = http_get("/api/status")
         ks = st_data.get("key_system", {})
-        ks_ok = (ks.get("enabled") is True and ks.get("key_hint") == "hubg50")
+        ks_ok = (ks.get("enabled") is True and "key_hint" not in ks)
 
         # Test key update and restore
         st_ch, d_ch = http_post("/api/action", {"action": "set_access_key", "current_key": "hubg50", "new_key": "hubg50_temp"})

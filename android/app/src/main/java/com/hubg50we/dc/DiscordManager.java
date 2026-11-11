@@ -761,7 +761,7 @@ public class DiscordManager {
                 String reqKey = payload.optString("admin_key", payload.optString("key", "")).trim();
                 if (!this.accessKey.equalsIgnoreCase(reqKey)) {
                     res.put("success", false);
-                    res.put("error", "Unauthorized: Only master admin (hubg50) can create user keys");
+                    res.put("error", "Unauthorized: Only master admin can create user keys");
                 } else {
                     String newK = payload.optString("new_key", payload.optString("key", "")).trim();
                     String name = payload.optString("name", "Space (" + newK + ")").trim();
@@ -793,7 +793,7 @@ public class DiscordManager {
                 String reqKey = payload.optString("admin_key", payload.optString("key", "")).trim();
                 if (!this.accessKey.equalsIgnoreCase(reqKey)) {
                     res.put("success", false);
-                    res.put("error", "Unauthorized: Only master admin (hubg50) can delete user keys");
+                    res.put("error", "Unauthorized: Only master admin can delete user keys");
                 } else {
                     String targetKey = payload.optString("target_key", "").trim();
                     if (this.accessKey.equalsIgnoreCase(targetKey)) {
@@ -3104,7 +3104,6 @@ public class DiscordManager {
             JSONObject keySysObj = new JSONObject();
             keySysObj.put("enabled", this.keySystemEnabled);
             keySysObj.put("required", true);
-            keySysObj.put("key_hint", "hubg50");
             json.put("key_system", keySysObj);
             json.put("activity_name", customActivityName);
             json.put("activity_type", customActivityType);
