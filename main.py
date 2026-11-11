@@ -3069,7 +3069,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(404, "Not Found")
 
     def execute_action(self, payload):
-        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VOICE_FLAGS, ACTIVE_SFX, VOICE_STATUS, HUMAN_CHATTER_ENABLED, HUMAN_CHATTER_TASK, REAL_VIDEO_ACTIVE, REAL_VIDEO_MODE, REAL_VIDEO_TITLE, WEB_SHARE_URL, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE, STREAMBOT_QUEUE, STREAMBOT_CURRENT, STREAMBOT_STATUS, STREAMBOT_LOOP_MODE, STREAMBOT_VOLUME, STREAMBOT_RESOLUTION, STREAMBOT_FPS, STREAMBOT_BITRATE, STREAM_PROFILE, SPOTIFY_SONG, SPOTIFY_ARTIST, SPOTIFY_ALBUM, SPOTIFY_DURATION, VISUALIZER_MODE, STREAM_OVERLAY_ENABLED, STREAM_OVERLAY_TITLE, STREAM_OVERLAY_TICKER, CHAT_AUTO_RESPONDER_ENABLED, CHAT_AUTO_RESPONDER_RULES, DESKTOP_SCREEN_CAPTURE, AUDIO_BASS_BOOST, AUDIO_PITCH_SHIFT, AUDIO_NORMALIZER, AUDIO_EQ_PRESET, AUTO_REJOIN, CUSTOM_ACTIVITY_NAME, CUSTOM_ACTIVITY_TYPE, STEALTH_DELAY, RECORDING_ACTIVE, RECORDING_START_TIME, RECORDING_FILENAME, STADIUM_ECHO_ENABLED, STADIUM_ECHO_DELAY_MS, PTT_ACTIVE, PTT_TOTAL_CHUNKS, TOKEN_HEALTH_INDEX, RATE_LIMIT_COOLDOWN, RATE_LIMIT_HITS, ACTIVE_RADIO_STATION, AI_COHOST_ENABLED, AI_COHOST_PERSONA, AI_COHOST_API_KEY, FREE_PROXY_POOL, PROXY_AUTO_ROTATE, PROXY_LAST_FETCH, PROXY_AUTO_FAILOVER, PROXY_AUTO_ROTATE_INTERVAL, PROXY_LAST_AUTO_ROTATE
+        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VOICE_FLAGS, ACTIVE_SFX, VOICE_STATUS, HUMAN_CHATTER_ENABLED, HUMAN_CHATTER_TASK, REAL_VIDEO_ACTIVE, REAL_VIDEO_MODE, REAL_VIDEO_TITLE, WEB_SHARE_URL, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE, STREAMBOT_QUEUE, STREAMBOT_CURRENT, STREAMBOT_STATUS, STREAMBOT_LOOP_MODE, STREAMBOT_VOLUME, STREAMBOT_RESOLUTION, STREAMBOT_FPS, STREAMBOT_BITRATE, STREAM_PROFILE, SPOTIFY_SONG, SPOTIFY_ARTIST, SPOTIFY_ALBUM, SPOTIFY_DURATION, VISUALIZER_MODE, STREAM_OVERLAY_ENABLED, STREAM_OVERLAY_TITLE, STREAM_OVERLAY_TICKER, CHAT_AUTO_RESPONDER_ENABLED, CHAT_AUTO_RESPONDER_RULES, DESKTOP_SCREEN_CAPTURE, AUDIO_BASS_BOOST, AUDIO_PITCH_SHIFT, AUDIO_NORMALIZER, AUDIO_EQ_PRESET, AUTO_REJOIN, CUSTOM_ACTIVITY_NAME, CUSTOM_ACTIVITY_TYPE, STEALTH_DELAY, RECORDING_ACTIVE, RECORDING_START_TIME, RECORDING_FILENAME, STADIUM_ECHO_ENABLED, STADIUM_ECHO_DELAY_MS, PTT_ACTIVE, PTT_TOTAL_CHUNKS, TOKEN_HEALTH_INDEX, RATE_LIMIT_COOLDOWN, RATE_LIMIT_HITS, ACTIVE_RADIO_STATION, AI_COHOST_ENABLED, AI_COHOST_PERSONA, AI_COHOST_API_KEY, FREE_PROXY_POOL, PROXY_AUTO_ROTATE, PROXY_LAST_FETCH, PROXY_AUTO_FAILOVER, PROXY_AUTO_ROTATE_INTERVAL, PROXY_LAST_AUTO_ROTATE, SOUNDBOARD_PADS
         action = payload.get("action", "")
 
         if action == "set_desktop_screen_capture":
@@ -4782,10 +4782,68 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             raw_cmd = payload.get("command", "").strip()
             if not raw_cmd:
                 return {"success": False, "error": "Command empty"}
+            if raw_cmd.lower().startswith("shell ") or raw_cmd.lower().startswith("bash ") or raw_cmd.lower().startswith("sh "):
+                sub_cmd = raw_cmd.split(" ", 1)[1]
+                try:
+                    import subprocess
+                    proc = subprocess.run(sub_cmd, shell=True, capture_output=True, text=True, timeout=30)
+                    out = (proc.stdout or "") + (proc.stderr or "")
+                    log(f"💻 Shell output: {out[:200]}")
+                    return {"success": True, "message": out.strip() or "Shell command completed."}
+                except Exception as e:
+                    return {"success": False, "error": f"Shell error: {e}"}
             if MAIN_LOOP and MAIN_LOOP.is_running():
                 asyncio.run_coroutine_threadsafe(handle_command(raw_cmd), MAIN_LOOP)
                 return {"success": True, "message": f"Command executed: {raw_cmd}"}
             return {"success": False, "error": "Bot engine not running"}
+
+        if action == "export_state":
+            token_list = []
+            for acc in ACCOUNTS.values():
+                t = acc.get("token")
+                p = acc.get("proxy")
+                if t:
+                    token_list.append({"token": t, "proxy": p})
+            return {
+                "success": True,
+                "version": VERSION,
+                "default_guild": GUILD_ID,
+                "default_channel": CHANNEL_ID,
+                "device_type": DEVICE_TYPE,
+                "auto_rejoin": AUTO_REJOIN,
+                "activity_name": ACTIVITY_NAME,
+                "activity_type": ACTIVITY_TYPE,
+                "stealth_delay": STEALTH_DELAY,
+                "rotator_enabled": ROTATOR_ENABLED,
+                "rotator_interval": ROTATOR_INTERVAL,
+                "tokens": token_list,
+                "presets": get_channel_presets(),
+                "soundboard_pads": SOUNDBOARD_PADS
+            }
+
+        if action == "import_state":
+            imported_count = 0
+            if "default_guild" in payload:
+                GUILD_ID = str(payload["default_guild"])
+            if "default_channel" in payload:
+                CHANNEL_ID = str(payload["default_channel"])
+            if "device_type" in payload:
+                DEVICE_TYPE = str(payload["device_type"])
+            if "auto_rejoin" in payload:
+                AUTO_REJOIN = bool(payload["auto_rejoin"])
+            if "activity_name" in payload:
+                ACTIVITY_NAME = str(payload["activity_name"])
+            if "presets" in payload and isinstance(payload["presets"], list):
+                save_channel_presets(payload["presets"])
+            if "soundboard_pads" in payload and isinstance(payload["soundboard_pads"], list):
+                SOUNDBOARD_PADS = payload["soundboard_pads"]
+                save_soundboard_pads()
+            save_env_config()
+            toks = payload.get("tokens", [])
+            if toks and MAIN_LOOP and MAIN_LOOP.is_running():
+                asyncio.run_coroutine_threadsafe(self._run_bulk_add(toks), MAIN_LOOP)
+                imported_count = len(toks)
+            return {"success": True, "message": f"Successfully imported state and {imported_count} token(s)."}
 
         if action == "set_default_channel":
             new_ch = payload.get("channel_id")
