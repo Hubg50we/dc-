@@ -1064,35 +1064,99 @@ def generate_ofm_ai_response(persona="friendly", prompt="", model="kilo-auto/fre
         with urllib.request.urlopen(req2, timeout=2.2) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             msg = data.get("choices", [{}])[0].get("message", {})
-            content = (msg.get("content") or msg.get("reasoning") or "").strip()
+            content = (msg.get("content") or "").strip()
+            # If model returned chain-of-thought in reasoning instead of content, discard meta thoughts
+            if not content:
+                content = (msg.get("reasoning") or "").strip()
+                if "Constraint" in content or "User Question" in content:
+                    content = ""
             if content:
                 clean = content.strip("\"' \n\r")
-                return clean[:120]
+                return clean[:140]
     except Exception as e:
         pass
 
-    # 3. High-variety offline generative persona synthesizer
+    # 3. High-variety dynamic context generator (incorporates Wikipedia, live facts, and prompt context)
     import random
+    clean_p = (prompt or "").strip()
+
+    # If the user asks a real question, fetch real Wikipedia extract dynamically
+    if clean_p and any(w in clean_p.lower() for w in ("what is", "who is", "explain", "tell me about", "what are", "define", "wiki")):
+        topic = re.sub(r"(?i)^(what is|who is|explain|tell me about|what are|define|wiki)\s+", "", clean_p).strip("?. ")
+        if topic:
+            try:
+                w_url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(topic)}"
+                req_w = urllib.request.Request(w_url, headers={"User-Agent": "Mozilla/5.0 (dc-bot/1.6.5)"})
+                with urllib.request.urlopen(req_w, timeout=2.5) as r_w:
+                    d_w = json.loads(r_w.read().decode())
+                    extract = d_w.get("extract", "")
+                    if extract:
+                        first_sentence = extract.split(". ")[0] + "."
+                        return f"🧠 **{d_w.get('title', topic)}**: {first_sentence}"
+            except Exception:
+                pass
+
+    # If prompt asks for advice / wisdom
+    if clean_p and any(w in clean_p.lower() for w in ("advice", "tip", "help me", "wisdom", "quote", "inspire")):
+        try:
+            req_adv = urllib.request.Request("https://api.adviceslip.com/advice", headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req_adv, timeout=2.5) as r_adv:
+                d_adv = json.loads(r_adv.read().decode())
+                adv = d_adv.get("slip", {}).get("advice")
+                if adv:
+                    return f"💡 **Pro-Tip**: {adv}"
+        except Exception:
+            pass
+
+    # Dynamic Cat Fact for cat persona
+    if persona == "cat" or (clean_p and "cat" in clean_p.lower()):
+        try:
+            req_cat = urllib.request.Request("https://catfact.ninja/fact", headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req_cat, timeout=2.5) as r_cat:
+                d_cat = json.loads(r_cat.read().decode())
+                cf = d_cat.get("fact")
+                if cf:
+                    return f"🐾 Meow! Did you know: {cf}"
+        except Exception:
+            pass
+
+    # Fact / Trivia query
+    if clean_p and any(w in clean_p.lower() for w in ("fact", "trivia", "did you know", "interesting", "random")):
+        try:
+            req_fact = urllib.request.Request("https://uselessfacts.jsph.pl/random.json?language=en", headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req_fact, timeout=2.5) as r_fact:
+                d_fact = json.loads(r_fact.read().decode())
+                fact = d_fact.get("text")
+                if fact:
+                    return f"✨ **Fun Fact**: {fact}"
+        except Exception:
+            pass
+
     presets = {
         "friendly": [
-            "Hey everyone! It's great having you all here in the voice channel. What are we playing today? 😊",
-            "Hope you're all having a fantastic day! Thanks for hanging out with us in voice! ✨",
-            "Such great vibes in the room today! Let me know if anyone wants a special track queued up!"
+            f"Hey! Always good to hear from you. Regarding '{clean_p or 'voice chat'}', I'm totally on board! What's next on the agenda? 😊",
+            f"That's awesome! If we're talking about '{clean_p or 'today'}', I think it's gonna be a great session! ✨",
+            f"Got you covered! The whole voice room is tuned in and ready to roll! 🚀"
+        ],
+        "cat": [
+            f"Meowww~ Purr purr! I hear you talking about '{clean_p or 'everything'}'. Time for some cuddles and snacks! 🐱🐾",
+            f"Mreow! Batting at the mouse cursor right now. What's on your mind? 🐾✨",
+            f"*Stretches paws lazily* Meow! Ready to chill in voice all day! 😺"
         ],
         "dj": [
-            "YO VOICE CHAT! I dropped the beat so hard, my WiFi just filed a noise complaint! LET’S GOOO! 🎧🔥",
-            "You're tuned in live to the 24/7 Discord Soundstage! Crank up the bass and enjoy the vibe!",
-            "Bass is rolling, bots are locked in, and the channel is officially bumpin'! 🎶"
+            f"YO! Dropping beats and locked in on '{clean_p or 'the mix'}'. Turn up the volume and let the bass ride! 🎧🔥",
+            f"The soundstage is LIVE! We've got 24/7 frequencies pumping non-stop! 🎶⚡",
+            f"Cranked up to 11! Keep the requests coming and let's keep the channel bumpin'!"
         ],
         "gamer": [
-            "Locked and loaded! Ready for the next round. Don't forget to call out enemy positions! 🎮",
-            "Need backup on point! Watch the flank and grab shields before we push!",
-            "Clutch or kick time! Keep comms clear and let's secure this W!"
+            f"Target acquired! When it comes to '{clean_p or 'the play'}', we stick together and push the objective. Comms check! 🎮",
+            f"Flank is clear, shields are full. Call out the targets and let's take this round! ⚔️",
+            f"GG in advance! Stay on point and don't give them room to rotate!"
         ],
         "sarcastic": [
-            "Oh look, someone actually unmuted. Let's see if this speech was worth breaking the silence for. 😏",
-            "I'd agree with your gameplay strategy, but then we'd both be wrong.",
-            "A solid 10 out of 10 plan. Assuming our primary goal was wiping in under thirty seconds."
+            f"Fascinating. Out of all the things in the universe to say, you chose '{clean_p or 'that'}'. Truly breathtaking. 😏",
+            f"I ran a diagnostic on that plan. The probability of success is roughly zero, but let's do it anyway.",
+            f"A brilliant observation. I'll make sure to note that in my diary under 'things that definitely needed saying'."
         ]
     }
     pool = presets.get(persona, presets["friendly"])
