@@ -1205,6 +1205,48 @@ def run_tests():
     except Exception as e:
         check("Voice Telemetry & Background Persistence Parity (100th Milestone Function)", False, str(e))
 
+    # 101. Test Dedicated Per-Bot Proxy Server Architecture (TOKEN|PROXY Parsing, Masking, and set_account_proxy API)
+    try:
+        # Test helper parsing
+        tok_parsed, prx_parsed = main.parse_token_and_proxy("dummy_tok_abc12345678901234567890|socks5://user:pass123@1.2.3.4:1080")
+        masked_prx = main.mask_proxy("socks5://user:pass123@1.2.3.4:1080")
+        parse_ok = (tok_parsed == "dummy_tok_abc12345678901234567890" and 
+                    prx_parsed == "socks5://user:pass123@1.2.3.4:1080" and 
+                    "pass123" not in str(masked_prx) and "***" in str(masked_prx))
+
+        # Test API add with proxy
+        st_px, d_px = http_post("/api/action", {
+            "action": "token_add",
+            "token": "dummy_proxy_test_token_1234567890abcdef|http://127.0.0.1:8080"
+        })
+        
+        # Test API dynamic proxy assignment
+        st_set, d_set = http_post("/api/action", {
+            "action": "set_account_proxy",
+            "id": "dummy_proxy_test_token_1234567890abcdef",
+            "proxy": "socks5://botuser:pass@10.0.0.1:1080"
+        })
+
+        # Test API clear proxy
+        st_clr, d_clr = http_post("/api/action", {
+            "action": "set_account_proxy",
+            "id": "dummy_proxy_test_token_1234567890abcdef",
+            "proxy": ""
+        })
+
+        proxy_test_ok = (
+            parse_ok and
+            d_px.get("success") is True and
+            d_set.get("success") is True and
+            "10.0.0.1:1080" in str(d_set.get("proxy", "")) and
+            "***" in str(d_set.get("proxy", "")) and
+            d_clr.get("success") is True and
+            d_clr.get("proxy") is None
+        )
+        check("Dedicated Bot Proxy Architecture (TOKEN|PROXY Parsing, set_account_proxy & Credentials Masking)", proxy_test_ok)
+    except Exception as e:
+        check("Dedicated Bot Proxy Architecture (TOKEN|PROXY Parsing, set_account_proxy & Credentials Masking)", False, str(e))
+
     # Summary
     passed = sum(1 for _, ok, _ in results if ok)
     total = len(results)

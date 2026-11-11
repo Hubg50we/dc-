@@ -1257,6 +1257,59 @@ def clean_token(raw):
     return clean
 
 
+def mask_proxy(proxy_url):
+    """Mask credentials in proxy URL for secure logging and UI display."""
+    if not proxy_url or not isinstance(proxy_url, str):
+        return None
+    try:
+        import urllib.parse
+        parsed = urllib.parse.urlsplit(proxy_url)
+        if parsed.password:
+            masked_netloc = f"{parsed.username}:***@{parsed.hostname}"
+            if parsed.port:
+                masked_netloc += f":{parsed.port}"
+            return urllib.parse.urlunsplit((parsed.scheme, masked_netloc, parsed.path, parsed.query, parsed.fragment))
+    except Exception:
+        pass
+    return proxy_url
+
+
+def parse_token_and_proxy(raw):
+    """
+    Parses a raw input string into (token, proxy).
+    Supports formats:
+      - TOKEN
+      - TOKEN|PROXY (e.g. TOKEN|socks5://user:pass@1.2.3.4:1080 or TOKEN|http://1.2.3.4:8080)
+      - TOKEN:::PROXY
+      - TOKEN PROXY
+    """
+    if not raw or not isinstance(raw, str):
+        return "", None
+    raw = raw.strip()
+    proxy = None
+    if "|" in raw:
+        parts = raw.split("|", 1)
+        token_part = parts[0].strip()
+        proxy_candidate = parts[1].strip()
+        if proxy_candidate:
+            proxy = proxy_candidate
+    elif ":::" in raw:
+        parts = raw.split(":::", 1)
+        token_part = parts[0].strip()
+        proxy_candidate = parts[1].strip()
+        if proxy_candidate:
+            proxy = proxy_candidate
+    else:
+        parts = raw.split()
+        if len(parts) >= 2 and any(parts[1].lower().startswith(s) for s in ("http://", "https://", "socks5://", "socks4://")):
+            token_part = parts[0].strip()
+            proxy = parts[1].strip()
+        else:
+            token_part = raw
+    token = clean_token(token_part)
+    return token, proxy
+
+
 def is_placeholder_token(token):
     if not token or len(token) < 20:
         return True
@@ -1271,8 +1324,12 @@ def sync_tokens_file():
         with open("tokens.txt", "w", encoding="utf-8") as f:
             for a in ACCOUNTS.values():
                 tok = a.get("token", "").strip()
+                prx = a.get("proxy")
                 if tok and not is_placeholder_token(tok) and tok not in seen:
-                    f.write(tok + "\n")
+                    if prx:
+                        f.write(f"{tok}|{prx}\n")
+                    else:
+                        f.write(tok + "\n")
                     seen.add(tok)
     except Exception as e:
         print(f"[!] Could not sync tokens.txt: {e}")
@@ -1400,7 +1457,7 @@ async def auto_resolve_guild(channel_id):
     return GUILD_ID
 
 
-async def _validate_token(token):
+async def _validate_token(token, proxy=None):
     loop = asyncio.get_running_loop()
 
     def _do():
@@ -1414,7 +1471,10 @@ async def _validate_token(token):
                     f"{API}/users/@me",
                     headers={"Authorization": auth_val, "User-Agent": "Mozilla/5.0"}
                 )
-                with urllib.request.urlopen(req, timeout=10) as resp:
+                opener = urllib.request.build_opener()
+                if proxy and isinstance(proxy, str) and (proxy.startswith("http://") or proxy.startswith("https://")):
+                    opener.add_handler(urllib.request.ProxyHandler({"http": proxy, "https": proxy}))
+                with opener.open(req, timeout=10) as resp:
                     if resp.status == 200:
                         data = json.loads(resp.read().decode("utf-8"))
                         data["auth_token"] = auth_val
@@ -1551,38 +1611,44 @@ async def apply(targets, channel="keep", mute="keep", deaf="keep", video="keep",
     return done
 
 
-async def add_account(token):
+async def add_account(token, proxy=None):
     global NEXT_ID
-    token = clean_token(token)
+    if not proxy:
+        token, proxy = parse_token_and_proxy(token)
+    else:
+        token = clean_token(token)
     if not token:
         return None
     for a in ACCOUNTS.values():
         if a.get("token") == token:
             print(f"[Account {a['id']}] Already added ({a.get('name')}).")
+            if proxy and a.get("proxy") != proxy:
+                a["proxy"] = proxy
+                sync_tokens_file()
             return a["id"]
 
-    user, err = await _validate_token(token)
+    user, err = await _validate_token(token, proxy=proxy)
     aid = NEXT_ID
     NEXT_ID += 1
     if user is None:
         acc = {
-            "id": aid, "token": token, "task": None, "ws": None, "hb": None,
+            "id": aid, "token": token, "proxy": proxy, "task": None, "ws": None, "hb": None,
             "user_id": None, "name": None, "online": False, "voice_channel": None,
             "mute": False, "deaf": False, "removed": False, "error": err,
         }
         ACCOUNTS[aid] = acc
-        print(f"[Account {aid}] Invalid token ({err}): {token[:10]}... (added as offline)")
+        print(f"[Account {aid}] Invalid token ({err}): {token[:10]}... (added as offline, proxy={mask_proxy(proxy) or 'Direct'})")
         return aid
 
     acc = {
-        "id": aid, "token": token, "task": None, "ws": None, "hb": None,
+        "id": aid, "token": token, "proxy": proxy, "task": None, "ws": None, "hb": None,
         "user_id": user["id"], "name": user.get("username", "Unknown"), "online": False,
         "voice_channel": None, "mute": False, "deaf": False, "removed": False, "error": None,
     }
     ACCOUNTS[aid] = acc
     task = asyncio.create_task(run_account(aid))
     acc["task"] = task
-    print(f"[Account {aid}] Added: {acc['name']} ({acc['user_id']})")
+    print(f"[Account {aid}] Added: {acc['name']} ({acc['user_id']}) - Proxy: {mask_proxy(proxy) or 'Direct'}")
     sync_tokens_file()
     return aid
 
@@ -1640,8 +1706,12 @@ async def run_account(aid):
     while RUNNING and not acc.get("removed", False):
         hb = None
         ws = None
+        ws_kwargs = {"max_size": 50 * 1024 * 1024}
+        proxy_url = acc.get("proxy")
+        if proxy_url:
+            ws_kwargs["proxy"] = proxy_url
         try:
-            async with websockets.connect(uri, max_size=50 * 1024 * 1024) as ws:
+            async with websockets.connect(uri, **ws_kwargs) as ws:
                 hello = json.loads(await asyncio.wait_for(ws.recv(), timeout=15))
                 heartbeat_interval = hello["d"]["heartbeat_interval"]
                 hb = asyncio.create_task(heartbeat(ws, heartbeat_interval, acc))
@@ -1704,7 +1774,7 @@ async def run_account(aid):
                         asyncio.create_task(cur_vc.stop())
                         acc["voice_conn"] = None
                     log(f"[Account {aid}] 🎤 Connecting Voice Gateway to {endpoint} (channel={channel_id}, session={session_id[:6] if len(session_id) >= 6 else session_id})...")
-                    v_conn = DiscordMediaConnection(aid, acc.get("user_id"), session_id, token, endpoint, g_id, channel_id=channel_id, is_stream=False, logger=log)
+                    v_conn = DiscordMediaConnection(aid, acc.get("user_id"), session_id, token, endpoint, g_id, channel_id=channel_id, is_stream=False, logger=log, proxy=acc.get("proxy"))
                     v_conn.set_profile(STREAM_PROFILE)
                     v_conn.set_visualizer(VISUALIZER_MODE)
                     def _make_speaker_cb(ch):
@@ -1830,7 +1900,7 @@ async def run_account(aid):
                                 cur_ch = acc.get("voice_channel")
                                 srv_id = acc.get("stream_rtc_server_id") or stream_key
                                 log(f"[Account {aid}] 📡 Stream Server Update: {endpoint} (server_id={srv_id}, channel={cur_ch})")
-                                s_conn = DiscordMediaConnection(aid, acc.get("user_id"), acc.get("session_id"), token, endpoint, srv_id, channel_id=cur_ch, is_stream=True, logger=log)
+                                s_conn = DiscordMediaConnection(aid, acc.get("user_id"), acc.get("session_id"), token, endpoint, srv_id, channel_id=cur_ch, is_stream=True, logger=log, proxy=acc.get("proxy"))
                                 s_conn.set_profile(STREAM_PROFILE)
                                 s_conn.set_visualizer(VISUALIZER_MODE)
                                 if STREAM_OVERLAY_ENABLED:
@@ -1929,10 +1999,13 @@ async def load_tokens_from_file(path):
     count = 0
     with open(path, "r", encoding="utf-8") as f:
         for line in f:
-            tok = clean_token(line)
-            if not tok or tok.startswith("#") or is_placeholder_token(tok):
+            line_str = line.strip()
+            if not line_str or line_str.startswith("#"):
                 continue
-            await add_account(tok)
+            tok, prx = parse_token_and_proxy(line_str)
+            if not tok or is_placeholder_token(tok):
+                continue
+            await add_account(tok, proxy=prx)
             count += 1
     print(f"Loaded {count} token(s) from {path}.")
     return count
@@ -1942,8 +2015,12 @@ async def save_tokens_to_file(path):
     with open(path, "w", encoding="utf-8") as f:
         for acc in ACCOUNTS.values():
             tok = acc.get("token", "")
+            prx = acc.get("proxy")
             if tok:
-                f.write(tok + "\n")
+                if prx:
+                    f.write(f"{tok}|{prx}\n")
+                else:
+                    f.write(tok + "\n")
     print(f"Saved {len(ACCOUNTS)} token(s) to {path}.")
 
 
@@ -2704,6 +2781,8 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                     "streaming": a.get("streaming", False),
                     "screenshare": a.get("screenshare", False),
                     "youtube_active": a.get("youtube_active", False),
+                    "proxy": mask_proxy(a.get("proxy")),
+                    "has_proxy": bool(a.get("proxy")),
                     "error": a.get("error"),
                 }
                 for a in sorted(ACCOUNTS.values(), key=lambda x: x.get("id", 0))
@@ -4736,14 +4815,27 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             return {"success": True, "message": "YouTube streaming stopped"}
         elif action == "token_add":
             tok = payload.get("token", "").strip()
+            prx = payload.get("proxy", "").strip() or None
             if not tok:
                 return {"success": False, "error": "Token is empty"}
-            coro = add_account(tok)
+            coro = add_account(tok, proxy=prx)
         elif action == "tokens_bulk_add":
             token_list = payload.get("tokens", [])
             if not token_list:
                 return {"success": False, "error": "No tokens provided"}
             coro = self._run_bulk_add(token_list)
+        elif action == "set_account_proxy":
+            aid = payload.get("id")
+            prx = payload.get("proxy", "")
+            prx = prx.strip() if isinstance(prx, str) else None
+            if not prx:
+                prx = None
+            acc = find_account(aid)
+            if not acc:
+                return {"success": False, "error": "Account not found"}
+            acc["proxy"] = prx
+            sync_tokens_file()
+            return {"success": True, "message": f"Proxy updated for account {acc['id']}.", "proxy": mask_proxy(prx)}
         elif action == "batch_action":
             aids = [int(x) for x in payload.get("ids", []) if str(x).isdigit()]
             sub = payload.get("sub_action", "")
@@ -4791,10 +4883,17 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
 
     async def _run_bulk_add(self, tokens):
         count = 0
-        for raw in tokens:
-            t = clean_token(str(raw))
-            if t and not is_placeholder_token(t):
-                await add_account(t)
+        for item in tokens:
+            if isinstance(item, dict):
+                raw = item.get("token", "")
+                prx = item.get("proxy")
+            else:
+                raw = str(item)
+                prx = None
+            tok, parsed_prx = parse_token_and_proxy(raw)
+            final_proxy = prx or parsed_prx
+            if tok and not is_placeholder_token(tok):
+                await add_account(tok, proxy=final_proxy)
                 count += 1
         return f"Loaded {count} token(s)"
 

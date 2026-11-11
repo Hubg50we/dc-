@@ -177,7 +177,7 @@ class DiscordMediaConnection:
     Optimized for multi-platform (Android / Windows PC) execution.
     Delivers rock-solid 30 FPS video and 50 PPS Opus keepalive with AES-256-GCM AEAD encryption.
     """
-    def __init__(self, account_id, user_id, session_id, token, endpoint, server_id, channel_id="", is_stream=True, logger=None):
+    def __init__(self, account_id, user_id, session_id, token, endpoint, server_id, channel_id="", is_stream=True, logger=None, proxy=None):
         self.account_id = account_id
         self.user_id = str(user_id)
         self.session_id = session_id
@@ -187,6 +187,7 @@ class DiscordMediaConnection:
         self.channel_id = str(channel_id or server_id)
         self.is_stream = is_stream
         self.logger = logger or print
+        self.proxy = proxy
 
         self.running = False
         self.connected = False
@@ -589,11 +590,14 @@ class DiscordMediaConnection:
         self.log(f"Connecting to Gateway {ws_url}...")
 
         hb_task = None
+        ws_kwargs = {"max_size": 10 * 1024 * 1024}
+        if self.proxy:
+            ws_kwargs["proxy"] = self.proxy
 
         try:
-            async with websockets.connect(ws_url, max_size=10 * 1024 * 1024) as ws:
+            async with websockets.connect(ws_url, **ws_kwargs) as ws:
                 self.ws = ws
-                self.log("Gateway WebSocket handshake established.")
+                self.log(f"Gateway WebSocket handshake established{' via proxy ' + self.proxy if self.proxy else ''}.")
 
                 while self.running:
                     msg_raw = await ws.recv()

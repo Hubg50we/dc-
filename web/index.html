@@ -1898,21 +1898,21 @@
         <div id="token-health-summary" style="display:none; margin-bottom:12px; padding:10px 14px; border-radius:var(--radius-sm); font-size:0.82rem; background:rgba(88,101,242,0.12); border:1px solid rgba(88,101,242,0.3);"></div>
 
         <div class="field-group">
-          <label class="field-label">Single Token Add</label>
+          <label class="field-label">Single Token Add (Supports optional Proxy: <code>TOKEN|socks5://...</code> or <code>TOKEN|http://...</code>)</label>
           <div class="input-row">
-            <input type="password" id="single-token-input" placeholder="Paste Discord account token">
+            <input type="password" id="single-token-input" placeholder="Token or TOKEN|socks5://user:pass@ip:port">
             <button class="btn btn-success" onclick="addSingleToken()">+ Add</button>
           </div>
         </div>
 
         <div class="field-group" style="margin-top:8px;">
-          <label class="field-label">📁 Upload tokens.txt File</label>
+          <label class="field-label">📁 Upload tokens.txt File (Supports TOKEN|PROXY format)</label>
           <input type="file" id="token-file-input" accept=".txt" onchange="handleFileUpload(event)" style="padding:8px;">
         </div>
 
         <div class="field-group" style="margin-top:8px;">
-          <label class="field-label">📋 Bulk Multi-Token Importer</label>
-          <textarea id="bulk-token-area" rows="4" placeholder="Paste 10, 50, or 100+ tokens (one per line)..."></textarea>
+          <label class="field-label">📋 Bulk Multi-Token & Proxy Importer</label>
+          <textarea id="bulk-token-area" rows="4" placeholder="Paste tokens (one per line, e.g. TOKEN or TOKEN|socks5://ip:1080)..."></textarea>
           <button class="btn btn-success" style="width:100%; margin-top:4px;" onclick="importBulkTokens()">📥 Import All Pasted Tokens</button>
         </div>
       </div>
@@ -3941,6 +3941,7 @@
 
             <div class="acc-pills">
               ${inVoice ? `<span class="badge badge-voice">🔊 ${escapeHtml(acc.voice_channel)}${acc.guild_id ? ' <span style="font-size:0.72rem; opacity:0.8;">(Svr: ' + escapeHtml(acc.guild_id) + ')</span>' : ''}</span>` : `<span class="badge" style="background:#202225; color:#888;">Idle</span>`}
+              ${acc.proxy ? `<span class="badge" style="background:rgba(0,180,216,0.22); color:#00b4d8; font-weight:600;" title="${escapeHtml(acc.proxy)}">🌐 ${escapeHtml(acc.proxy)}</span>` : ''}
               ${acc.ping ? `<span class="badge" style="background:rgba(88,101,242,0.18); color:var(--accent); font-weight:600;">⚡ ${acc.ping}ms</span>` : ''}
               ${acc.speaking ? `<span class="badge badge-online">🎙️ Speaking</span>` : ''}
               ${acc.video ? `<span class="badge" style="background:rgba(88,101,242,0.25); color:#7289da; font-weight:600;">📹 Cam ON</span>` : ''}
@@ -3984,8 +3985,20 @@
           <div><strong>User ID:</strong> ${acc.user_id || 'Connecting...'}</div>
           <div><strong>Token:</strong> <code>${acc.token_masked || 'Hidden'}</code></div>
           <div><strong>Status:</strong> ${acc.online ? '🟢 Online' : '🔴 Offline'}</div>
+          <div><strong>Proxy:</strong> ${acc.proxy ? '🌐 <code>' + escapeHtml(acc.proxy) + '</code>' : '<span style="color:var(--text-muted);">None (Direct IP)</span>'}</div>
           <div><strong>Current Voice:</strong> ${acc.voice_channel ? '🔊 ' + escapeHtml(acc.voice_channel) : 'Not connected'}</div>
           ${acc.guild_id ? `<div><strong>Current Server:</strong> 🏛️ ${escapeHtml(acc.guild_id)}</div>` : ''}
+        </div>
+
+        <!-- Per-Bot Dedicated Proxy Configuration -->
+        <div style="background:rgba(0, 180, 216, 0.08); border:1px solid rgba(0, 180, 216, 0.35); border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:8px;">
+          <div style="font-weight:700; color:#00b4d8; font-size:0.9rem;">🌐 Dedicated Proxy Server</div>
+          <div style="font-size:0.75rem; color:var(--text-muted);">Assign dedicated SOCKS5 or HTTP proxy to isolate this account from rate limits.</div>
+          <div class="input-row">
+            <input type="text" id="modal-bot-proxy-input" placeholder="socks5://user:pass@ip:port or http://ip:port" value="${acc.proxy || ''}">
+            <button class="btn btn-primary btn-sm" onclick="saveBotProxy(${acc.id})">Save</button>
+            ${acc.proxy ? `<button class="btn btn-secondary btn-sm" style="color:var(--danger);" onclick="clearBotProxy(${acc.id})">Clear</button>` : ''}
+          </div>
         </div>
 
         <!-- Per-Bot Specific Server & Channel Routing -->
@@ -4051,6 +4064,30 @@
 
     function closeModal(e) {
       document.getElementById('account-modal').classList.remove('open');
+    }
+
+    function saveBotProxy(aid) {
+      const inputEl = document.getElementById('modal-bot-proxy-input');
+      const prx = inputEl ? inputEl.value.trim() : '';
+      sendPost('/api/action', { action: 'set_account_proxy', id: aid, proxy: prx }).then(r => {
+        if (r.success) {
+          showToast('Proxy updated: ' + (prx || 'Direct IP'));
+          closeModal();
+          fetchStatus();
+        } else {
+          showToast('Error: ' + (r.error || 'Failed to update proxy'), 'error');
+        }
+      });
+    }
+
+    function clearBotProxy(aid) {
+      sendPost('/api/action', { action: 'set_account_proxy', id: aid, proxy: '' }).then(r => {
+        if (r.success) {
+          showToast('Proxy removed (Direct IP)');
+          closeModal();
+          fetchStatus();
+        }
+      });
     }
 
     function filterAccounts(query) {
