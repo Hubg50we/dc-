@@ -1434,15 +1434,18 @@ async def _validate_token(token):
 
 
 def find_account(identifier):
-    if str(identifier).isdigit():
-        aid = int(identifier)
+    if identifier is None:
+        return None
+    str_id = str(identifier).strip()
+    if str_id.isdigit():
+        aid = int(str_id)
         if aid in ACCOUNTS:
             return ACCOUNTS[aid]
     for acc in ACCOUNTS.values():
-        if acc.get("name") == identifier or acc.get("user_id") == identifier:
+        if str(acc.get("name")) == str_id or str(acc.get("user_id")) == str_id or str(acc.get("id")) == str_id:
             return acc
     for acc in ACCOUNTS.values():
-        if acc.get("token", "").startswith(identifier):
+        if acc.get("token") and str_id and acc.get("token", "").startswith(str_id):
             return acc
     return None
 

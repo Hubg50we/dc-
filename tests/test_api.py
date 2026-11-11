@@ -30,10 +30,17 @@ def http_post(path, data):
     with urllib.request.urlopen(req, timeout=10) as resp:
         return resp.status, json.loads(resp.read().decode("utf-8"))
 
+is_remote = False
+
 def run_tests():
-    global BASE_URL
-    port = main.WEB_PORT
-    BASE_URL = f"http://127.0.0.1:{port}"
+    global BASE_URL, is_remote
+    if os.environ.get("SERVER_URL"):
+        BASE_URL = os.environ.get("SERVER_URL").rstrip("/")
+        is_remote = True
+    else:
+        port = main.WEB_PORT
+        BASE_URL = f"http://127.0.0.1:{port}"
+        is_remote = False
     print(f"\n========================================================")
     print(f"       DC- FULL SYSTEM FUNCTIONALITY AUDIT")
     print(f"       Target: {BASE_URL} (Version: {main.APP_VERSION})")
@@ -109,7 +116,7 @@ def run_tests():
     # 9. Test POST set_speaking
     try:
         st, data = http_post("/api/action", {"action": "set_speaking", "speaking": True})
-        check("POST action: set_speaking", data.get("success") and main.SPEAKING_SIM is True)
+        check("POST action: set_speaking", data.get("success") and (is_remote or main.SPEAKING_SIM is True))
     except Exception as e:
         check("POST action: set_speaking", False, str(e))
 
@@ -146,7 +153,8 @@ def run_tests():
     # 14. Test Token Add (Single & Bulk)
     try:
         st, data_single = http_post("/api/action", {"action": "token_add", "token": TEST_TOKEN})
-        check("POST action: token_add", data_single.get("success") and len(main.ACCOUNTS) > 0, f"Account count: {len(main.ACCOUNTS)}")
+        acc_ok = (data_single.get("success") and "result" in data_single) if is_remote else (len(main.ACCOUNTS) > 0)
+        check("POST action: token_add", data_single.get("success") and acc_ok, f"Account count: {acc_ok}")
     except Exception as e:
         check("POST action: token_add", False, str(e))
 
@@ -340,7 +348,7 @@ def run_tests():
 
     # 36. Test Account Remove
     try:
-        st, data_rem = http_post("/api/action", {"action": "token_remove", "id": 1})
+        st, data_rem = http_post("/api/action", {"action": "token_remove", "id": "1"})
         check("POST action: token_remove", data_rem.get("success") is True)
     except Exception as e:
         check("POST action: token_remove", False, str(e))
@@ -990,7 +998,7 @@ def run_tests():
 
         check("Audio / SFX Soundboard RFC 6716 Dispatch to Voice Connection",
               has_sfx and valid_frames and st_sfx == 200 and d_sfx.get("success") is True and
-              mock_vc.sfx_played == ["airhorn"] and mock_vc.stopped is True)
+              (is_remote or (mock_vc.sfx_played == ["airhorn"] and mock_vc.stopped is True)))
     except Exception as e:
         check("Audio / SFX Soundboard RFC 6716 Dispatch to Voice Connection", False, str(e))
 
@@ -1007,7 +1015,7 @@ def run_tests():
               st_custom == 200 and d_custom.get("success") is True and
               st_remote == 200 and d_remote.get("success") is True and
               st_yt == 200 and d_yt.get("success") is True and
-              len(mock_vc.streams) == 3 and "lavfi:sine" in mock_vc.streams[0][0])
+              (is_remote or (len(mock_vc.streams) == 3 and "lavfi:sine" in mock_vc.streams[0][0])))
     except Exception as e:
         check("Custom & Remote Audio / YouTube Real-Time Dispatch to Voice Connection", False, str(e))
 
@@ -1206,10 +1214,11 @@ def run_tests():
     return passed == total
 
 async def async_main():
-    main.START_TIME = time.time()
-    main.MAIN_LOOP = asyncio.get_running_loop()
-    main.start_web_server()
-    await asyncio.sleep(0.5)
+    if not os.environ.get("SERVER_URL"):
+        main.START_TIME = time.time()
+        main.MAIN_LOOP = asyncio.get_running_loop()
+        main.start_web_server()
+        await asyncio.sleep(0.5)
     
     # Run tests in thread
     loop = asyncio.get_running_loop()
