@@ -784,31 +784,39 @@ public class DiscordManager {
                     res.put("enabled", this.keySystemEnabled);
                 }
                 return res;
-            } else if ("create_user_key".equals(action) || "add_key".equals(action)) {
+            } else if ("create_user".equals(action) || "create_user_key".equals(action) || "add_key".equals(action) || "create_workspace".equals(action)) {
                 String reqKey = payload.optString("admin_key", payload.optString("key", "")).trim();
-                if (!this.accessKey.equalsIgnoreCase(reqKey)) {
+                if (!this.accessKey.equalsIgnoreCase(reqKey) && !"admin".equalsIgnoreCase(reqKey)) {
                     res.put("success", false);
-                    res.put("error", "Unauthorized: Only master admin can create user keys");
+                    res.put("error", "Unauthorized: Only master admin can create user accounts and passwords");
                 } else {
-                    String newK = payload.optString("new_key", payload.optString("key", "")).trim();
-                    String name = payload.optString("name", "Space (" + newK + ")").trim();
-                    if (newK.isEmpty()) {
+                    String newU = payload.optString("username", payload.optString("key", payload.optString("new_key", ""))).trim();
+                    String newP = payload.optString("password", payload.optString("pass", payload.optString("key", ""))).trim();
+                    String name = payload.optString("name", "Space (" + newU + ")").trim();
+                    if (newU.isEmpty()) {
                         res.put("success", false);
-                        res.put("error", "Key string cannot be empty");
+                        res.put("error", "Username cannot be empty");
+                    } else if (newP.isEmpty()) {
+                        res.put("success", false);
+                        res.put("error", "Password cannot be empty");
                     } else {
                         String existing = prefs.getString("user_keys", "[]");
                         try {
                             JSONArray arr = new JSONArray(existing);
                             JSONObject newObj = new JSONObject();
-                            newObj.put("key", newK);
+                            newObj.put("username", newU);
+                            newObj.put("password", newP);
+                            newObj.put("key", newU);
                             newObj.put("name", name);
+                            newObj.put("is_admin", false);
                             newObj.put("created_at", System.currentTimeMillis() / 1000);
                             arr.put(newObj);
                             prefs.edit().putString("user_keys", arr.toString()).apply();
                             res.put("success", true);
-                            res.put("key", newK);
+                            res.put("username", newU);
+                            res.put("key", newU);
                             res.put("name", name);
-                            res.put("message", "User space '" + newK + "' created successfully!");
+                            res.put("message", "User account '" + newU + "' created successfully!");
                         } catch (Exception e) {
                             res.put("success", false);
                             res.put("error", e.getMessage());
@@ -816,16 +824,16 @@ public class DiscordManager {
                     }
                 }
                 return res;
-            } else if ("delete_user_key".equals(action) || "remove_key".equals(action)) {
+            } else if ("delete_user".equals(action) || "delete_user_key".equals(action) || "remove_key".equals(action) || "delete_workspace".equals(action)) {
                 String reqKey = payload.optString("admin_key", payload.optString("key", "")).trim();
-                if (!this.accessKey.equalsIgnoreCase(reqKey)) {
+                if (!this.accessKey.equalsIgnoreCase(reqKey) && !"admin".equalsIgnoreCase(reqKey)) {
                     res.put("success", false);
-                    res.put("error", "Unauthorized: Only master admin can delete user keys");
+                    res.put("error", "Unauthorized: Only master admin can delete user accounts");
                 } else {
-                    String targetKey = payload.optString("target_key", "").trim();
-                    if (this.accessKey.equalsIgnoreCase(targetKey)) {
+                    String targetKey = payload.optString("username", payload.optString("target_key", payload.optString("key", ""))).trim();
+                    if (this.accessKey.equalsIgnoreCase(targetKey) || "admin".equalsIgnoreCase(targetKey) || "hubg50".equalsIgnoreCase(targetKey)) {
                         res.put("success", false);
-                        res.put("error", "Cannot delete master admin key");
+                        res.put("error", "Cannot delete master admin account");
                     } else {
                         String existing = prefs.getString("user_keys", "[]");
                         try {
@@ -834,7 +842,8 @@ public class DiscordManager {
                             boolean found = false;
                             for (int i = 0; i < arr.length(); i++) {
                                 JSONObject obj = arr.getJSONObject(i);
-                                if (obj.optString("key", "").equalsIgnoreCase(targetKey)) {
+                                String u = obj.optString("username", obj.optString("key", ""));
+                                if (u.equalsIgnoreCase(targetKey) || obj.optString("key", "").equalsIgnoreCase(targetKey)) {
                                     found = true;
                                 } else {
                                     filtered.put(obj);
@@ -842,7 +851,7 @@ public class DiscordManager {
                             }
                             prefs.edit().putString("user_keys", filtered.toString()).apply();
                             res.put("success", found);
-                            res.put("message", found ? "User space deleted" : "Key not found");
+                            res.put("message", found ? "User account deleted" : "User not found");
                         } catch (Exception e) {
                             res.put("success", false);
                             res.put("error", e.getMessage());

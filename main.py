@@ -221,6 +221,8 @@ def get_workspace_info(key):
 
 def is_admin_key(key):
     k = (key or "").strip().lower()
+    if not k:
+        return False
     if k in (ADMIN_USERNAME.lower(), ACCESS_KEY.lower(), "admin", "hubg50"):
         return True
     ws = get_workspace_info(k)
@@ -3220,13 +3222,13 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         return
 
     def get_request_key(self, payload=None):
-        # 1. Header X-Access-Key
+        # 1. Header X-Access-Key or Authorization
         key = self.headers.get("X-Access-Key") or self.headers.get("Authorization")
         if key:
             key = key.replace("Bearer ", "").strip()
             if key:
                 return key
-        # 2. Query parameter (?key=... or ?access_key=...)
+        # 2. Query parameter (?key=... or ?access_key=... or ?admin_key=...)
         if "?" in self.path:
             try:
                 from urllib.parse import urlparse, parse_qs
@@ -3235,11 +3237,13 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                     return qs["key"][0].strip()
                 if "access_key" in qs:
                     return qs["access_key"][0].strip()
+                if "admin_key" in qs:
+                    return qs["admin_key"][0].strip()
             except Exception:
                 pass
-        # 3. Payload key / access_key
+        # 3. Payload admin_key / key / access_key
         if payload and isinstance(payload, dict):
-            k = payload.get("key") or payload.get("access_key")
+            k = payload.get("admin_key") or payload.get("key") or payload.get("access_key")
             if k and isinstance(k, str) and k.strip():
                 return k.strip()
         # 4. Cookie dc_access_key
@@ -3247,8 +3251,12 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         if "dc_access_key=" in cookie_header:
             for part in cookie_header.split(";"):
                 if "dc_access_key=" in part:
-                    return part.split("dc_access_key=")[1].strip()
-        return ACCESS_KEY
+                    c_val = part.split("dc_access_key=")[1].strip()
+                    if c_val:
+                        return c_val
+        if not KEY_SYSTEM_ENABLED:
+            return ACCESS_KEY
+        return ""
 
     def do_GET(self):
         if self.path == "/" or self.path.startswith("/?"):
@@ -3274,8 +3282,13 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(resp)
         elif self.path == "/api/workspaces" or self.path.startswith("/api/workspaces?"):
             req_key = self.get_request_key()
-            ws_list = list_all_workspaces_summary() if is_admin_key(req_key) else [get_workspace_info(req_key)]
-            resp = json.dumps({"success": True, "workspaces": ws_list, "is_admin": is_admin_key(req_key)}).encode("utf-8")
+            is_adm = is_admin_key(req_key)
+            if is_adm:
+                ws_list = list_all_workspaces_summary()
+            else:
+                user_ws = get_workspace_info(req_key)
+                ws_list = [user_ws] if user_ws else []
+            resp = json.dumps({"success": True, "workspaces": ws_list, "is_admin": is_adm}).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Access-Control-Allow-Origin", "*")
@@ -3690,7 +3703,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
 
         if action in ("create_user_key", "add_key", "create_workspace", "create_user"):
             if not is_admin_key(req_key):
-                return {"success": False, "error": "Unauthorized: Only master admin can create new user accounts"}
+                return {"success": False, "error": "Unauthorized: Only master admin can create new user accounts and passwords"}
             new_u = str(payload.get("username", payload.get("key", payload.get("new_key", "")))).strip()
             new_p = str(payload.get("password", payload.get("pass", payload.get("key", "")))).strip()
             name = str(payload.get("name", payload.get("workspace_name", ""))).strip()
@@ -3699,7 +3712,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             if not new_p:
                 return {"success": False, "error": "Password cannot be empty"}
             u_low = new_u.lower()
-            if u_low in USER_WORKSPACES:
+            if u_low in USER_WORKSPACES or u_low in (ADMIN_USERNAME.lower(), ACCESS_KEY.lower(), "admin", "hubg50"):
                 return {"success": False, "error": f"User '{new_u}' already exists"}
             USER_WORKSPACES[u_low] = {
                 "username": new_u,
@@ -3733,11 +3746,33 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             log(f"🗑️ [Multi-User] Deleted user account '{target_key}' ({deleted_name}) and stopped {len(to_remove)} associated bot(s)")
             return {"success": True, "key": target_key, "removed_bots": len(to_remove), "message": f"Deleted user '{target_key}'"}
 
+        if action in ("admin_set_user_password", "reset_user_password", "set_user_password"):
+            if not is_admin_key(req_key):
+                return {"success": False, "error": "Unauthorized: Only master admin can reset user passwords"}
+            target_u = str(payload.get("username", "")).strip().lower()
+            new_p = str(payload.get("password", payload.get("new_password", ""))).strip()
+            if not target_u:
+                return {"success": False, "error": "Target username is required"}
+            if not new_p:
+                return {"success": False, "error": "New password cannot be empty"}
+            if target_u not in USER_WORKSPACES:
+                return {"success": False, "error": f"User '{target_u}' does not exist"}
+            USER_WORKSPACES[target_u]["password"] = new_p
+            save_workspaces()
+            log(f"🔑 [Multi-User] Admin updated password for user: '{target_u}'")
+            return {"success": True, "username": target_u, "message": f"Password updated for user '{target_u}'"}
+
         if action in ("list_user_keys", "list_workspaces", "list_users"):
+            is_adm = is_admin_key(req_key)
+            if is_adm:
+                ws_list = list_all_workspaces_summary()
+            else:
+                user_ws = get_workspace_info(req_key)
+                ws_list = [user_ws] if user_ws else []
             return {
                 "success": True,
-                "is_admin": is_admin_key(req_key),
-                "workspaces": list_all_workspaces_summary() if is_admin_key(req_key) else [get_workspace_info(req_key)]
+                "is_admin": is_adm,
+                "workspaces": ws_list
             }
 
         if action in ("set_access_key", "change_password", "set_password"):

@@ -1442,6 +1442,29 @@ def run_tests():
         }, headers={"X-Access-Key": "test_user_alpha"})
         unauth_blocked = (st_unauth == 200 and d_unauth.get("success") is False and "Unauthorized" in d_unauth.get("error", ""))
 
+        # 2b. Anonymous request with no credentials cannot create users
+        st_anon, d_anon = http_post("/api/action", {
+            "action": "create_user",
+            "username": "test_user_anon",
+            "password": "anon_password"
+        })
+        anon_blocked = (st_anon == 200 and d_anon.get("success") is False and "Unauthorized" in d_anon.get("error", ""))
+
+        # 2c. Non-admin cannot delete other users
+        st_del_bad, d_del_bad = http_post("/api/action", {
+            "action": "delete_user",
+            "username": "admin"
+        }, headers={"X-Access-Key": "test_user_alpha"})
+        del_bad_blocked = (st_del_bad == 200 and d_del_bad.get("success") is False and "Unauthorized" in d_del_bad.get("error", ""))
+
+        # 2d. Non-admin cannot reset user passwords
+        st_reset_bad, d_reset_bad = http_post("/api/action", {
+            "action": "reset_user_password",
+            "username": "test_user_alpha",
+            "password": "hacked_password"
+        }, headers={"X-Access-Key": "test_user_alpha"})
+        reset_bad_blocked = (st_reset_bad == 200 and d_reset_bad.get("success") is False and "Unauthorized" in d_reset_bad.get("error", ""))
+
         # 3. User alpha logs in with username & password
         st_l, d_l = http_post("/api/action", {
             "action": "login",
@@ -1494,8 +1517,9 @@ def run_tests():
         }, headers={"X-Access-Key": "hubg50"})
         del_ok = (st_del == 200 and d_del.get("success") is True)
 
-        mu_ok = (created_ok and unauth_blocked and login_alpha_ok and user_bad_rejected and
-                 add_ok and alpha_sees_bot and master_isolated and hijack_prevented and ws_found and del_ok)
+        mu_ok = (created_ok and unauth_blocked and anon_blocked and del_bad_blocked and reset_bad_blocked and
+                 login_alpha_ok and user_bad_rejected and add_ok and alpha_sees_bot and master_isolated and
+                 hijack_prevented and ws_found and del_ok)
         check("Multi-User Isolated Spaces & Data Partitioning per User Account (110th Milestone Function)", mu_ok)
     except Exception as e:
         check("Multi-User Isolated Spaces & Data Partitioning per User Account (110th Milestone Function)", False, str(e))

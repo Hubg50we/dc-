@@ -2290,8 +2290,14 @@
         </p>
 
         <!-- Admin Only User Account & Space Creator -->
-        <div id="admin-workspace-creator" style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:12px; margin-bottom:14px;">
-          <strong style="font-size:0.85rem; color:#f1f5f9; display:block; margin-bottom:8px;">➕ Create New User Account & Space</strong>
+        <div id="admin-workspace-creator" style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:12px; margin-bottom:14px; display:none;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+            <strong style="font-size:0.85rem; color:#f1f5f9; display:flex; align-items:center; gap:6px;">
+              <span>👑</span>
+              <span>Master Admin: Create User Account & Password</span>
+            </strong>
+            <span class="badge" style="background:rgba(168,85,247,0.3); color:#e9d5ff; font-size:0.65rem;">ADMIN ONLY</span>
+          </div>
           <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:8px; margin-bottom:10px;">
             <div>
               <label style="font-size:0.72rem; color:var(--text-muted); display:block; margin-bottom:3px;">👤 Username (Login):</label>
@@ -2316,10 +2322,14 @@
           </button>
         </div>
 
+        <div id="user-space-permission-notice" style="display:none; margin-bottom:12px; padding:10px 14px; background:rgba(56, 189, 248, 0.1); border:1px solid rgba(56, 189, 248, 0.25); border-radius:8px; font-size:0.78rem; color:#bae6fd;">
+          🔒 <strong>Private Isolated Space:</strong> Only the Master Admin can create accounts and passwords for other people. Your data, bots, and voice channels are completely private and separated to your workspace.
+        </div>
+
         <!-- Workspaces Table / List -->
         <div>
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <strong style="font-size:0.85rem; color:#f1f5f9;">Active User Accounts & Isolated Spaces</strong>
+            <strong style="font-size:0.85rem; color:#f1f5f9;" id="workspaces-table-title">Active User Accounts & Isolated Spaces</strong>
             <button onclick="loadWorkspacesList()" class="btn btn-secondary btn-sm" style="font-size:0.7rem; padding:3px 8px;">↻ Refresh Users</button>
           </div>
           <div style="overflow-x:auto;">
@@ -4216,6 +4226,7 @@
       // Workspace and Multi-User Status Sync
       if (data.workspace) {
         const ws = data.workspace;
+        currentIsAdmin = Boolean(ws.is_admin);
         const nameEl = document.getElementById('active-space-name');
         const roleEl = document.getElementById('active-space-role');
         const badgeEl = document.getElementById('current-space-badge');
@@ -4230,6 +4241,14 @@
         const adminCreator = document.getElementById('admin-workspace-creator');
         if (adminCreator) {
           adminCreator.style.display = ws.is_admin ? 'block' : 'none';
+        }
+        const titleEl = document.getElementById('workspaces-table-title');
+        if (titleEl) {
+          titleEl.innerText = ws.is_admin ? '👑 All User Accounts & Isolated Spaces (Admin Management)' : '🏢 My Isolated Workspace';
+        }
+        const noticeEl = document.getElementById('user-space-permission-notice');
+        if (noticeEl) {
+          noticeEl.style.display = ws.is_admin ? 'none' : 'block';
         }
         if (ws.all_workspaces && Array.isArray(ws.all_workspaces)) {
           renderWorkspacesTable(ws.all_workspaces, ws.key, ws.is_admin);
@@ -9249,9 +9268,26 @@
     // ==========================================
     // 🏢 Multi-User Workspaces & Isolated Tenant Spaces
     // ==========================================
+    let currentIsAdmin = false;
+
     function renderWorkspacesTable(workspaces, currentKey, isAdmin) {
       const tbody = document.getElementById('workspaces-table-body');
       if (!tbody) return;
+      currentIsAdmin = Boolean(isAdmin);
+
+      const adminCreator = document.getElementById('admin-workspace-creator');
+      if (adminCreator) {
+        adminCreator.style.display = currentIsAdmin ? 'block' : 'none';
+      }
+      const titleEl = document.getElementById('workspaces-table-title');
+      if (titleEl) {
+        titleEl.innerText = currentIsAdmin ? '👑 All User Accounts & Isolated Spaces (Admin Management)' : '🏢 My Isolated Workspace';
+      }
+      const noticeEl = document.getElementById('user-space-permission-notice');
+      if (noticeEl) {
+        noticeEl.style.display = currentIsAdmin ? 'none' : 'block';
+      }
+
       if (!workspaces || !workspaces.length) {
         tbody.innerHTML = '<tr><td colspan="6" style="padding:10px; text-align:center; color:var(--text-muted);">No user spaces registered yet.</td></tr>';
         return;
@@ -9290,12 +9326,12 @@
             </td>
             <td style="padding:8px 6px;">
               <span class="badge" style="font-size:0.65rem; background:${isWsAdmin ? 'rgba(168,85,247,0.25)' : 'rgba(56,189,248,0.25)'}; color:${isWsAdmin ? '#e9d5ff' : '#bae6fd'};">
-                ${isWsAdmin ? 'Admin' : 'User'}
+                ${isWsAdmin ? 'Admin' : 'User (Isolated)'}
               </span>
             </td>
             <td style="padding:8px 6px; text-align:right;">
               <div style="display:inline-flex; gap:5px;">
-                ${!isCurrent ? `
+                ${(!isCurrent && currentIsAdmin) ? `
                   <button onclick="switchWorkspace('${u}')" class="btn btn-secondary btn-sm" style="font-size:0.68rem; padding:2px 8px; border-color:rgba(139,92,246,0.35); color:#c084fc;" title="Enter this space">
                     Switch
                   </button>
@@ -9303,7 +9339,7 @@
                 <button onclick="copyWorkspaceLink('${u}')" class="btn btn-secondary btn-sm" style="font-size:0.68rem; padding:2px 6px;" title="Copy shareable link">
                   🔗
                 </button>
-                ${(isAdmin && !isWsAdmin) ? `
+                ${(currentIsAdmin && !isWsAdmin) ? `
                   <button onclick="deleteUserKey('${u}')" class="btn btn-secondary btn-sm" style="font-size:0.68rem; padding:2px 6px; color:#f87171; border-color:rgba(239,68,68,0.3);" title="Delete this user space">
                     🗑️
                   </button>
@@ -9318,10 +9354,16 @@
 
     async function loadWorkspacesList() {
       try {
-        const res = await fetch('/api/workspaces');
+        const headers = {};
+        const key = currentAccessKey || localStorage.getItem('dc_access_key') || '';
+        if (key) {
+          headers['X-Access-Key'] = key;
+        }
+        const res = await fetch('/api/workspaces', { headers });
         const data = await res.json();
         if (data && data.success && data.workspaces) {
-          renderWorkspacesTable(data.workspaces, currentAccessKey, data.is_admin);
+          currentIsAdmin = Boolean(data.is_admin);
+          renderWorkspacesTable(data.workspaces, currentAccessKey, currentIsAdmin);
         }
       } catch (e) {
         console.error('Error loading workspaces:', e);
@@ -9329,6 +9371,10 @@
     }
 
     async function createNewUserKey() {
+      if (!currentIsAdmin) {
+        showToast('⛔ Unauthorized: Only the master admin can create user accounts and passwords!', true);
+        return;
+      }
       const uInp = document.getElementById('new-user-username-input');
       const pInp = document.getElementById('new-user-password-input');
       const nameInp = document.getElementById('new-user-space-name');
@@ -9349,9 +9395,14 @@
       }
 
       try {
+        const headers = { 'Content-Type': 'application/json' };
+        const key = currentAccessKey || localStorage.getItem('dc_access_key') || '';
+        if (key) {
+          headers['X-Access-Key'] = key;
+        }
         const res = await fetch('/api/action', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: headers,
           body: JSON.stringify({
             action: 'create_user',
             username: uVal,
@@ -9376,24 +9427,24 @@
         showToast('Error: ' + e.message, true);
       }
     }
-          fetchStatus();
-          loadWorkspacesList();
-        } else {
-          showToast(data.error || 'Failed to create user space', true);
-        }
-      } catch (e) {
-        showToast('Error: ' + e.message, true);
-      }
-    }
 
     async function deleteUserKey(targetKey) {
+      if (!currentIsAdmin) {
+        showToast('⛔ Unauthorized: Only the master admin can delete user accounts!', true);
+        return;
+      }
       if (!confirm(`Are you sure you want to delete user space '${targetKey}'? This will remove all bots owned by this key.`)) {
         return;
       }
       try {
+        const headers = { 'Content-Type': 'application/json' };
+        const key = currentAccessKey || localStorage.getItem('dc_access_key') || '';
+        if (key) {
+          headers['X-Access-Key'] = key;
+        }
         const res = await fetch('/api/action', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: headers,
           body: JSON.stringify({
             action: 'delete_user_key',
             key: targetKey
