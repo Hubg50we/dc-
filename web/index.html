@@ -879,7 +879,7 @@
         max-width: 1300px;
       }
       .tab-content { display: flex !important; }
-      #tab-tokens, #tab-settings, #tab-logs { grid-column: span 2; }
+      #tab-tokens, #tab-settings, #tab-proxies, #tab-logs { grid-column: span 2; }
     }
   </style>
 </head>
@@ -2979,6 +2979,98 @@
 
     </div>
 
+    <!-- TAB: PROXIES & FREE PROXY POOL -->
+    <div class="tab-content" id="tab-proxies">
+
+      <!-- Hero Cyberpunk Anti-Ban Card -->
+      <div class="card" style="border-color: rgba(0, 180, 216, 0.45); background: linear-gradient(135deg, rgba(16, 24, 38, 0.95), rgba(8, 32, 54, 0.95));">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+          <div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:1.4rem;">🌐</span>
+              <h2 style="font-size:1.15rem; font-weight:800; color:#00b4d8; margin:0;">Free Proxy Pool & Anti-Ban</h2>
+            </div>
+            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:3px;">
+              Prevent Discord IP rate limits (HTTP 429) & Cloudflare blocks with 1-click free rotating proxies.
+            </div>
+          </div>
+          <span class="badge" style="background:rgba(0,180,216,0.18); color:#00b4d8; border:1px solid rgba(0,180,216,0.3); font-weight:700;">
+            ⚡ Live Shield Active
+          </span>
+        </div>
+
+        <!-- 4 Stat Counters Grid -->
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:10px; margin-bottom:14px;">
+          <div style="background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:10px;">
+            <div style="font-size:0.72rem; color:var(--text-muted);">Pool Proxies</div>
+            <div style="font-size:1.25rem; font-weight:800; color:#fff;" id="proxy-stat-total">0</div>
+          </div>
+          <div style="background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:10px;">
+            <div style="font-size:0.72rem; color:var(--text-muted);">Verified Online</div>
+            <div style="font-size:1.25rem; font-weight:800; color:#23a55a;" id="proxy-stat-online">0</div>
+          </div>
+          <div style="background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:10px;">
+            <div style="font-size:0.72rem; color:var(--text-muted);">Bots Protected</div>
+            <div style="font-size:1.25rem; font-weight:800; color:#00b4d8;" id="proxy-stat-assigned">0</div>
+          </div>
+          <div style="background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:10px;">
+            <div style="font-size:0.72rem; color:var(--text-muted);">Avg Latency</div>
+            <div style="font-size:1.25rem; font-weight:800; color:#faa61a;" id="proxy-stat-ping">-- ms</div>
+          </div>
+        </div>
+
+        <!-- 1-Click Action Commands -->
+        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+          <button class="btn btn-primary" onclick="fetchFreeProxies('socks5')" id="btn-fetch-socks5" style="flex:1; min-width:140px; background:#00b4d8; border-color:#00b4d8;">
+            ⚡ Fetch Free SOCKS5
+          </button>
+          <button class="btn btn-secondary" onclick="fetchFreeProxies('http')" id="btn-fetch-http" style="flex:1; min-width:130px;">
+            🌐 Fetch Free HTTP
+          </button>
+          <button class="btn btn-success" onclick="distributeProxiesToBots()" id="btn-distribute-proxies" style="flex:1; min-width:150px;">
+            🎯 Auto-Distribute to All Bots
+          </button>
+          <button class="btn btn-secondary" onclick="clearAllBotProxies()" style="color:var(--danger); border-color:rgba(242,63,67,0.3);">
+            🧹 Clear (Direct IP)
+          </button>
+        </div>
+      </div>
+
+      <!-- Custom Proxy Adder Card -->
+      <div class="card">
+        <div class="card-title">
+          <span>➕ Add Custom / Private Proxy</span>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Proxy Address (supports SOCKS5, HTTP, HTTPS with optional auth)</label>
+          <div class="input-row">
+            <input type="text" id="custom-proxy-input" placeholder="socks5://user:pass@1.2.3.4:1080 or http://1.2.3.4:3128">
+            <button class="btn btn-primary" onclick="addCustomProxy()">+ Add Proxy</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Proxy List & Filter Strip -->
+      <div class="card">
+        <div class="card-title">
+          <span>📋 Active Proxy Pool</span>
+          <div style="display:flex; gap:6px;">
+            <button class="btn btn-secondary btn-sm" onclick="filterProxyList('all')">All</button>
+            <button class="btn btn-secondary btn-sm" onclick="filterProxyList('online')">🟢 Online</button>
+            <button class="btn btn-secondary btn-sm" onclick="filterProxyList('socks5')">SOCKS5</button>
+            <button class="btn btn-secondary btn-sm" onclick="filterProxyList('http')">HTTP</button>
+          </div>
+        </div>
+
+        <div id="proxy-list-container" style="display:flex; flex-direction:column; gap:8px; max-height:480px; overflow-y:auto; padding-right:4px;">
+          <div style="text-align:center; padding:24px; color:var(--text-muted); font-size:0.85rem;">
+            No proxies in pool yet. Click <strong>⚡ Fetch Free SOCKS5</strong> to automatically load live free proxies.
+          </div>
+        </div>
+      </div>
+
+    </div>
+
     <!-- TAB 5: LIVE TERMINAL & CONSOLE COMMANDS -->
     <div class="tab-content" id="tab-logs">
 
@@ -3030,6 +3122,10 @@
     <div class="nav-item" onclick="switchTab('tokens', this)">
       <svg viewBox="0 0 24 24"><path d="M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>
       <span>Tokens</span>
+    </div>
+    <div class="nav-item" onclick="switchTab('proxies', this)">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+      <span>Proxies</span>
     </div>
     <div class="nav-item" onclick="switchTab('settings', this)">
       <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
@@ -3205,13 +3301,199 @@
       el.classList.add('active');
 
       const dock = document.getElementById('mobile-dock');
-      if (tabId === 'logs' || tabId === 'tokens' || tabId === 'settings') {
+      if (tabId === 'logs' || tabId === 'tokens' || tabId === 'settings' || tabId === 'proxies') {
         dock.style.display = 'none';
       } else {
         dock.style.display = 'flex';
       }
       if (tabId === 'logs') {
         fetchLogs();
+      }
+      if (tabId === 'proxies') {
+        renderProxiesTab();
+      }
+    }
+
+    let currentProxyList = [];
+    let currentProxyFilter = 'all';
+
+    function renderProxiesTab() {
+      if (window.lastStatusData && window.lastStatusData.proxy_summary) {
+        updateProxyUI(window.lastStatusData.proxy_summary);
+      } else {
+        fetchStatus();
+      }
+    }
+
+    function updateProxyUI(summary) {
+      if (!summary) return;
+      currentProxyList = summary.proxies || [];
+
+      const elTotal = document.getElementById('proxy-stat-total');
+      const elOnline = document.getElementById('proxy-stat-online');
+      const elAssigned = document.getElementById('proxy-stat-assigned');
+      const elPing = document.getElementById('proxy-stat-ping');
+
+      if (elTotal) elTotal.innerText = summary.total || 0;
+      if (elOnline) elOnline.innerText = summary.online || 0;
+      if (elAssigned) elAssigned.innerText = (summary.assigned_to_bots || 0) + ' Bots';
+      if (elPing) elPing.innerText = summary.avg_ping ? (summary.avg_ping + ' ms') : '-- ms';
+
+      renderProxyCards();
+    }
+
+    function filterProxyList(filter) {
+      currentProxyFilter = filter;
+      renderProxyCards();
+    }
+
+    function renderProxyCards() {
+      const container = document.getElementById('proxy-list-container');
+      if (!container) return;
+
+      let list = currentProxyList;
+      if (currentProxyFilter === 'online') {
+        list = list.filter(p => p.status === 'online');
+      } else if (currentProxyFilter === 'socks5') {
+        list = list.filter(p => p.protocol === 'SOCKS5');
+      } else if (currentProxyFilter === 'http') {
+        list = list.filter(p => p.protocol === 'HTTP');
+      }
+
+      if (list.length === 0) {
+        container.innerHTML = `
+          <div style="text-align:center; padding:24px; color:var(--text-muted); font-size:0.85rem;">
+            No proxies matching filter "${currentProxyFilter}". Click <strong>⚡ Fetch Free SOCKS5</strong> to reload.
+          </div>`;
+        return;
+      }
+
+      let html = '';
+      list.forEach((p, idx) => {
+        const isOnline = p.status === 'online';
+        const hasBots = p.assigned_to && p.assigned_to.length > 0;
+        const protoColor = p.protocol === 'SOCKS5' ? '#00b4d8' : '#a855f7';
+        const protoBg = p.protocol === 'SOCKS5' ? 'rgba(0,180,216,0.18)' : 'rgba(168,85,247,0.18)';
+
+        html += `
+          <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-dark); border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:10px 14px; gap:8px;">
+            <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
+              <span style="font-size:0.8rem; font-weight:800; color:${protoColor}; background:${protoBg}; padding:3px 8px; border-radius:6px;">
+                ${p.protocol}
+              </span>
+              <div style="min-width:0; overflow:hidden;">
+                <div style="font-size:0.88rem; font-weight:700; color:var(--text-heading); word-break:break-all;">
+                  ${escapeHtml(p.url)}
+                </div>
+                <div style="display:flex; gap:8px; align-items:center; font-size:0.74rem; color:var(--text-muted); margin-top:2px;">
+                  <span style="color:${isOnline ? '#23a55a' : '#888'};">● ${isOnline ? 'Online' : 'Untested'}</span>
+                  ${p.ping ? `<span style="color:#faa61a;">⚡ ${p.ping}ms</span>` : ''}
+                  ${hasBots ? `<span style="color:#00b4d8; font-weight:600;">🤖 Assigned to Bot(s): #${p.assigned_to.join(', #')}</span>` : '<span style="color:#666;">Available</span>'}
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex; gap:6px;">
+              <button class="btn btn-secondary btn-sm" onclick="testSingleProxyPing('${escapeHtml(p.url)}')" title="Test Ping">⚡ Ping</button>
+              <button class="btn btn-secondary btn-sm" style="color:var(--danger);" onclick="deleteProxyFromPool('${escapeHtml(p.url)}')" title="Delete">✕</button>
+            </div>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    async function fetchFreeProxies(protocol) {
+      vibrate(20);
+      showToast(`Fetching free ${protocol.toUpperCase()} proxies...`);
+      try {
+        const res = await sendPost('/api/action', { action: 'fetch_free_proxies', protocol: protocol, limit: 40 });
+        if (res.success) {
+          showToast(res.message);
+          updateProxyUI(res.summary);
+          fetchStatus();
+        } else {
+          showToast(res.error || 'Failed to fetch proxies', true);
+        }
+      } catch (e) {
+        showToast('Error: ' + e.message, true);
+      }
+    }
+
+    async function distributeProxiesToBots() {
+      vibrate(25);
+      showToast('Distributing proxies to all bots...');
+      try {
+        const res = await sendPost('/api/action', { action: 'distribute_proxies' });
+        if (res.success) {
+          showToast(`Assigned proxies to ${res.assigned} bots!`);
+          fetchStatus();
+        } else {
+          showToast(res.error || 'Failed to distribute', true);
+        }
+      } catch (e) {
+        showToast('Error: ' + e.message, true);
+      }
+    }
+
+    async function clearAllBotProxies() {
+      vibrate(20);
+      if (!confirm('Revert all bots to Direct IP connection?')) return;
+      try {
+        const res = await sendPost('/api/action', { action: 'clear_bot_proxies' });
+        if (res.success) {
+          showToast(`Reverted ${res.cleared} bots to Direct IP.`);
+          fetchStatus();
+        }
+      } catch (e) {
+        showToast('Error: ' + e.message, true);
+      }
+    }
+
+    async function addCustomProxy() {
+      const input = document.getElementById('custom-proxy-input');
+      const val = (input ? input.value : '').trim();
+      if (!val) return showToast('Please enter a proxy URL', true);
+      showToast('Adding proxy to pool...');
+      try {
+        const res = await sendPost('/api/action', { action: 'add_custom_proxy', url: val });
+        if (res.success) {
+          input.value = '';
+          showToast('Custom proxy added to pool!');
+          updateProxyUI(res.summary);
+          fetchStatus();
+        } else {
+          showToast(res.error || 'Failed to add proxy', true);
+        }
+      } catch (e) {
+        showToast('Error: ' + e.message, true);
+      }
+    }
+
+    async function deleteProxyFromPool(url) {
+      try {
+        const res = await sendPost('/api/action', { action: 'delete_proxy', url: url });
+        if (res.success) {
+          showToast('Proxy removed from pool');
+          updateProxyUI(res.summary);
+        }
+      } catch (e) {}
+    }
+
+    async function testSingleProxyPing(url) {
+      showToast('Testing ping...');
+      try {
+        const res = await sendPost('/api/action', { action: 'test_proxy_ping', url: url });
+        if (res.success) {
+          if (res.online) {
+            showToast(`🟢 Online! Ping: ${res.ping}ms`);
+          } else {
+            showToast('🔴 Offline / Connection timed out', true);
+          }
+          fetchStatus();
+        }
+      } catch (e) {
+        showToast('Ping failed: ' + e.message, true);
       }
     }
 
@@ -3308,6 +3590,8 @@
     }
 
     function renderStatus(data) {
+      window.lastStatusData = data;
+      if (data.proxy_summary) updateProxyUI(data.proxy_summary);
       document.getElementById('status-bulb').style.backgroundColor = 'var(--success)';
       document.getElementById('gateway-status-txt').innerText = (data.device_type === 'desktop' ? '💻 Desktop' : '📱 Mobile') + ' Gateway';
       document.getElementById('stat-total').innerText = data.total_accounts || 0;

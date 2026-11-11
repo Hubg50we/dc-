@@ -198,6 +198,140 @@ RADIO_STATIONS = [
 ]
 ACTIVE_RADIO_STATION = None
 
+# 🌐 Free Proxy Server & Anti-Ban Pool Engine
+FREE_PROXY_POOL = []  # [{"url": str, "protocol": str, "ip": str, "port": int, "ping": int, "status": "online"|"offline"|"untested", "assigned_to": list of aid}]
+PROXY_AUTO_ROTATE = False
+PROXY_LAST_FETCH = 0
+
+
+def ping_proxy_socket(host, port, timeout=1.5):
+    t0 = time.time()
+    try:
+        s = socket.create_connection((host, int(port)), timeout=timeout)
+        ping_ms = int((time.time() - t0) * 1000)
+        s.close()
+        return True, ping_ms
+    except Exception:
+        return False, 0
+
+
+def fetch_free_proxies_sync(limit=40, protocol="socks5"):
+    global FREE_PROXY_POOL, PROXY_LAST_FETCH
+    from concurrent.futures import ThreadPoolExecutor
+    proto_clean = protocol.lower() if protocol in ("socks5", "http") else "socks5"
+    url = f"https://api.proxyscrape.com/v2/?request=displayproxies&protocol={proto_clean}&timeout=3500&country=all"
+    candidates = []
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            text = resp.read().decode("utf-8")
+            for line in text.splitlines():
+                line = line.strip()
+                if line and ":" in line:
+                    h, p = line.split(":", 1)
+                    if p.isdigit():
+                        candidates.append((h, int(p), proto_clean.upper()))
+                        if len(candidates) >= limit:
+                            break
+    except Exception as e:
+        log(f"[Proxy Engine] Fetch error: {e}")
+
+    if not candidates:
+        defaults = [
+            ("137.66.1.45", 80, "HTTP"),
+            ("159.65.230.46", 8888, "HTTP"),
+            ("185.135.69.34", 80, "HTTP"),
+            ("98.170.57.249", 4145, "SOCKS5"),
+            ("184.178.172.25", 15291, "SOCKS5"),
+            ("167.99.3.26", 6607, "SOCKS5"),
+        ]
+        candidates = [(h, p, proto) for h, p, proto in defaults]
+
+    def _test(cand):
+        h, p, proto = cand
+        ok, ping = ping_proxy_socket(h, p, timeout=1.5)
+        return {
+            "url": f"{proto.lower()}://{h}:{p}",
+            "protocol": proto,
+            "ip": h,
+            "port": p,
+            "ping": ping if ok else 0,
+            "status": "online" if ok else "offline",
+            "assigned_to": []
+        }
+
+    tested = []
+    with ThreadPoolExecutor(max_workers=10) as ex:
+        tested = list(ex.map(_test, candidates))
+
+    tested.sort(key=lambda x: (0 if x["status"] == "online" else 1, x["ping"] if x["ping"] > 0 else 9999))
+    FREE_PROXY_POOL = tested
+    PROXY_LAST_FETCH = int(time.time())
+
+    for p in FREE_PROXY_POOL:
+        p["assigned_to"] = [a["id"] for a in ACCOUNTS.values() if a.get("proxy") == p["url"]]
+
+    log(f"🌐 [Proxy Engine] Loaded {len(FREE_PROXY_POOL)} free {proto_clean.upper()} proxies (Online verified: {sum(1 for p in FREE_PROXY_POOL if p['status'] == 'online')})")
+    return FREE_PROXY_POOL
+
+
+def get_free_proxy_summary():
+    online_count = sum(1 for p in FREE_PROXY_POOL if p.get("status") == "online")
+    assigned_count = sum(1 for a in ACCOUNTS.values() if a.get("proxy"))
+    avg_ping = 0
+    online_pings = [p["ping"] for p in FREE_PROXY_POOL if p.get("status") == "online" and p.get("ping", 0) > 0]
+    if online_pings:
+        avg_ping = int(sum(online_pings) / len(online_pings))
+    return {
+        "total": len(FREE_PROXY_POOL),
+        "online": online_count,
+        "assigned_to_bots": assigned_count,
+        "avg_ping": avg_ping,
+        "auto_rotate": PROXY_AUTO_ROTATE,
+        "last_fetch": PROXY_LAST_FETCH,
+        "proxies": FREE_PROXY_POOL
+    }
+
+
+def distribute_free_proxies_to_bots():
+    global FREE_PROXY_POOL
+    if not FREE_PROXY_POOL:
+        fetch_free_proxies_sync(limit=30, protocol="socks5")
+
+    online = [p for p in FREE_PROXY_POOL if p.get("status") == "online"]
+    if not online:
+        online = FREE_PROXY_POOL
+    if not online:
+        return {"success": False, "error": "No proxies available in pool"}
+
+    for p in FREE_PROXY_POOL:
+        p["assigned_to"] = []
+
+    assigned = 0
+    pool_len = len(online)
+    for idx, (aid, acc) in enumerate(sorted(ACCOUNTS.items())):
+        p_obj = online[idx % pool_len]
+        acc["proxy"] = p_obj["url"]
+        p_obj["assigned_to"].append(aid)
+        assigned += 1
+
+    sync_tokens_file()
+    log(f"🎯 [Proxy Engine] Distributed free proxies to {assigned} bot accounts.")
+    return {"success": True, "assigned": assigned, "total_accounts": len(ACCOUNTS)}
+
+
+def clear_all_bot_proxies():
+    cleared = 0
+    for acc in ACCOUNTS.values():
+        if acc.get("proxy"):
+            acc["proxy"] = None
+            cleared += 1
+    for p in FREE_PROXY_POOL:
+        p["assigned_to"] = []
+    sync_tokens_file()
+    log(f"🧹 [Proxy Engine] Cleared proxies from {cleared} bots (Direct IP mode).")
+    return {"success": True, "cleared": cleared}
+
 # 🤖 AI Conversational Co-Host (Built-in Ebony-Vinyl/dsh-our-free-model Engine)
 AI_COHOST_ENABLED = False
 AI_COHOST_PERSONA = "friendly"  # "friendly", "dj", "gamer", "sarcastic"
@@ -2764,6 +2898,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 ),
                 "active_sfx": ACTIVE_SFX,
             },
+            "proxy_summary": get_free_proxy_summary(),
             "accounts": [
                 {
                     "id": a.get("id", 0),
@@ -2851,7 +2986,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(404, "Not Found")
 
     def execute_action(self, payload):
-        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VOICE_FLAGS, ACTIVE_SFX, VOICE_STATUS, HUMAN_CHATTER_ENABLED, HUMAN_CHATTER_TASK, REAL_VIDEO_ACTIVE, REAL_VIDEO_MODE, REAL_VIDEO_TITLE, WEB_SHARE_URL, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE, STREAMBOT_QUEUE, STREAMBOT_CURRENT, STREAMBOT_STATUS, STREAMBOT_LOOP_MODE, STREAMBOT_VOLUME, STREAMBOT_RESOLUTION, STREAMBOT_FPS, STREAMBOT_BITRATE, STREAM_PROFILE, SPOTIFY_SONG, SPOTIFY_ARTIST, SPOTIFY_ALBUM, SPOTIFY_DURATION, VISUALIZER_MODE, STREAM_OVERLAY_ENABLED, STREAM_OVERLAY_TITLE, STREAM_OVERLAY_TICKER, CHAT_AUTO_RESPONDER_ENABLED, CHAT_AUTO_RESPONDER_RULES, DESKTOP_SCREEN_CAPTURE, AUDIO_BASS_BOOST, AUDIO_PITCH_SHIFT, AUDIO_NORMALIZER, AUDIO_EQ_PRESET, AUTO_REJOIN, CUSTOM_ACTIVITY_NAME, CUSTOM_ACTIVITY_TYPE, STEALTH_DELAY, RECORDING_ACTIVE, RECORDING_START_TIME, RECORDING_FILENAME, STADIUM_ECHO_ENABLED, STADIUM_ECHO_DELAY_MS, PTT_ACTIVE, PTT_TOTAL_CHUNKS, TOKEN_HEALTH_INDEX, RATE_LIMIT_COOLDOWN, RATE_LIMIT_HITS, ACTIVE_RADIO_STATION, AI_COHOST_ENABLED, AI_COHOST_PERSONA, AI_COHOST_API_KEY
+        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VOICE_FLAGS, ACTIVE_SFX, VOICE_STATUS, HUMAN_CHATTER_ENABLED, HUMAN_CHATTER_TASK, REAL_VIDEO_ACTIVE, REAL_VIDEO_MODE, REAL_VIDEO_TITLE, WEB_SHARE_URL, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE, STREAMBOT_QUEUE, STREAMBOT_CURRENT, STREAMBOT_STATUS, STREAMBOT_LOOP_MODE, STREAMBOT_VOLUME, STREAMBOT_RESOLUTION, STREAMBOT_FPS, STREAMBOT_BITRATE, STREAM_PROFILE, SPOTIFY_SONG, SPOTIFY_ARTIST, SPOTIFY_ALBUM, SPOTIFY_DURATION, VISUALIZER_MODE, STREAM_OVERLAY_ENABLED, STREAM_OVERLAY_TITLE, STREAM_OVERLAY_TICKER, CHAT_AUTO_RESPONDER_ENABLED, CHAT_AUTO_RESPONDER_RULES, DESKTOP_SCREEN_CAPTURE, AUDIO_BASS_BOOST, AUDIO_PITCH_SHIFT, AUDIO_NORMALIZER, AUDIO_EQ_PRESET, AUTO_REJOIN, CUSTOM_ACTIVITY_NAME, CUSTOM_ACTIVITY_TYPE, STEALTH_DELAY, RECORDING_ACTIVE, RECORDING_START_TIME, RECORDING_FILENAME, STADIUM_ECHO_ENABLED, STADIUM_ECHO_DELAY_MS, PTT_ACTIVE, PTT_TOTAL_CHUNKS, TOKEN_HEALTH_INDEX, RATE_LIMIT_COOLDOWN, RATE_LIMIT_HITS, ACTIVE_RADIO_STATION, AI_COHOST_ENABLED, AI_COHOST_PERSONA, AI_COHOST_API_KEY, FREE_PROXY_POOL, PROXY_AUTO_ROTATE, PROXY_LAST_FETCH
         action = payload.get("action", "")
 
         if action == "set_desktop_screen_capture":
@@ -4836,6 +4971,60 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             acc["proxy"] = prx
             sync_tokens_file()
             return {"success": True, "message": f"Proxy updated for account {acc['id']}.", "proxy": mask_proxy(prx)}
+        elif action == "fetch_free_proxies":
+            proto = payload.get("protocol", "socks5")
+            limit = int(payload.get("limit", 40))
+            proxies = fetch_free_proxies_sync(limit=limit, protocol=proto)
+            return {"success": True, "message": f"Fetched {len(proxies)} free {proto.upper()} proxies.", "summary": get_free_proxy_summary()}
+        elif action == "distribute_proxies":
+            res = distribute_free_proxies_to_bots()
+            return res
+        elif action == "clear_bot_proxies":
+            res = clear_all_bot_proxies()
+            return res
+        elif action == "add_custom_proxy":
+            raw_url = payload.get("url", "").strip()
+            if not raw_url:
+                return {"success": False, "error": "Proxy URL is empty"}
+            proto = "SOCKS5"
+            host_port = raw_url
+            if "://" in raw_url:
+                parts = raw_url.split("://", 1)
+                proto = parts[0].upper()
+                host_port = parts[1]
+            netloc = host_port.split("@")[-1]
+            host, port = netloc.split(":") if ":" in netloc else (netloc, 1080)
+            port_num = int(port) if str(port).isdigit() else 1080
+            ok, ping = ping_proxy_socket(host, port_num, timeout=2.0)
+            p_obj = {
+                "url": raw_url if "://" in raw_url else f"{proto.lower()}://{raw_url}",
+                "protocol": proto,
+                "ip": host,
+                "port": port_num,
+                "ping": ping if ok else 0,
+                "status": "online" if ok else "untested",
+                "assigned_to": []
+            }
+            FREE_PROXY_POOL.insert(0, p_obj)
+            return {"success": True, "message": "Custom proxy added to pool", "proxy": p_obj, "summary": get_free_proxy_summary()}
+        elif action == "delete_proxy":
+            target_url = payload.get("url", "").strip()
+            initial_len = len(FREE_PROXY_POOL)
+            FREE_PROXY_POOL[:] = [p for p in FREE_PROXY_POOL if p.get("url") != target_url]
+            return {"success": True, "removed": initial_len - len(FREE_PROXY_POOL), "summary": get_free_proxy_summary()}
+        elif action == "test_proxy_ping":
+            host = payload.get("host") or payload.get("ip")
+            port = payload.get("port")
+            if not (host and port):
+                url = payload.get("url", "")
+                netloc = url.split("://")[-1].split("@")[-1]
+                host, port = netloc.split(":") if ":" in netloc else (netloc, 1080)
+            ok, ping = ping_proxy_socket(host, int(port), timeout=2.0)
+            return {"success": True, "online": ok, "ping": ping}
+        elif action == "toggle_auto_rotate":
+            global PROXY_AUTO_ROTATE
+            PROXY_AUTO_ROTATE = not PROXY_AUTO_ROTATE
+            return {"success": True, "auto_rotate": PROXY_AUTO_ROTATE}
         elif action == "batch_action":
             aids = [int(x) for x in payload.get("ids", []) if str(x).isdigit()]
             sub = payload.get("sub_action", "")

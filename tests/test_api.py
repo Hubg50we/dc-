@@ -1247,6 +1247,38 @@ def run_tests():
     except Exception as e:
         check("Dedicated Bot Proxy Architecture (TOKEN|PROXY Parsing, set_account_proxy & Credentials Masking)", False, str(e))
 
+    # 102. Test Free Proxy Pool Manager, Auto-Scraper & Bot Auto-Distribution Engine
+    try:
+        # 1. Fetch free proxies
+        st_ff, d_ff = http_post("/api/action", {"action": "fetch_free_proxies", "protocol": "socks5", "limit": 10})
+        # 2. Add custom proxy
+        st_ac, d_ac = http_post("/api/action", {"action": "add_custom_proxy", "url": "socks5://127.0.0.1:1080"})
+        # 3. Test ping on loopback
+        st_tp, d_tp = http_post("/api/action", {"action": "test_proxy_ping", "host": "127.0.0.1", "port": 5000})
+        # 4. Distribute to bots
+        st_dis, d_dis = http_post("/api/action", {"action": "distribute_proxies"})
+        # 5. Check status proxy summary
+        st_stat, d_stat = http_get("/api/status")
+        ps = d_stat.get("proxy_summary", {})
+        # 6. Clear bot proxies
+        st_cb, d_cb = http_post("/api/action", {"action": "clear_bot_proxies"})
+        # 7. Delete custom proxy
+        st_dp, d_dp = http_post("/api/action", {"action": "delete_proxy", "url": "socks5://127.0.0.1:1080"})
+
+        pool_ok = (
+            d_ff.get("success") is True and
+            d_ac.get("success") is True and
+            d_tp.get("success") is True and
+            d_dis.get("success") is True and
+            "total" in ps and
+            "assigned_to_bots" in ps and
+            d_cb.get("success") is True and
+            d_dp.get("success") is True
+        )
+        check("Free Proxy Pool Manager, Auto-Scraper & Bot Distribution (102nd Milestone Function)", pool_ok)
+    except Exception as e:
+        check("Free Proxy Pool Manager, Auto-Scraper & Bot Distribution (102nd Milestone Function)", False, str(e))
+
     # Summary
     passed = sum(1 for _, ok, _ in results if ok)
     total = len(results)
