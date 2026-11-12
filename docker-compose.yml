@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  dc-server:
+    build: .
+    container_name: dc-server
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+      - "8080:8080"
+    environment:
+      - PORT=5000
+      - AUTO_REJOIN=true
+      - STEALTH_DELAY=0.1
+    volumes:
+      - ./tokens.txt:/app/tokens.txt
+      - ./channels.json:/app/channels.json
+      - ./uploads:/app/uploads
+      - ./recordings:/app/recordings

@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: dc-discord-server
+    env: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      - key: PORT
+        value: 5000
+      - key: AUTO_REJOIN
+        value: "true"
+      - key: STEALTH_DELAY
+        value: "0.1"

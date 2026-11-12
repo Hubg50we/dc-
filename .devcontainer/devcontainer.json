@@ -1,0 +1,19 @@
+{
+  "name": "dc- Discord Server",
+  "image": "mcr.microsoft.com/devcontainers/python:3.11",
+  "forwardPorts": [5000, 8080],
+  "portsAttributes": {
+    "5000": {
+      "label": "dc- Web Controller",
+      "onAutoForward": "openBrowser",
+      "visibility": "public"
+    },
+    "8080": {
+      "label": "StreamBot Relay",
+      "onAutoForward": "silent",
+      "visibility": "public"
+    }
+  },
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y ffmpeg && pip install --upgrade pip && pip install -r requirements.txt yt-dlp",
+  "postStartCommand": "python main.py"
+}
