@@ -109,7 +109,31 @@ USER_WORKSPACES = {}
 def load_workspaces():
     global USER_WORKSPACES
     default_ws = {
-        ADMIN_USERNAME.lower(): {
+        "admin": {
+            "username": "admin",
+            "password": ADMIN_PASSWORD,
+            "key": "admin",
+            "name": "Master Workspace",
+            "is_admin": True,
+            "created_at": int(time.time()),
+            "guild_id": GUILD_ID,
+            "channel_id": CHANNEL_ID,
+            "presets": []
+        },
+        "hubg50": {
+            "username": "hubg50",
+            "password": ADMIN_PASSWORD,
+            "key": "hubg50",
+            "name": "Master Workspace",
+            "is_admin": True,
+            "created_at": int(time.time()),
+            "guild_id": GUILD_ID,
+            "channel_id": CHANNEL_ID,
+            "presets": []
+        }
+    }
+    if ADMIN_USERNAME.lower() not in default_ws:
+        default_ws[ADMIN_USERNAME.lower()] = {
             "username": ADMIN_USERNAME,
             "password": ADMIN_PASSWORD,
             "key": ADMIN_USERNAME,
@@ -120,7 +144,6 @@ def load_workspaces():
             "channel_id": CHANNEL_ID,
             "presets": []
         }
-    }
     if os.path.exists(WORKSPACES_FILE):
         try:
             with open(WORKSPACES_FILE, "r", encoding="utf-8") as f:
@@ -134,14 +157,15 @@ def load_workspaces():
     else:
         USER_WORKSPACES = default_ws
 
-    admin_key = ADMIN_USERNAME.lower()
-    if admin_key not in USER_WORKSPACES:
-        USER_WORKSPACES[admin_key] = default_ws[admin_key]
-    else:
-        if not USER_WORKSPACES[admin_key].get("password"):
-            USER_WORKSPACES[admin_key]["password"] = ADMIN_PASSWORD
-        if not USER_WORKSPACES[admin_key].get("username"):
-            USER_WORKSPACES[admin_key]["username"] = ADMIN_USERNAME
+    for k, v in default_ws.items():
+        if k not in USER_WORKSPACES:
+            USER_WORKSPACES[k] = v
+        else:
+            if not USER_WORKSPACES[k].get("password"):
+                USER_WORKSPACES[k]["password"] = ADMIN_PASSWORD
+            if not USER_WORKSPACES[k].get("username"):
+                USER_WORKSPACES[k]["username"] = v.get("username", k)
+            USER_WORKSPACES[k]["is_admin"] = True
 
 def save_workspaces():
     try:
@@ -250,6 +274,7 @@ def list_all_workspaces_summary():
         res.append({
             "username": ws.get("username", user_id),
             "key": ws.get("key", user_id),
+            "password": ws.get("password", ws.get("key", user_id)),
             "name": ws.get("name", f"Space ({user_id})"),
             "is_admin": bool(ws.get("is_admin") or user_id.lower() in (ADMIN_USERNAME.lower(), "admin", "hubg50")),
             "created_at": ws.get("created_at", 0),
@@ -3560,7 +3585,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Access-Key, X-Admin-Key, Authorization, admin_key, key")
         self.send_header("Content-Length", "0")
         self.end_headers()
 
@@ -3577,6 +3602,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Access-Key, X-Admin-Key, Authorization, admin_key, key")
                 self.send_header("Content-Length", str(len(resp)))
                 self.end_headers()
                 self.wfile.write(resp)
@@ -6181,6 +6207,17 @@ def start_web_server():
     try:
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
+        # Dual-port cloud support (e.g. Koyeb on 8000 + Render/Local on 5000)
+        alt_ports = [8000, 5000]
+        for alt_p in alt_ports:
+            if alt_p != WEB_PORT:
+                try:
+                    alt_server = ThreadingHTTPServer((WEB_HOST, alt_p), DashboardHandler)
+                    alt_thread = threading.Thread(target=alt_server.serve_forever, daemon=True)
+                    alt_thread.start()
+                    print(f"[*] Cloud Dual-Port: Web UI also active on port {alt_p}")
+                except Exception:
+                    pass
         # Ensure built-in OFM proxy daemon is active
         try:
             ensure_ofm_proxy_running()

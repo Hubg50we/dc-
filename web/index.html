@@ -4210,7 +4210,13 @@
 
     async function fetchStatus() {
       try {
-        const res = await fetch('/api/status');
+        const key = currentAccessKey || localStorage.getItem('dc_access_key') || sessionStorage.getItem('dc_access_key') || '';
+        const headers = {};
+        if (key) {
+          headers['X-Access-Key'] = key;
+        }
+        const url = key ? `/api/status?key=${encodeURIComponent(key)}` : '/api/status';
+        const res = await fetch(url, { headers });
         if (!res.ok) throw new Error('Status ' + res.status);
         const data = await res.json();
         renderStatus(data);
@@ -9228,8 +9234,9 @@
         if (data && (data.valid || data.authenticated)) {
           const resolvedUser = data.username || uVal || 'admin';
           currentAccessKey = data.key || resolvedUser;
-          document.cookie = "dc_access_key=" + encodeURIComponent(currentAccessKey) + "; path=/; max-age=31536000; SameSite=Lax";
-          document.cookie = "dc_username=" + encodeURIComponent(resolvedUser) + "; path=/; max-age=31536000; SameSite=Lax";
+          const sec = (window.location.protocol === 'https:') ? '; Secure' : '';
+          document.cookie = "dc_access_key=" + encodeURIComponent(currentAccessKey) + "; path=/; max-age=31536000; SameSite=Lax" + sec;
+          document.cookie = "dc_username=" + encodeURIComponent(resolvedUser) + "; path=/; max-age=31536000; SameSite=Lax" + sec;
           const remember = document.getElementById('login-remember-me');
           if (remember && remember.checked) {
             localStorage.setItem('dc_access_key', currentAccessKey);
@@ -9308,13 +9315,48 @@
       inp.type = inp.type === 'password' ? 'text' : 'password';
     }
 
-    function toggleKeyReveal(k) {
+    function toggleKeyReveal(k, pass) {
       const el = document.getElementById(`key-display-${k}`);
       if (!el) return;
       if (el.innerText === '••••••••') {
-        el.innerText = k;
+        el.innerText = pass || k;
       } else {
         el.innerText = '••••••••';
+      }
+    }
+
+    async function adminResetUserPassword(targetUser) {
+      if (!currentIsAdmin) {
+        showToast('⛔ Unauthorized: Only master admin can reset user passwords!', true);
+        return;
+      }
+      const newP = prompt(`Enter new password for '${targetUser}':`);
+      if (!newP || !newP.trim()) return;
+      const key = currentAccessKey || localStorage.getItem('dc_access_key') || sessionStorage.getItem('dc_access_key') || '';
+      try {
+        const headers = { 'Content-Type': 'application/json' };
+        if (key) headers['X-Access-Key'] = key;
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify({
+            action: 'admin_set_user_password',
+            admin_key: key,
+            key: key,
+            username: targetUser,
+            new_password: newP.trim()
+          })
+        });
+        const data = await res.json();
+        if (data && data.success) {
+          showToast(`🔑 Password updated for '${targetUser}'`);
+          fetchStatus();
+          loadWorkspacesList();
+        } else {
+          showToast(data.error || 'Failed to update password', true);
+        }
+      } catch (e) {
+        showToast('Error: ' + e.message, true);
       }
     }
 
@@ -9399,7 +9441,7 @@
             <td style="padding:8px 6px;">
               <div style="display:flex; align-items:center; gap:4px;">
                 <span id="key-display-${u}" style="font-family:monospace; background:rgba(0,0,0,0.35); padding:2px 6px; border-radius:4px; color:#93c5fd; font-size:0.75rem;">••••••••</span>
-                <button onclick="toggleKeyReveal('${u}')" class="btn btn-secondary btn-sm" style="font-size:0.6rem; padding:1px 4px;" title="Reveal Password">👁️</button>
+                <button onclick="toggleKeyReveal('${u}', '${(ws.password || '').replace(/'/g, "\\'")}')" class="btn btn-secondary btn-sm" style="font-size:0.6rem; padding:1px 4px;" title="Reveal Password">👁️</button>
               </div>
             </td>
             <td style="padding:8px 6px;">
@@ -9422,6 +9464,9 @@
                   🔗
                 </button>
                 ${(currentIsAdmin && !isWsAdmin) ? `
+                  <button onclick="adminResetUserPassword('${u}')" class="btn btn-secondary btn-sm" style="font-size:0.68rem; padding:2px 6px; color:#fbbf24; border-color:rgba(251,191,36,0.3);" title="Change/Reset User Password">
+                    🔑
+                  </button>
                   <button onclick="deleteUserKey('${u}')" class="btn btn-secondary btn-sm" style="font-size:0.68rem; padding:2px 6px; color:#f87171; border-color:rgba(239,68,68,0.3);" title="Delete this user space">
                     🗑️
                   </button>
@@ -9437,15 +9482,16 @@
     async function loadWorkspacesList() {
       try {
         const headers = {};
-        const key = currentAccessKey || localStorage.getItem('dc_access_key') || '';
+        const key = currentAccessKey || localStorage.getItem('dc_access_key') || sessionStorage.getItem('dc_access_key') || '';
         if (key) {
           headers['X-Access-Key'] = key;
         }
-        const res = await fetch('/api/workspaces', { headers });
+        const url = key ? `/api/workspaces?key=${encodeURIComponent(key)}` : '/api/workspaces';
+        const res = await fetch(url, { headers });
         const data = await res.json();
         if (data && data.success && data.workspaces) {
           currentIsAdmin = Boolean(data.is_admin);
-          renderWorkspacesTable(data.workspaces, currentAccessKey, currentIsAdmin);
+          renderWorkspacesTable(data.workspaces, key, currentIsAdmin);
         }
       } catch (e) {
         console.error('Error loading workspaces:', e);
@@ -9478,7 +9524,7 @@
 
       try {
         const headers = { 'Content-Type': 'application/json' };
-        const key = currentAccessKey || localStorage.getItem('dc_access_key') || '';
+        const key = currentAccessKey || localStorage.getItem('dc_access_key') || sessionStorage.getItem('dc_access_key') || '';
         if (key) {
           headers['X-Access-Key'] = key;
         }
@@ -9487,6 +9533,8 @@
           headers: headers,
           body: JSON.stringify({
             action: 'create_user',
+            admin_key: key,
+            key: key,
             username: uVal,
             password: pVal,
             name: nameVal,
@@ -9520,7 +9568,7 @@
       }
       try {
         const headers = { 'Content-Type': 'application/json' };
-        const key = currentAccessKey || localStorage.getItem('dc_access_key') || '';
+        const key = currentAccessKey || localStorage.getItem('dc_access_key') || sessionStorage.getItem('dc_access_key') || '';
         if (key) {
           headers['X-Access-Key'] = key;
         }
@@ -9529,7 +9577,9 @@
           headers: headers,
           body: JSON.stringify({
             action: 'delete_user_key',
-            key: targetKey
+            admin_key: key,
+            key: key,
+            username: targetKey
           })
         });
         const data = await res.json();

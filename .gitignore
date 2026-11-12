@@ -32,3 +32,7 @@ streambot/.env
 uploads/*
 !uploads/.gitkeep
 .arena/
+
+*.log
+cloudflared.exe
+start_tunnel.bat
