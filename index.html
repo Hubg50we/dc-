@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="/manifest.json">
-  <title>dc- Complete Mobile Control Center</title>
+  <title>dc- Discord Voice Control Center</title>
   <style>
     :root {
       /* 60% Neutral Base */
@@ -74,6 +74,8 @@
       --text-muted: #8e9297;
       --text-heading: #ffffff;
     }
+
+
     body.amoled-mode,
     body.theme-amoled {
       --bg-darker: #000000;
@@ -1008,277 +1010,101 @@
     }
 
     /* ========================================================= */
-    /* 🖥️ BRAND NEW DESKTOP & LAPTOP STUDIO UI STYLES            */
+    /* 🖥️ DESKTOP & LAPTOP CLEAN RESPONSIVE STYLING (>= 900px)     */
     /* ========================================================= */
-    .desktop-sidebar {
+    .desktop-top-nav {
       display: none;
-    }
-    .desktop-only-controls {
-      display: none;
-    }
-    .app-shell {
-      display: block;
-      width: 100%;
-      min-height: 100vh;
-    }
-    .viewport-main {
-      width: 100%;
-      min-height: 100vh;
     }
 
-    @media (min-width: 1024px) {
+    @media (min-width: 900px) {
       body {
-        padding-bottom: 0 !important;
-        overflow: hidden !important;
-        background: #0f1115;
+        padding-bottom: 32px;
       }
       .bottom-nav, .quick-thumb-dock {
         display: none !important;
       }
-      .desktop-only-controls {
-        display: flex !important;
-      }
 
-      /* Desktop 2-Column App Shell (Sidebar + Viewport) */
-      .app-shell {
-        display: flex !important;
-        height: 100vh !important;
-        width: 100vw !important;
-        overflow: hidden !important;
-      }
-
-      /* Left Studio Sidebar */
-      .desktop-sidebar {
-        display: flex !important;
-        flex-direction: column !important;
-        width: 270px !important;
-        min-width: 270px !important;
-        max-width: 270px !important;
-        height: 100vh !important;
-        background: #111214 !important;
-        border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
-        user-select: none !important;
-        z-index: 100 !important;
-        position: relative !important;
-        box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3) !important;
-      }
-
-      .desktop-sidebar-header {
-        padding: 18px 20px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-        background: rgba(0, 0, 0, 0.2);
-      }
-      .desktop-sidebar-logo {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 1.35rem;
-        font-weight: 900;
-        letter-spacing: -0.03em;
-        background: linear-gradient(135deg, #fff 30%, #a855f7 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-      }
-
-      .desktop-sidebar-nav {
-        flex: 1;
-        overflow-y: auto;
-        padding: 14px 12px;
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-      }
-      .desktop-nav-group {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-      }
-      .desktop-nav-category {
-        font-size: 0.68rem;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: #64748b;
-        padding: 4px 10px 6px 10px;
-      }
-      .desktop-nav-item {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 9px 12px;
-        border-radius: 10px;
-        font-size: 0.85rem;
-        font-weight: 600;
-        color: #94a3b8;
-        cursor: pointer;
-        transition: all 0.18s ease;
-        position: relative;
-      }
-      .desktop-nav-item:hover {
-        background: rgba(255, 255, 255, 0.05);
-        color: #f1f5f9;
-        transform: translateX(2px);
-      }
-      .desktop-nav-item.active {
-        background: linear-gradient(135deg, rgba(88, 101, 242, 0.25), rgba(168, 85, 247, 0.25));
-        color: #ffffff;
-        font-weight: 700;
-        border: 1px solid rgba(139, 92, 246, 0.4);
-        box-shadow: 0 4px 14px rgba(88, 101, 242, 0.2);
-      }
-      .desktop-nav-icon {
-        font-size: 1.15rem;
+      /* Clean Discord-Style Top Navigation Bar */
+      .desktop-top-nav {
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 24px;
+        background: var(--bg-dark);
+        border-bottom: 1px solid var(--border);
+        padding: 6px 16px;
+        position: sticky;
+        top: 60px;
+        z-index: 99;
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
       }
-      .desktop-nav-label {
-        flex: 1;
-      }
-      .desktop-nav-badge {
-        font-size: 0.65rem;
-        font-weight: 700;
-        padding: 2px 7px;
-        border-radius: 10px;
-        background: rgba(88, 101, 242, 0.3);
-        color: #a5b4fc;
-        border: 1px solid rgba(88, 101, 242, 0.4);
-      }
-      .desktop-nav-pill {
-        font-size: 0.65rem;
-        font-weight: 800;
-        padding: 2px 6px;
-        border-radius: 6px;
-        background: rgba(239, 68, 68, 0.2);
-        color: #f87171;
-        border: 1px solid rgba(239, 68, 68, 0.4);
-        letter-spacing: 0.04em;
-      }
-
-      .desktop-sidebar-actions {
-        padding: 12px 14px;
-        background: rgba(0, 0, 0, 0.25);
-        border-top: 1px solid rgba(255, 255, 255, 0.06);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-      }
-
-      .desktop-sidebar-footer {
-        padding: 14px 16px;
-        background: #0d0e11;
-        border-top: 1px solid rgba(255, 255, 255, 0.06);
+      .desktop-nav-inner {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        gap: 10px;
+        gap: 8px;
+        max-width: 1360px;
+        width: 100%;
+        overflow-x: auto;
+      }
+      .desktop-tab-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        background: transparent;
+        border: 1px solid transparent;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        white-space: nowrap;
+      }
+      .desktop-tab-btn:hover {
+        color: var(--text-heading);
+        background: var(--bg-hover);
+      }
+      .desktop-tab-btn.active {
+        color: #ffffff;
+        background: var(--accent);
+        border-color: var(--accent);
+        box-shadow: 0 2px 10px var(--accent-glow);
+      }
+      .desktop-tab-icon {
+        font-size: 1.05rem;
       }
 
-      /* Desktop Viewport & Scrolling Main Area */
-      .viewport-main {
-        flex: 1 !important;
-        height: 100vh !important;
-        overflow-y: auto !important;
-        display: flex !important;
-        flex-direction: column !important;
-        background: #131519 !important;
-      }
-
-      header {
-        position: sticky !important;
-        top: 0 !important;
-        z-index: 90 !important;
-        background: rgba(19, 21, 25, 0.88) !important;
-        backdrop-filter: blur(20px) !important;
-        -webkit-backdrop-filter: blur(20px) !important;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
-        padding: 12px 24px !important;
-        display: flex !important;
-        justify-content: space-between !important;
-        align-items: center !important;
-      }
-      .brand { display: none !important; }
-
-      .stats-strip {
-        padding: 14px 24px !important;
-        gap: 14px !important;
-        background: rgba(0, 0, 0, 0.18) !important;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
-      }
-      .stat-pill {
-        flex: 1 !important;
-        min-width: 140px !important;
-        padding: 10px 16px !important;
-        border-radius: 12px !important;
-        background: rgba(255, 255, 255, 0.03) !important;
-        border: 1px solid rgba(255, 255, 255, 0.06) !important;
-      }
-
+      /* Clean Centered Main Container */
       main {
-        flex: 1 !important;
-        display: block !important;
-        width: 100% !important;
-        max-width: 1700px !important;
-        margin: 0 auto !important;
-        padding: 24px 28px 80px 28px !important;
+        max-width: 1360px;
+        margin: 0 auto;
+        padding: 24px 20px 48px 20px;
+        width: 100%;
+        box-sizing: border-box;
       }
 
-      /* Tab Content Desktop Display Rules: ONLY ACTIVE TAB DISPLAYS */
+      /* Keep Active Tab Scoped and Displayed Properly */
       .tab-content {
         display: none !important;
       }
       .tab-content.active {
-        display: block !important;
-        animation: fadeInTab 0.22s ease-out;
-      }
-      @keyframes fadeInTab {
-        from { opacity: 0; transform: translateY(6px); }
-        to { opacity: 1; transform: translateY(0); }
+        display: flex !important;
       }
 
-      /* Desktop Multi-Column Grid for Voice Controls */
+      /* Multi-Column Responsive Cards inside Controls Tab */
       #tab-controls.active {
         display: grid !important;
-        grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)) !important;
-        gap: 22px !important;
-        align-items: start !important;
+        grid-template-columns: repeat(auto-fit, minmax(430px, 1fr));
+        gap: 20px;
+        align-items: start;
       }
 
-      /* Desktop Grid for Bot Cards */
+      /* Accounts Container Grid */
       #accounts-container {
-        display: grid !important;
-        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)) !important;
-        gap: 18px !important;
-      }
-
-      /* Desktop Grid for Tokens, Settings & Proxies */
-      #tab-tokens.active, #tab-proxies.active, #tab-settings.active {
-        display: grid !important;
-        grid-template-columns: repeat(auto-fit, minmax(480px, 1fr)) !important;
-        gap: 22px !important;
-        align-items: start !important;
-      }
-
-      /* Desktop Console / Logs */
-      #tab-logs.active {
-        display: block !important;
-        max-width: 1400px;
-        margin: 0 auto;
-      }
-      #logs-container {
-        height: 640px !important;
-        font-size: 0.82rem !important;
-      }
-
-      /* Hover micro-interactions for desktop cards */
-      .card {
-        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease !important;
-      }
-      .card:hover {
-        border-color: rgba(139, 92, 246, 0.4) !important;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35) !important;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+        gap: 16px;
       }
     }
   </style>
@@ -1361,103 +1187,13 @@
     </div>
   </div>
 
-  <!-- Desktop Layout Wrapper -->
-  <div class="app-shell">
-    <!-- Left Desktop Studio Sidebar (Visible on >= 1024px) -->
-    <aside class="desktop-sidebar" id="desktop-sidebar">
-      <div class="desktop-sidebar-header">
-        <div class="desktop-sidebar-logo">
-          <span>dc-</span>
-          <span class="badge" style="background:linear-gradient(135deg, #5865F2, #a855f7); color:#fff; font-size:0.7rem; font-weight:800; padding:2px 7px; border-radius:10px;">STUDIO</span>
-        </div>
-        <div style="display:flex; align-items:center; gap:6px; font-size:0.7rem; color:#4ade80; background:rgba(34,197,94,0.15); border:1px solid rgba(34,197,94,0.3); padding:2px 8px; border-radius:12px;">
-          <span style="width:6px; height:6px; border-radius:50%; background:#22c55e; display:inline-block; box-shadow:0 0 6px #22c55e;"></span>
-          <span>Online</span>
-        </div>
-      </div>
-
-      <div class="desktop-sidebar-nav">
-        <!-- GROUP 1: CONTROL ROOM -->
-        <div class="desktop-nav-group">
-          <div class="desktop-nav-category">CONTROL ROOM</div>
-          <div class="desktop-nav-item active" data-tab="controls" onclick="switchTab('controls', this)">
-            <span class="desktop-nav-icon">🎛️</span>
-            <span class="desktop-nav-label">Voice & Audio Desk</span>
-            <span class="desktop-nav-pill" id="desktop-voice-pill">LIVE</span>
-          </div>
-          <div class="desktop-nav-item" data-tab="accounts" onclick="switchTab('accounts', this)">
-            <span class="desktop-nav-icon">🤖</span>
-            <span class="desktop-nav-label">Bot Fleet</span>
-            <span class="desktop-nav-badge" id="desktop-bots-count">0</span>
-          </div>
-          <div class="desktop-nav-item" data-tab="tokens" onclick="switchTab('tokens', this)">
-            <span class="desktop-nav-icon">🔑</span>
-            <span class="desktop-nav-label">Token Vault</span>
-          </div>
-        </div>
-
-        <!-- GROUP 2: SYSTEM & NETWORKING -->
-        <div class="desktop-nav-group">
-          <div class="desktop-nav-category">SYSTEM & NETWORK</div>
-          <div class="desktop-nav-item" data-tab="proxies" onclick="switchTab('proxies', this)">
-            <span class="desktop-nav-icon">🌐</span>
-            <span class="desktop-nav-label">Proxy Network</span>
-            <span class="desktop-nav-badge" id="desktop-proxy-count" style="background:rgba(34,197,94,0.2); color:#4ade80; border-color:rgba(34,197,94,0.4);">SOCKS5</span>
-          </div>
-          <div class="desktop-nav-item" data-tab="settings" onclick="switchTab('settings', this)">
-            <span class="desktop-nav-icon">⚙️</span>
-            <span class="desktop-nav-label">Settings & Spaces</span>
-          </div>
-          <div class="desktop-nav-item" data-tab="logs" onclick="switchTab('logs', this)">
-            <span class="desktop-nav-icon">📜</span>
-            <span class="desktop-nav-label">Live Console</span>
-            <span class="desktop-nav-badge" style="background:rgba(59,130,246,0.2); color:#60a5fa; border-color:rgba(59,130,246,0.4);">LOGS</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Quick Action Deck in Sidebar -->
-      <div class="desktop-sidebar-actions">
-        <div style="font-size:0.68rem; font-weight:800; color:#64748b; text-transform:uppercase; margin-bottom:8px; letter-spacing:0.06em;">QUICK VOICE DISPATCH</div>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
-          <button class="btn btn-primary btn-sm" onclick="triggerAction('move')" style="font-size:0.75rem; padding:6px 8px;">🔊 Join VC</button>
-          <button class="btn btn-danger btn-sm" onclick="triggerAction('disconnect')" style="font-size:0.75rem; padding:6px 8px;">✕ Leave</button>
-          <button class="btn btn-warning btn-sm" onclick="triggerAction('mute')" style="font-size:0.75rem; padding:6px 8px;">🔇 Mute</button>
-          <button class="btn btn-secondary btn-sm" onclick="triggerAction('unmute')" style="font-size:0.75rem; padding:6px 8px;">🔊 Unmute</button>
-        </div>
-      </div>
-
-      <!-- User & Workspace Footer -->
-      <div class="desktop-sidebar-footer">
-        <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:0; cursor:pointer;" onclick="switchOrViewWorkspace()" title="Active Space (Click to Manage)">
-          <div style="width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg, #5865F2, #a855f7); display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0; border:1px solid rgba(255,255,255,0.15);">
-            🏢
-          </div>
-          <div style="min-width:0; flex:1;">
-            <div id="desktop-user-display" style="font-weight:700; font-size:0.82rem; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">admin</div>
-            <div id="desktop-space-display" style="font-size:0.68rem; color:#c084fc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Master Workspace</div>
-          </div>
-        </div>
-        <button class="icon-btn" onclick="logoutDashboard()" style="min-height:30px; width:30px; border-radius:8px;" title="Lock Dashboard">🔒</button>
-      </div>
-    </aside>
-
-    <!-- Main Viewport Area -->
-    <div class="viewport-main">
-      <!-- Top App Header -->
-      <header>
-        <div class="brand">
-          <span>dc-</span>
-          <span class="brand-badge">PRO</span>
-        </div>
-        <div class="header-actions">
-          <!-- Desktop Quick Voice Action Bar -->
-          <div class="desktop-only-controls" style="display:none; align-items:center; gap:8px;">
-            <button class="btn btn-primary btn-sm" onclick="triggerAction('move')" style="font-size:0.75rem; padding:4px 10px;">🔊 Join VC</button>
-            <button class="btn btn-warning btn-sm" onclick="triggerAction('mute')" style="font-size:0.75rem; padding:4px 10px;">🔇 Mute All</button>
-            <button class="btn btn-secondary btn-sm" onclick="triggerAction('unmute')" style="font-size:0.75rem; padding:4px 10px;">🔊 Unmute All</button>
-            <button class="btn btn-danger btn-sm" onclick="triggerAction('disconnect')" style="font-size:0.75rem; padding:4px 10px;">✕ Disconnect</button>
-          </div>
+  <!-- Top App Header -->
+  <header>
+    <div class="brand">
+      <span>dc-</span>
+      <span class="brand-badge">PRO</span>
+    </div>
+    <div class="header-actions">
       <div id="active-workspace-pill" onclick="switchOrViewWorkspace()" style="display:flex; align-items:center; gap:6px; font-size:0.75rem; background:linear-gradient(135deg, rgba(88,101,242,0.18), rgba(168,85,247,0.18)); border:1px solid rgba(139,92,246,0.35); padding:4px 10px; border-radius:16px; cursor:pointer;" title="Active Isolated Space (Click to Switch/Manage)">
         <span>🏢</span>
         <span id="active-space-name" style="font-weight:700; color:#c084fc;">Space: Master</span>
@@ -1488,11 +1224,42 @@
         <option value="bn">🇧🇩 BN</option>
       </select>
       <button class="icon-btn" onclick="triggerPipMode()" title="Floating Picture-in-Picture Mini-Dock">🪟</button>
-      <button class="icon-btn" onclick="cycleTheme()" title="Switch Theme (Classic / Blurple / Cyberpunk / AMOLED / Matrix)" style="color:#7289da; border-color:rgba(114,137,218,0.4);">🎨</button>
+      <button class="icon-btn" onclick="cycleTheme()" title="Cycle Color Themes (Classic / Modern / Cyberpunk / AMOLED)">🎨</button>
+      <button class="icon-btn" onclick="toggleAmoled()" title="AMOLED Black Toggle">⚡</button>
       <button class="icon-btn" onclick="logoutDashboard()" title="Lock / Logout Dashboard" style="color:#c084fc; border-color:rgba(168,85,247,0.35);">🔐</button>
       <button class="icon-btn" onclick="refreshAll()" title="Refresh Dashboard">↻</button>
     </div>
   </header>
+
+  <!-- Desktop / Laptop Top Navigation Bar (Hidden on Mobile) -->
+  <nav class="desktop-top-nav" id="desktop-nav">
+    <div class="desktop-nav-inner">
+      <button class="desktop-tab-btn active" data-tab="controls" onclick="switchTab('controls', this)">
+        <span class="desktop-tab-icon">🎛️</span>
+        <span>Voice Controls</span>
+      </button>
+      <button class="desktop-tab-btn" data-tab="accounts" onclick="switchTab('accounts', this)">
+        <span class="desktop-tab-icon">👥</span>
+        <span>Connected Bots</span>
+      </button>
+      <button class="desktop-tab-btn" data-tab="tokens" onclick="switchTab('tokens', this)">
+        <span class="desktop-tab-icon">🔑</span>
+        <span>Token Vault</span>
+      </button>
+      <button class="desktop-tab-btn" data-tab="proxies" onclick="switchTab('proxies', this)">
+        <span class="desktop-tab-icon">🌐</span>
+        <span>Proxy Fleet</span>
+      </button>
+      <button class="desktop-tab-btn" data-tab="settings" onclick="switchTab('settings', this)">
+        <span class="desktop-tab-icon">⚙️</span>
+        <span>Settings & Theme</span>
+      </button>
+      <button class="desktop-tab-btn" data-tab="logs" onclick="switchTab('logs', this)">
+        <span class="desktop-tab-icon">📜</span>
+        <span>Live Logs</span>
+      </button>
+    </div>
+  </nav>
 
   <!-- Auto-Update Notification Banner -->
   <div id="update-notification-banner" class="update-banner" style="display:none;">
@@ -1537,30 +1304,6 @@
 
     <!-- TAB 1: QUICK CONTROLS -->
     <div class="tab-content active" id="tab-controls">
-
-      <!-- 🚀 AI Studio Showcase Hero Card -->
-      <div class="card hero-studio-card" style="grid-column: 1 / -1; position:relative; overflow:hidden; padding:0; border-radius:18px; border:1px solid rgba(114, 137, 218, 0.45); background:#1e2024; box-shadow:0 12px 36px rgba(0,0,0,0.5); margin-bottom:4px;">
-        <div style="position:relative; height:180px; overflow:hidden; background:#111;">
-          <img src="/studio_banner.jpg" alt="Studio Banner" style="width:100%; height:100%; object-fit:cover; opacity:0.85; filter:contrast(1.08) saturate(1.15);">
-          <div style="position:absolute; inset:0; background:linear-gradient(180deg, rgba(10,11,14,0.1) 0%, rgba(15,17,21,0.92) 85%, var(--bg-card) 100%);"></div>
-          <div style="position:absolute; bottom:14px; left:18px; right:18px; display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:10px;">
-            <div>
-              <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-                <span class="badge" style="background:#7289da; color:#fff; font-size:0.7rem; font-weight:800; padding:2px 8px; border-radius:12px;">PRO STUDIO</span>
-                <span style="font-size:0.75rem; color:#4ade80; display:flex; align-items:center; gap:5px; font-weight:700;">
-                  <span style="width:7px; height:7px; border-radius:50%; background:#22c55e; box-shadow:0 0 8px #22c55e;"></span>
-                  <span>24/7 DAVE MLS E2EE Active</span>
-                </span>
-              </div>
-              <h2 style="font-size:1.35rem; font-weight:900; color:#fff; letter-spacing:-0.03em; margin:0; text-shadow:0 2px 8px rgba(0,0,0,0.8);">Discord Voice & Media Deck</h2>
-            </div>
-            <div style="display:flex; gap:8px; align-items:center;">
-              <button class="btn btn-primary btn-sm" onclick="triggerAction('move')" style="box-shadow:0 0 16px rgba(114,137,218,0.4); font-weight:700;">🔊 Fast Join</button>
-              <button class="btn btn-secondary btn-sm" onclick="openAiGeneratorModal()" style="border-color:rgba(168,85,247,0.5); color:#c084fc; font-weight:700;">✨ AI Studio</button>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <div class="card">
         <div class="card-title">
@@ -2625,10 +2368,11 @@
         </p>
 
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:8px; margin-bottom:12px;">
-          <button class="btn btn-secondary btn-sm" onclick="setAppTheme('classic')" id="theme-btn-classic" style="display:flex; align-items:center; justify-content:center; gap:6px; padding:8px; border-color:#7289da; color:#7289da; font-weight:700;">
-            <span>🕹️</span> <span>Classic 2015</span>
-          </button>
-          <button class="btn btn-secondary btn-sm" onclick="setAppTheme('default')" id="theme-btn-default" style="display:flex; align-items:center; justify-content:center; gap:6px; padding:8px;">
+                      <button class="btn btn-secondary btn-sm" onclick="setAppTheme('classic')" id="theme-btn-classic" style="display:flex; align-items:center; justify-content:center; gap:6px; padding:8px; border-color:#7289da; color:#7289da; font-weight:700;">
+              <span>🕹️</span>
+              <span>Classic 2015</span>
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="setAppTheme('default')" id="theme-btn-default" style="display:flex; align-items:center; justify-content:center; gap:6px; padding:8px;">
             <span>👾</span> <span>Blurple</span>
           </button>
           <button class="btn btn-secondary btn-sm" onclick="setAppTheme('cyberpunk')" id="theme-btn-cyberpunk" style="display:flex; align-items:center; justify-content:center; gap:6px; padding:8px; border-color:#00b4d8; color:#00b4d8;">
@@ -4006,8 +3750,6 @@
     </div>
 
   </main>
-    </div> <!-- /.viewport-main -->
-  </div> <!-- /.app-shell -->
 
   <!-- Sticky Mobile Quick-Dock (Visible on Tab 1 & 2) -->
   <div class="quick-thumb-dock" id="mobile-dock">
@@ -4021,27 +3763,27 @@
 
   <!-- Bottom App Navigation Bar (5 Tabs) -->
   <nav class="bottom-nav">
-    <div class="nav-item active" onclick="switchTab('controls', this)">
+    <div class="nav-item active" data-tab="controls" onclick="switchTab('controls', this)">
       <svg viewBox="0 0 24 24"><path d="M13 2.05v3.03c3.39.49 6 3.39 6 6.92 0 .9-.18 1.75-.48 2.54l2.6 1.53c.56-1.24.88-2.62.88-4.07 0-5.18-3.95-9.45-9-9.95zM12 19c-3.87 0-7-3.13-7-7 0-3.53 2.61-6.43 6-6.92V2.05c-5.06.5-9 4.76-9 9.95 0 5.52 4.47 10 9.99 10 3.31 0 6.24-1.61 8.01-4.09l-2.5-1.46C16.14 17.84 14.21 19 12 19zm1-11v5l4.28 2.54.72-1.21-3.5-2.08V8H13z"/></svg>
       <span>Controls</span>
     </div>
-    <div class="nav-item" onclick="switchTab('accounts', this)">
+    <div class="nav-item" data-tab="accounts" onclick="switchTab('accounts', this)">
       <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
       <span>Bots</span>
     </div>
-    <div class="nav-item" onclick="switchTab('tokens', this)">
+    <div class="nav-item" data-tab="tokens" onclick="switchTab('tokens', this)">
       <svg viewBox="0 0 24 24"><path d="M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>
       <span>Tokens</span>
     </div>
-    <div class="nav-item" onclick="switchTab('proxies', this)">
+    <div class="nav-item" data-tab="proxies" onclick="switchTab('proxies', this)">
       <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
       <span>Proxies</span>
     </div>
-    <div class="nav-item" onclick="switchTab('settings', this)">
+    <div class="nav-item" data-tab="settings" onclick="switchTab('settings', this)">
       <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
       <span>Settings</span>
     </div>
-    <div class="nav-item" onclick="switchTab('logs', this)">
+    <div class="nav-item" data-tab="logs" onclick="switchTab('logs', this)">
       <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2zm0-4H7V7h10v2zm-4 8H7v-2h6v2z"/></svg>
       <span>Logs</span>
     </div>
@@ -4056,46 +3798,6 @@
         <button class="btn btn-secondary btn-sm" style="min-height:34px; width:34px; padding:0; border-radius:50%;" onclick="closeModal()">✕</button>
       </div>
       <div id="modal-bot-body" style="display:flex; flex-direction:column; gap:12px;"></div>
-    </div>
-  </div>
-
-  <!-- Modal Sheet for AI Voice Studio & Speech Synthesis -->
-  <div class="modal-overlay" id="ai-generator-modal" onclick="closeAiGeneratorModal(event)">
-    <div class="modal-card" style="max-width:540px; margin:0 auto; border-radius:22px; background:var(--bg-card); border:1px solid rgba(168,85,247,0.4); box-shadow:0 24px 64px rgba(0,0,0,0.85);" onclick="event.stopPropagation()">
-      <div class="modal-handle"></div>
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-        <div style="display:flex; align-items:center; gap:8px;">
-          <span style="font-size:1.4rem;">✨</span>
-          <h3 style="color:#fff; font-size:1.15rem; font-weight:800; margin:0;">AI Voice & Broadcast Studio</h3>
-        </div>
-        <button class="btn btn-secondary btn-sm" style="min-height:32px; width:32px; padding:0; border-radius:50%;" onclick="closeAiGeneratorModal()">✕</button>
-      </div>
-      <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:14px; line-height:1.45;">
-        Generate and broadcast realistic AI voice messages, roleplay co-host chatter, and custom server announcements directly to your Discord voice channel.
-      </p>
-
-      <div style="margin-bottom:12px;">
-        <label style="font-size:0.75rem; font-weight:700; color:#cbd5e1; display:block; margin-bottom:6px;">Choose Persona & Style:</label>
-        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:6px;">
-          <button class="btn btn-secondary btn-sm" onclick="setAiPromptPreset('radio')" style="font-size:0.75rem; padding:6px;">🎙️ Radio DJ</button>
-          <button class="btn btn-secondary btn-sm" onclick="setAiPromptPreset('cyber')" style="font-size:0.75rem; padding:6px;">🤖 Cyberpunk</button>
-          <button class="btn btn-secondary btn-sm" onclick="setAiPromptPreset('announcer')" style="font-size:0.75rem; padding:6px;">📢 Tournament</button>
-          <button class="btn btn-secondary btn-sm" onclick="setAiPromptPreset('lofi')" style="font-size:0.75rem; padding:6px;">☕ Chill Lo-Fi</button>
-        </div>
-      </div>
-
-      <div style="margin-bottom:14px;">
-        <label style="font-size:0.75rem; font-weight:700; color:#cbd5e1; display:block; margin-bottom:6px;">Voice Speech Text:</label>
-        <textarea id="ai-broadcast-text" rows="3" placeholder="Enter broadcast speech text..." style="width:100%; padding:10px 12px; background:rgba(0,0,0,0.45); border:1px solid rgba(255,255,255,0.18); border-radius:12px; color:#fff; font-size:0.85rem; font-family:inherit; outline:none; resize:none;"></textarea>
-      </div>
-
-      <div style="display:flex; gap:8px;">
-        <button class="btn btn-primary" onclick="broadcastAiVoice()" style="flex:1; display:flex; justify-content:center; align-items:center; gap:8px; font-weight:800; background:linear-gradient(135deg, #5865F2, #8b5cf6);">
-          <span>📢</span>
-          <span>Broadcast Live to VC</span>
-        </button>
-        <button class="btn btn-secondary" onclick="closeAiGeneratorModal()" style="font-size:0.82rem;">Cancel</button>
-      </div>
     </div>
   </div>
 
@@ -4239,17 +3941,15 @@
       showToast(hapticEnabled ? 'Haptics: Enabled' : 'Haptics: Disabled');
     }
 
-    const AVAILABLE_THEMES = ['classic', 'default', 'cyberpunk', 'amoled', 'matrix', 'synthwave', 'midnight'];
-
+    const appThemes = ['default', 'classic', 'cyberpunk', 'amoled', 'matrix', 'synthwave', 'midnight'];
     function cycleTheme() {
-      const cur = localStorage.getItem('dc_theme') || 'classic';
-      const idx = AVAILABLE_THEMES.indexOf(cur);
-      const next = AVAILABLE_THEMES[(idx + 1) % AVAILABLE_THEMES.length];
+      const cur = localStorage.getItem('dc_theme') || 'default';
+      const next = appThemes[(appThemes.indexOf(cur) + 1) % appThemes.length];
       setAppTheme(next);
     }
 
     function setAppTheme(theme) {
-      document.body.classList.remove('theme-classic', 'theme-amoled', 'theme-cyberpunk', 'theme-synthwave', 'theme-matrix', 'theme-midnight', 'amoled-mode');
+      document.body.classList.remove('theme-amoled', 'theme-cyberpunk', 'theme-synthwave', 'theme-matrix', 'theme-midnight', 'amoled-mode', 'theme-classic');
       const badge = document.getElementById('current-theme-badge');
       const meta = document.getElementById('meta-theme-color');
       
@@ -4258,7 +3958,7 @@
       
       if (theme === 'classic') {
         document.body.classList.add('theme-classic');
-        badgeName = 'Classic Discord 🕹️';
+        badgeName = 'Classic 2015 🕹️';
         metaColor = '#2f3136';
       } else if (theme === 'amoled') {
         document.body.classList.add('theme-amoled', 'amoled-mode');
@@ -4351,26 +4051,17 @@
       vibrate(15);
       document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-      document.querySelectorAll('.desktop-nav-item').forEach(n => n.classList.remove('active'));
-
+      document.querySelectorAll('.desktop-tab-btn').forEach(n => n.classList.remove('active'));
       const target = document.getElementById('tab-' + tabId);
-      if (target) {
-        target.classList.add('active');
-      }
-
+      if (target) target.classList.add('active');
       document.querySelectorAll(`[data-tab="${tabId}"]`).forEach(n => n.classList.add('active'));
       if (el && el.classList) el.classList.add('active');
 
-      const vp = document.querySelector('.viewport-main');
-      if (vp) vp.scrollTop = 0;
-
       const dock = document.getElementById('mobile-dock');
-      if (dock) {
-        if (window.innerWidth >= 1024 || tabId === 'logs' || tabId === 'tokens' || tabId === 'settings' || tabId === 'proxies') {
-          dock.style.display = 'none';
-        } else {
-          dock.style.display = 'flex';
-        }
+      if (tabId === 'logs' || tabId === 'tokens' || tabId === 'settings' || tabId === 'proxies') {
+        dock.style.display = 'none';
+      } else {
+        dock.style.display = 'flex';
       }
       if (tabId === 'logs') {
         fetchLogs();
@@ -4735,9 +4426,6 @@
       document.getElementById('stat-voice').innerText = data.voice_accounts || 0;
       document.getElementById('stat-uptime').innerText = formatUptime(data.uptime);
 
-      const dBotsPill = document.getElementById('desktop-bots-count');
-      if (dBotsPill) dBotsPill.innerText = data.online_accounts !== undefined ? `${data.online_accounts}/${data.total_accounts || 0}` : (data.total_accounts || 0);
-
       // System Telemetry (Battery %, charging, thermals)
       const tel = data.system_telemetry || (data.battery_level !== undefined ? {
         battery_level: data.battery_level,
@@ -4782,10 +4470,6 @@
         const roleEl = document.getElementById('active-space-role');
         const badgeEl = document.getElementById('current-space-badge');
         if (nameEl) nameEl.innerText = ws.name ? `Space: ${ws.name}` : `Space: (${ws.key})`;
-        const dUser = document.getElementById('desktop-user-display');
-        const dSpace = document.getElementById('desktop-space-display');
-        if (dUser) dUser.innerText = ws.username || ws.key || 'admin';
-        if (dSpace) dSpace.innerText = ws.name || 'Master Workspace';
         if (roleEl) {
           roleEl.innerText = ws.is_admin ? 'Admin' : 'User';
           roleEl.style.background = ws.is_admin ? 'rgba(168,85,247,0.45)' : 'rgba(56,189,248,0.35)';
@@ -5562,62 +5246,6 @@
 
     function closeModal(e) {
       document.getElementById('account-modal').classList.remove('open');
-    }
-
-    function openAiGeneratorModal() {
-      const modal = document.getElementById('ai-generator-modal');
-      if (modal) modal.classList.add('open');
-      const txt = document.getElementById('ai-broadcast-text');
-      if (txt && !txt.value) {
-        txt.value = "Welcome to the 24/7 Discord Voice Lounge! Enjoy high-fidelity sound, 4K streaming, and automated voice bot protection.";
-      }
-    }
-
-    function closeAiGeneratorModal(e) {
-      const modal = document.getElementById('ai-generator-modal');
-      if (modal) modal.classList.remove('open');
-    }
-
-    function setAiPromptPreset(type) {
-      const txt = document.getElementById('ai-broadcast-text');
-      if (!txt) return;
-      if (type === 'radio') {
-        txt.value = "Hey everyone! You're tuned into the 24/7 Community Radio on Discord. Playing the finest chill beats, non-stop all day.";
-      } else if (type === 'cyber') {
-        txt.value = "Warning: Automated neural sentry activated on voice channel. Encryption level: DAVE MLS. Standby for audio handshake.";
-      } else if (type === 'announcer') {
-        txt.value = "Attention all players! The tournament room is now open. Please prepare your squads and check your audio levels!";
-      } else if (type === 'lofi') {
-        txt.value = "Slow down, take a deep breath, and grab a warm cup of coffee. The 24/7 study session is officially underway.";
-      }
-      vibrate(15);
-      showToast(`AI Preset: ${type.toUpperCase()}`);
-    }
-
-    async function broadcastAiVoice() {
-      const txt = document.getElementById('ai-broadcast-text');
-      if (!txt || !txt.value.trim()) {
-        showToast('Please enter text to broadcast', true);
-        return;
-      }
-      const speech = txt.value.trim();
-      showToast('📢 Generating AI speech and broadcasting to VC...');
-      closeAiGeneratorModal();
-      try {
-        const res = await fetch('/api/action', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'send_tts', text: speech })
-        });
-        const data = await res.json();
-        if (data.success) {
-          showToast('✅ AI Voice Broadcast sent to voice channel!');
-        } else {
-          showToast('⚠️ Notice: ' + (data.error || 'Check voice bot connection'));
-        }
-      } catch (e) {
-        showToast('Error sending broadcast: ' + e.message, true);
-      }
     }
 
     function saveBotProxy(aid) {

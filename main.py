@@ -3531,22 +3531,6 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             self.serve_file()
         elif self.path == "/manifest.json":
             self.serve_manifest()
-        elif self.path in ("/studio_banner.jpg", "/web/studio_banner.jpg"):
-            base_dir = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
-            img_path = os.path.join(base_dir, "web", "studio_banner.jpg")
-            if not os.path.exists(img_path):
-                img_path = os.path.join(base_dir, "studio_banner.jpg")
-            if os.path.exists(img_path):
-                with open(img_path, "rb") as f:
-                    content = f.read()
-                self.send_response(200)
-                self.send_header("Content-Type", "image/jpeg")
-                self.send_header("Cache-Control", "public, max-age=86400")
-                self.send_header("Content-Length", str(len(content)))
-                self.end_headers()
-                self.wfile.write(content)
-            else:
-                self.send_error(404, "Banner Not Found")
         elif self.path == "/api/status" or self.path.startswith("/api/status?"):
             self.serve_status()
         elif self.path == "/api/logs":
