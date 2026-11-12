@@ -211,6 +211,76 @@ def load_workspaces():
         except Exception:
             pass
 
+    # 5. Cloud persistence: Fetch from GitHub raw / API if configured
+    gh_token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    gh_repo = os.environ.get("GITHUB_REPO", "Hubg50we/dc-").strip()
+    if gh_repo:
+        try:
+            url = f"https://raw.githubusercontent.com/{gh_repo}/main/workspaces.json"
+            headers = {"User-Agent": "dc-cloud-persistence"}
+            if gh_token:
+                headers["Authorization"] = f"token {gh_token}"
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=4) as resp:
+                remote_data = json.loads(resp.read().decode("utf-8"))
+                if isinstance(remote_data, dict):
+                    for k, ws in remote_data.items():
+                        if isinstance(ws, dict) and k.lower() not in USER_WORKSPACES:
+                            USER_WORKSPACES[k.lower()] = ws
+                    print(f"[☁️ Cloud] Merged workspaces from GitHub ({gh_repo})")
+        except Exception:
+            pass
+
+    # 6. Cloud persistence: Upstash Redis REST
+    upstash_url = os.environ.get("UPSTASH_REDIS_REST_URL", "").strip().rstrip("/")
+    upstash_token = os.environ.get("UPSTASH_REDIS_REST_TOKEN", "").strip()
+    if upstash_url and upstash_token:
+        try:
+            req = urllib.request.Request(
+                f"{upstash_url}/get/dc_workspaces",
+                headers={"Authorization": f"Bearer {upstash_token}", "User-Agent": "dc-persistence"}
+            )
+            with urllib.request.urlopen(req, timeout=4) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                val = data.get("result")
+                if val:
+                    if isinstance(val, str):
+                        val = json.loads(val)
+                    if isinstance(val, dict):
+                        for k, ws in val.items():
+                            if isinstance(ws, dict):
+                                USER_WORKSPACES[k.lower()] = ws
+                        print("[☁️ Cloud] Merged workspaces from Upstash Redis REST")
+        except Exception as e:
+            print(f"[!] Upstash read error: {e}")
+
+    # 7. Cloud persistence: PostgreSQL (DATABASE_URL)
+    db_url = os.environ.get("DATABASE_URL", "").strip()
+    if db_url:
+        try:
+            import psycopg2
+            conn = psycopg2.connect(db_url)
+            with conn.cursor() as cur:
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS dc_cloud_kv (
+                        key TEXT PRIMARY KEY,
+                        val TEXT,
+                        updated_at BIGINT
+                    );
+                """)
+                cur.execute("SELECT val FROM dc_cloud_kv WHERE key = 'workspaces';")
+                row = cur.fetchone()
+                if row and row[0]:
+                    pg_data = json.loads(row[0])
+                    if isinstance(pg_data, dict):
+                        for k, ws in pg_data.items():
+                            if isinstance(ws, dict):
+                                USER_WORKSPACES[k.lower()] = ws
+                        print("[☁️ Cloud] Merged workspaces from PostgreSQL DATABASE_URL")
+            conn.close()
+        except Exception:
+            pass
+
 def generate_dc_users_env_string():
     entries = []
     for k, ws in USER_WORKSPACES.items():
@@ -222,12 +292,122 @@ def generate_dc_users_env_string():
             entries.append(f"{u}:{p}")
     return ",".join(entries)
 
+def sync_workspaces_to_cloud():
+    """Asynchronously sync USER_WORKSPACES to external cloud persistence."""
+    def _worker():
+        # Provider A: GitHub API Auto-Commit
+        gh_token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+        gh_repo = os.environ.get("GITHUB_REPO", "Hubg50we/dc-").strip()
+        if gh_token and gh_repo:
+            try:
+                headers = {
+                    "Authorization": f"token {gh_token}",
+                    "Accept": "application/vnd.github.v3+json",
+                    "User-Agent": "dc-cloud-persistence"
+                }
+                url = f"https://api.github.com/repos/{gh_repo}/contents/workspaces.json"
+                req = urllib.request.Request(url, headers=headers)
+                sha = None
+                try:
+                    with urllib.request.urlopen(req, timeout=6) as r:
+                        current_file = json.loads(r.read().decode())
+                        sha = current_file.get("sha")
+                except urllib.error.HTTPError as he:
+                    if he.code != 404:
+                        print(f"[!] GitHub API GET error: {he}")
+
+                content_bytes = json.dumps(USER_WORKSPACES, indent=2).encode("utf-8")
+                b64_content = base64.b64encode(content_bytes).decode("utf-8")
+                payload = {
+                    "message": f"chore(workspaces): cloud auto-sync ({len(USER_WORKSPACES)} users) [skip ci]",
+                    "content": b64_content
+                }
+                if sha:
+                    payload["sha"] = sha
+
+                put_req = urllib.request.Request(
+                    url,
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers=headers,
+                    method="PUT"
+                )
+                with urllib.request.urlopen(put_req, timeout=10) as put_res:
+                    if put_res.status in (200, 201):
+                        print(f"[☁️ Cloud] Successfully auto-committed workspaces.json to GitHub ({gh_repo})!")
+            except Exception as e:
+                print(f"[!] GitHub auto-commit error: {e}")
+
+        # Provider B: Upstash Redis REST
+        upstash_url = os.environ.get("UPSTASH_REDIS_REST_URL", "").strip().rstrip("/")
+        upstash_token = os.environ.get("UPSTASH_REDIS_REST_TOKEN", "").strip()
+        if upstash_url and upstash_token:
+            try:
+                set_url = f"{upstash_url}/set/dc_workspaces"
+                req = urllib.request.Request(
+                    set_url,
+                    data=json.dumps(USER_WORKSPACES).encode("utf-8"),
+                    headers={
+                        "Authorization": f"Bearer {upstash_token}",
+                        "Content-Type": "application/json",
+                        "User-Agent": "dc-persistence"
+                    },
+                    method="POST"
+                )
+                with urllib.request.urlopen(req, timeout=6) as r:
+                    print("[☁️ Cloud] Synced workspaces to Upstash Redis REST!")
+            except Exception as e:
+                print(f"[!] Upstash Redis sync error: {e}")
+
+        # Provider C: PostgreSQL DATABASE_URL
+        db_url = os.environ.get("DATABASE_URL", "").strip()
+        if db_url:
+            try:
+                import psycopg2
+                conn = psycopg2.connect(db_url)
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        CREATE TABLE IF NOT EXISTS dc_cloud_kv (
+                            key TEXT PRIMARY KEY,
+                            val TEXT,
+                            updated_at BIGINT
+                        );
+                    """)
+                    cur.execute("""
+                        INSERT INTO dc_cloud_kv (key, val, updated_at)
+                        VALUES ('workspaces', %s, %s)
+                        ON CONFLICT (key) DO UPDATE SET val = EXCLUDED.val, updated_at = EXCLUDED.updated_at;
+                    """, (json.dumps(USER_WORKSPACES), int(time.time())))
+                    conn.commit()
+                conn.close()
+                print("[☁️ Cloud] Synced workspaces to PostgreSQL DATABASE_URL!")
+            except Exception as e:
+                pass
+
+    t = threading.Thread(target=_worker, daemon=True)
+    t.start()
+
+def get_cloud_persistence_status():
+    gh_token = bool(os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN"))
+    gh_repo = os.environ.get("GITHUB_REPO", "Hubg50we/dc-")
+    upstash = bool(os.environ.get("UPSTASH_REDIS_REST_URL") and os.environ.get("UPSTASH_REDIS_REST_TOKEN"))
+    db = bool(os.environ.get("DATABASE_URL"))
+    env_users = bool(os.environ.get("DC_USERS"))
+    return {
+        "github_sync": gh_token,
+        "github_repo": gh_repo if gh_token else None,
+        "upstash_redis": upstash,
+        "postgresql": db,
+        "env_users_active": env_users,
+        "persistent_users_count": len([k for k in USER_WORKSPACES if k not in ("admin", "hubg50")])
+    }
+
 def save_workspaces():
     try:
         with open(WORKSPACES_FILE, "w", encoding="utf-8") as f:
             json.dump(USER_WORKSPACES, f, indent=2)
     except Exception as e:
         print(f"[!] Could not save {WORKSPACES_FILE}: {e}")
+    sync_workspaces_to_cloud()
 
 load_workspaces()
 
@@ -3338,6 +3518,14 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             return ACCESS_KEY
         return ""
 
+    def do_HEAD(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS, HEAD")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Access-Key, X-Admin-Key, Authorization, admin_key, key")
+        self.end_headers()
+
     def do_GET(self):
         if self.path == "/" or self.path.startswith("/?"):
             self.serve_file()
@@ -3368,7 +3556,13 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             else:
                 user_ws = get_workspace_info(req_key)
                 ws_list = [user_ws] if user_ws else []
-            resp = json.dumps({"success": True, "workspaces": ws_list, "is_admin": is_adm, "env_string": generate_dc_users_env_string()}).encode("utf-8")
+            resp = json.dumps({
+                "success": True,
+                "workspaces": ws_list,
+                "is_admin": is_adm,
+                "env_string": generate_dc_users_env_string(),
+                "cloud_persistence": get_cloud_persistence_status()
+            }).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Access-Control-Allow-Origin", "*")
