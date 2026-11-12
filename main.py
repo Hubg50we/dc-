@@ -167,6 +167,61 @@ def load_workspaces():
                 USER_WORKSPACES[k]["username"] = v.get("username", k)
             USER_WORKSPACES[k]["is_admin"] = True
 
+    # 3. Cloud persistence: Parse DC_USERS env var (e.g. Render / Koyeb: "user1:pass1,user2:pass2")
+    env_users = os.environ.get("DC_USERS", "").strip()
+    if env_users:
+        for entry in env_users.split(","):
+            entry = entry.strip()
+            if not entry or ":" not in entry:
+                continue
+            parts = entry.split(":")
+            u_name = parts[0].strip()
+            u_pass = parts[1].strip() if len(parts) > 1 else ""
+            is_adm = (len(parts) > 2 and parts[2].strip().lower() in ("admin", "true", "1"))
+            if u_name:
+                u_key = u_name.lower()
+                if u_key not in USER_WORKSPACES:
+                    USER_WORKSPACES[u_key] = {
+                        "username": u_name,
+                        "password": u_pass,
+                        "key": u_name,
+                        "name": f"Space ({u_name})",
+                        "is_admin": is_adm,
+                        "created_at": int(time.time()),
+                        "guild_id": GUILD_ID,
+                        "channel_id": CHANNEL_ID,
+                        "presets": []
+                    }
+                else:
+                    if u_pass:
+                        USER_WORKSPACES[u_key]["password"] = u_pass
+                    if is_adm:
+                        USER_WORKSPACES[u_key]["is_admin"] = True
+
+    # 4. Cloud persistence: Parse DC_WORKSPACES_JSON env var
+    env_json = os.environ.get("DC_WORKSPACES_JSON", "").strip()
+    if env_json:
+        try:
+            parsed = json.loads(env_json)
+            if isinstance(parsed, dict):
+                for k, ws in parsed.items():
+                    k_low = k.lower()
+                    if isinstance(ws, dict):
+                        USER_WORKSPACES[k_low] = ws
+        except Exception:
+            pass
+
+def generate_dc_users_env_string():
+    entries = []
+    for k, ws in USER_WORKSPACES.items():
+        if k in ("admin", "hubg50"):
+            continue
+        u = ws.get("username", k)
+        p = ws.get("password", "")
+        if u and p:
+            entries.append(f"{u}:{p}")
+    return ",".join(entries)
+
 def save_workspaces():
     try:
         with open(WORKSPACES_FILE, "w", encoding="utf-8") as f:
@@ -3313,7 +3368,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             else:
                 user_ws = get_workspace_info(req_key)
                 ws_list = [user_ws] if user_ws else []
-            resp = json.dumps({"success": True, "workspaces": ws_list, "is_admin": is_adm}).encode("utf-8")
+            resp = json.dumps({"success": True, "workspaces": ws_list, "is_admin": is_adm, "env_string": generate_dc_users_env_string()}).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Access-Control-Allow-Origin", "*")
@@ -3753,7 +3808,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             }
             save_workspaces()
             log(f"🔑 [Multi-User] Created user account & space: '{new_u}' ('{USER_WORKSPACES[u_low]['name']}')")
-            return {"success": True, "username": new_u, "key": new_u, "name": USER_WORKSPACES[u_low]["name"], "message": f"User account '{new_u}' created successfully!"}
+            return {"success": True, "username": new_u, "key": new_u, "name": USER_WORKSPACES[u_low]["name"], "message": f"User account '{new_u}' created successfully!", "env_string": generate_dc_users_env_string()}
 
         if action in ("delete_user_key", "delete_key", "delete_workspace", "delete_user"):
             if not is_admin_key(req_key):
@@ -3770,7 +3825,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             del USER_WORKSPACES[target_key]
             save_workspaces()
             log(f"🗑️ [Multi-User] Deleted user account '{target_key}' ({deleted_name}) and stopped {len(to_remove)} associated bot(s)")
-            return {"success": True, "key": target_key, "removed_bots": len(to_remove), "message": f"Deleted user '{target_key}'"}
+            return {"success": True, "key": target_key, "removed_bots": len(to_remove), "message": f"Deleted user '{target_key}'", "env_string": generate_dc_users_env_string()}
 
         if action in ("admin_set_user_password", "reset_user_password", "set_user_password"):
             if not is_admin_key(req_key):
@@ -3786,7 +3841,46 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             USER_WORKSPACES[target_u]["password"] = new_p
             save_workspaces()
             log(f"🔑 [Multi-User] Admin updated password for user: '{target_u}'")
-            return {"success": True, "username": target_u, "message": f"Password updated for user '{target_u}'"}
+            return {"success": True, "username": target_u, "message": f"Password updated for user '{target_u}'", "env_string": generate_dc_users_env_string()}
+
+        if action in ("export_workspaces", "export_users"):
+            if not is_admin_key(req_key):
+                return {"success": False, "error": "Unauthorized: Only master admin can export user data"}
+            return {
+                "success": True,
+                "workspaces": USER_WORKSPACES,
+                "env_string": generate_dc_users_env_string()
+            }
+
+        if action in ("import_workspaces", "import_users"):
+            if not is_admin_key(req_key):
+                return {"success": False, "error": "Unauthorized: Only master admin can import user data"}
+            imported = payload.get("workspaces") or payload.get("users") or {}
+            if isinstance(imported, list):
+                new_map = {}
+                for it in imported:
+                    if isinstance(it, dict) and (it.get("username") or it.get("key")):
+                        uname = (it.get("username") or it.get("key")).strip().lower()
+                        new_map[uname] = it
+                imported = new_map
+            if not isinstance(imported, dict) or not imported:
+                return {"success": False, "error": "Invalid workspace backup payload"}
+            count = 0
+            for k, ws in imported.items():
+                k_low = k.strip().lower()
+                if k_low in ("admin", "hubg50"):
+                    continue
+                if isinstance(ws, dict):
+                    USER_WORKSPACES[k_low] = ws
+                    count += 1
+            save_workspaces()
+            log(f"📥 [Multi-User] Imported {count} user account(s)")
+            return {
+                "success": True,
+                "imported_count": count,
+                "message": f"Successfully imported {count} user space(s)!",
+                "env_string": generate_dc_users_env_string()
+            }
 
         if action in ("list_user_keys", "list_workspaces", "list_users"):
             is_adm = is_admin_key(req_key)

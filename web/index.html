@@ -2347,6 +2347,18 @@
             <span>➕</span>
             <span>Create User Account & Space</span>
           </button>
+
+          <!-- Cloud Persistence Helper -->
+          <div style="background:rgba(88,101,242,0.12); border:1px solid rgba(88,101,242,0.3); border-radius:8px; padding:10px 12px; margin-top:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+              <strong style="font-size:0.75rem; color:#c084fc;">☁️ Render / Cloud Permanent Persistence (Never Gets Wiped)</strong>
+              <button type="button" onclick="copyRenderEnvUsersString()" class="btn btn-secondary btn-sm" style="font-size:0.68rem; padding:2px 8px; color:#a78bfa;">📋 Copy DC_USERS</button>
+            </div>
+            <div style="font-size:0.72rem; color:#cbd5e1; margin-bottom:6px; line-height:1.4;">
+              Render free containers wipe temporary files on sleep/restart. To keep your users forever across restarts, paste this value into <strong>Render Dashboard → Environment</strong> as <code>DC_USERS</code>:
+            </div>
+            <input type="text" id="render-env-users-string" readonly style="width:100%; font-family:monospace; font-size:0.75rem; background:rgba(0,0,0,0.4); border:1px solid var(--border); border-radius:6px; padding:5px 8px; color:#4ade80;" placeholder="DC_USERS will appear here as you create users...">
+          </div>
         </div>
 
         <div id="user-space-permission-notice" style="display:none; margin-bottom:12px; padding:10px 14px; background:rgba(56, 189, 248, 0.1); border:1px solid rgba(56, 189, 248, 0.25); border-radius:8px; font-size:0.78rem; color:#bae6fd;">
@@ -2355,9 +2367,13 @@
 
         <!-- Workspaces Table / List -->
         <div>
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
             <strong style="font-size:0.85rem; color:#f1f5f9;" id="workspaces-table-title">Active User Accounts & Isolated Spaces</strong>
-            <button onclick="loadWorkspacesList()" class="btn btn-secondary btn-sm" style="font-size:0.7rem; padding:3px 8px;">↻ Refresh Users</button>
+            <div style="display:flex; gap:6px;">
+              <button onclick="exportWorkspacesBackup()" class="btn btn-secondary btn-sm" style="font-size:0.7rem; padding:3px 8px;" title="Export users to JSON file">💾 Backup</button>
+              <button onclick="importWorkspacesBackupPrompt()" class="btn btn-secondary btn-sm" style="font-size:0.7rem; padding:3px 8px;" title="Restore users from JSON">📥 Restore</button>
+              <button onclick="loadWorkspacesList()" class="btn btn-secondary btn-sm" style="font-size:0.7rem; padding:3px 8px;">↻ Refresh</button>
+            </div>
           </div>
           <div style="overflow-x:auto;">
             <table style="width:100%; border-collapse:collapse; font-size:0.78rem;" id="workspaces-table">
@@ -9492,9 +9508,74 @@
         if (data && data.success && data.workspaces) {
           currentIsAdmin = Boolean(data.is_admin);
           renderWorkspacesTable(data.workspaces, key, currentIsAdmin);
+          const envInp = document.getElementById('render-env-users-string');
+          if (envInp && data.env_string !== undefined) {
+            envInp.value = data.env_string;
+          }
         }
       } catch (e) {
         console.error('Error loading workspaces:', e);
+      }
+    }
+
+    function copyRenderEnvUsersString() {
+      const el = document.getElementById('render-env-users-string');
+      if (!el || !el.value) {
+        showToast('ℹ️ No additional users to persist yet.', true);
+        return;
+      }
+      navigator.clipboard.writeText(el.value).then(() => {
+        showToast('📋 Copied DC_USERS! Paste into Render Environment.');
+      }).catch(() => {
+        prompt('Copy DC_USERS value:', el.value);
+      });
+    }
+
+    async function exportWorkspacesBackup() {
+      try {
+        const key = currentAccessKey || localStorage.getItem('dc_access_key') || '';
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Access-Key': key },
+          body: JSON.stringify({ action: 'export_workspaces', admin_key: key, key: key })
+        });
+        const data = await res.json();
+        if (data && data.success && data.workspaces) {
+          const blob = new Blob([JSON.stringify(data.workspaces, null, 2)], { type: 'application/json' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = `dc_users_backup_${new Date().toISOString().slice(0, 10)}.json`;
+          a.click();
+          showToast('💾 Users backup downloaded successfully!');
+        } else {
+          showToast(data.error || 'Failed to export users backup', true);
+        }
+      } catch (e) {
+        showToast('Export error: ' + e.message, true);
+      }
+    }
+
+    async function importWorkspacesBackupPrompt() {
+      const jsonStr = prompt('Paste your workspaces JSON backup here:');
+      if (!jsonStr || !jsonStr.trim()) return;
+      try {
+        const parsed = JSON.parse(jsonStr.trim());
+        const key = currentAccessKey || localStorage.getItem('dc_access_key') || '';
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Access-Key': key },
+          body: JSON.stringify({ action: 'import_workspaces', admin_key: key, key: key, workspaces: parsed })
+        });
+        const data = await res.json();
+        if (data && data.success) {
+          showToast(data.message || 'Users restored successfully!');
+          fetchStatus();
+          loadWorkspacesList();
+        } else {
+          showToast(data.error || 'Restore failed', true);
+        }
+      } catch (e) {
+        showToast('Invalid JSON: ' + e.message, true);
       }
     }
 

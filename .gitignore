@@ -9,7 +9,6 @@ tokens.txt
 commands.txt
 channels.json
 state_backup.json
-workspaces.json
 
 # Virtual environments
 venv/
