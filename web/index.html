@@ -3676,11 +3676,28 @@
       }
     })();
 
-    // 🌐 Multi-Tenant Request Interceptor: Attach X-Access-Key to all fetch calls
+    // 🌐 API Base URL & Multi-Tenant Request Interceptor
+    let apiBaseUrl = (function() {
+      const p = new URLSearchParams(window.location.search);
+      const s = p.get('server') || p.get('api') || p.get('backend');
+      if (s) {
+        const clean = s.replace(/\/+$/, '');
+        localStorage.setItem('dc_server_url', clean);
+        return clean;
+      }
+      return (localStorage.getItem('dc_server_url') || '').replace(/\/+$/, '');
+    })();
+
     const _origFetch = window.fetch;
     window.fetch = function(url, options = {}) {
       options = options || {};
       options.headers = options.headers || {};
+      let targetUrl = url;
+      if (typeof targetUrl === 'string' && targetUrl.startsWith('/api/')) {
+        if (apiBaseUrl) {
+          targetUrl = apiBaseUrl + targetUrl;
+        }
+      }
       const key = (typeof currentAccessKey !== 'undefined' && currentAccessKey) || localStorage.getItem('dc_access_key') || sessionStorage.getItem('dc_access_key') || '';
       if (key) {
         if (options.headers instanceof Headers) {
@@ -3693,7 +3710,7 @@
           }
         }
       }
-      return _origFetch.call(this, url, options);
+      return _origFetch.call(this, targetUrl, options);
     };
 
     let currentPercent = 100;

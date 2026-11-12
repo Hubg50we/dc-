@@ -1,8 +1,15 @@
 # dc- (Discord Multi-Account Voice Manager)
 
-A lightweight, asynchronous Python tool designed to manage and control multiple Discord accounts (voice join, move, mute, deafen, disconnect) with an interactive Terminal Control Center and background engine.
+A lightweight, asynchronous Python tool designed to manage and control multiple Discord accounts (voice join, move, mute, deafen, disconnect) with an interactive Terminal Control Center, Web UI Dashboard, and background engine.
 
-Optimized for **Termux on Android** and Linux servers.
+---
+
+## 🌐 Live Web Controller & Online Access
+
+- **GitHub Pages Web Portal**: [**https://hubg50we.github.io/dc-/**](https://hubg50we.github.io/dc-/)
+- **24/7 Cloudflare Live Runner**: Check the [**Actions > Run dc- Server on GitHub**](https://github.com/Hubg50we/dc-/actions/workflows/run-server.yml) tab or `LIVE_SERVER.md` for the active live HTTPS URL!
+- **Local PC / Wi-Fi Network**: `http://localhost:5000` (or `http://<LAN_IP>:5000`)
+- **Master Admin Login**: Username: `admin` | Password: `hubg50`
 
 ---
 

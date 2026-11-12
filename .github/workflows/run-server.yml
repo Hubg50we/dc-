@@ -1,6 +1,13 @@
 name: Run dc- Server on GitHub
 
 on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'main.py'
+      - 'web/**'
+      - 'index.html'
+      - '.github/workflows/run-server.yml'
   workflow_dispatch:
     inputs:
       duration_hours:
@@ -86,6 +93,19 @@ jobs:
           if [ -n "$LIVE_URL" ] && [ "$LIVE_URL" != "Permanent Named Tunnel Active" ]; then
             echo "### 🌐 [👉 Click Here to Open dc- Controller]($LIVE_URL)" >> $GITHUB_STEP_SUMMARY
             echo "**Active Link:** \`$LIVE_URL\`" >> $GITHUB_STEP_SUMMARY
+            # Write to LIVE_SERVER.md so the live website link is directly visible on GitHub
+            echo "# 🌐 dc- Active Web Controller" > LIVE_SERVER.md
+            echo "" >> LIVE_SERVER.md
+            echo "**Status:** 🟢 ONLINE (24/7 GitHub Actions Runner)" >> LIVE_SERVER.md
+            echo "" >> LIVE_SERVER.md
+            echo "### 🔗 [👉 Open Active Website ($LIVE_URL)]($LIVE_URL)" >> LIVE_SERVER.md
+            echo "" >> LIVE_SERVER.md
+            echo "*Updated at: $(date -u)*" >> LIVE_SERVER.md
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add LIVE_SERVER.md
+            git commit -m "docs: update active website live link [skip ci]" || true
+            git push origin main || true
           else
             echo "### 🌐 Permanent Cloudflare Tunnel Active!" >> $GITHUB_STEP_SUMMARY
           fi
