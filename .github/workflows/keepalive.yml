@@ -1,0 +1,23 @@
+name: 24/7 Cloud Keepalive Ping
+
+on:
+  schedule:
+    # Ping every 10 minutes so Render (which sleeps after 15 minutes) never sleeps
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Keep Render 24/7 Active
+        run: |
+          echo "Pinging Render server at https://dc-038m.onrender.com/api/status ..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -m 30 "https://dc-038m.onrender.com/api/status")
+          echo "Render response HTTP status: $STATUS"
+          if [ "$STATUS" -eq 200 ]; then
+            echo "✅ Server is online and active!"
+          else
+            echo "⚠️ Server woke up with status $STATUS"
+          fi
