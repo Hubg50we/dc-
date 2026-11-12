@@ -2,28 +2,52 @@ name: 24/7 Cloud Keepalive Ping
 
 on:
   schedule:
-    # Trigger every 5 minutes to stay well ahead of Render's 15-minute sleep timer
-    - cron: '*/5 * * * *'
+    - cron: '*/10 * * * *'
+  push:
+    branches: [ main ]
   workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
 
 jobs:
   keepalive:
+    name: 24/7 Render Keepalive Runner
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 360
+
     steps:
-      - name: Keep Render 24/7 Active
+      - name: Keep Render Server Awake 24/7
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          for i in 1 2; do
-            echo "Ping $i at $(date)..."
+          echo "=========================================================="
+          echo "     24/7 AUTOMATIC KEEPALIVE ENGINE STARTED"
+          echo "     Target: https://dc-038m.onrender.com/api/status"
+          echo "=========================================================="
+
+          # Ping every 3 minutes for 5.5 hours (19800 seconds)
+          DURATION_SECONDS=19800
+          START_TIME=$(date +%s)
+          PING_COUNT=0
+
+          while [ $(($(date +%s) - START_TIME)) -lt $DURATION_SECONDS ]; do
+            PING_COUNT=$((PING_COUNT + 1))
+            TS=$(date '+%Y-%m-%d %H:%M:%S')
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" -m 30 "https://dc-038m.onrender.com/api/status" || echo "000")
-            echo "Render HTTP response status: $STATUS"
-            if [ "$STATUS" = "200" ]; then
-              echo "✅ Server is online and active!"
-            else
-              echo "⚠️ Server woke up with status: $STATUS"
-            fi
-            if [ $i -lt 2 ]; then
-              echo "Waiting 120s before next pulse..."
-              sleep 120
-            fi
+            echo "[$TS] Ping #$PING_COUNT: Render backend status -> HTTP $STATUS"
+            sleep 180
           done
+
+          echo "=========================================================="
+          echo "[*] Handing off to next 24/7 self-renewing session..."
+          echo "=========================================================="
+
+          curl -s -X POST \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            https://api.github.com/repos/${{ github.repository }}/actions/workflows/keepalive.yml/dispatches \
+            -d '{"ref":"main"}' || true
+
+          echo "✅ Self-renewed next session successfully!"
