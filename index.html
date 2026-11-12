@@ -991,18 +991,279 @@
       100% { opacity: 1; }
     }
 
-    /* Desktop View */
-    @media (min-width: 900px) {
-      body { padding-bottom: 24px; }
-      .bottom-nav, .quick-thumb-dock { display: none; }
-      main {
-        display: grid;
-        grid-template-columns: 380px 1fr;
-        gap: 20px;
-        max-width: 1300px;
+    /* ========================================================= */
+    /* 🖥️ BRAND NEW DESKTOP & LAPTOP STUDIO UI STYLES            */
+    /* ========================================================= */
+    .desktop-sidebar {
+      display: none;
+    }
+    .desktop-only-controls {
+      display: none;
+    }
+    .app-shell {
+      display: block;
+      width: 100%;
+      min-height: 100vh;
+    }
+    .viewport-main {
+      width: 100%;
+      min-height: 100vh;
+    }
+
+    @media (min-width: 1024px) {
+      body {
+        padding-bottom: 0 !important;
+        overflow: hidden !important;
+        background: #0f1115;
       }
-      .tab-content { display: flex !important; }
-      #tab-tokens, #tab-settings, #tab-proxies, #tab-logs { grid-column: span 2; }
+      .bottom-nav, .quick-thumb-dock {
+        display: none !important;
+      }
+      .desktop-only-controls {
+        display: flex !important;
+      }
+
+      /* Desktop 2-Column App Shell (Sidebar + Viewport) */
+      .app-shell {
+        display: flex !important;
+        height: 100vh !important;
+        width: 100vw !important;
+        overflow: hidden !important;
+      }
+
+      /* Left Studio Sidebar */
+      .desktop-sidebar {
+        display: flex !important;
+        flex-direction: column !important;
+        width: 270px !important;
+        min-width: 270px !important;
+        max-width: 270px !important;
+        height: 100vh !important;
+        background: #111214 !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+        user-select: none !important;
+        z-index: 100 !important;
+        position: relative !important;
+        box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3) !important;
+      }
+
+      .desktop-sidebar-header {
+        padding: 18px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(0, 0, 0, 0.2);
+      }
+      .desktop-sidebar-logo {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 1.35rem;
+        font-weight: 900;
+        letter-spacing: -0.03em;
+        background: linear-gradient(135deg, #fff 30%, #a855f7 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .desktop-sidebar-nav {
+        flex: 1;
+        overflow-y: auto;
+        padding: 14px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .desktop-nav-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .desktop-nav-category {
+        font-size: 0.68rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #64748b;
+        padding: 4px 10px 6px 10px;
+      }
+      .desktop-nav-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 9px 12px;
+        border-radius: 10px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #94a3b8;
+        cursor: pointer;
+        transition: all 0.18s ease;
+        position: relative;
+      }
+      .desktop-nav-item:hover {
+        background: rgba(255, 255, 255, 0.05);
+        color: #f1f5f9;
+        transform: translateX(2px);
+      }
+      .desktop-nav-item.active {
+        background: linear-gradient(135deg, rgba(88, 101, 242, 0.25), rgba(168, 85, 247, 0.25));
+        color: #ffffff;
+        font-weight: 700;
+        border: 1px solid rgba(139, 92, 246, 0.4);
+        box-shadow: 0 4px 14px rgba(88, 101, 242, 0.2);
+      }
+      .desktop-nav-icon {
+        font-size: 1.15rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+      }
+      .desktop-nav-label {
+        flex: 1;
+      }
+      .desktop-nav-badge {
+        font-size: 0.65rem;
+        font-weight: 700;
+        padding: 2px 7px;
+        border-radius: 10px;
+        background: rgba(88, 101, 242, 0.3);
+        color: #a5b4fc;
+        border: 1px solid rgba(88, 101, 242, 0.4);
+      }
+      .desktop-nav-pill {
+        font-size: 0.65rem;
+        font-weight: 800;
+        padding: 2px 6px;
+        border-radius: 6px;
+        background: rgba(239, 68, 68, 0.2);
+        color: #f87171;
+        border: 1px solid rgba(239, 68, 68, 0.4);
+        letter-spacing: 0.04em;
+      }
+
+      .desktop-sidebar-actions {
+        padding: 12px 14px;
+        background: rgba(0, 0, 0, 0.25);
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      }
+
+      .desktop-sidebar-footer {
+        padding: 14px 16px;
+        background: #0d0e11;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      /* Desktop Viewport & Scrolling Main Area */
+      .viewport-main {
+        flex: 1 !important;
+        height: 100vh !important;
+        overflow-y: auto !important;
+        display: flex !important;
+        flex-direction: column !important;
+        background: #131519 !important;
+      }
+
+      header {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 90 !important;
+        background: rgba(19, 21, 25, 0.88) !important;
+        backdrop-filter: blur(20px) !important;
+        -webkit-backdrop-filter: blur(20px) !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
+        padding: 12px 24px !important;
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+      }
+      .brand { display: none !important; }
+
+      .stats-strip {
+        padding: 14px 24px !important;
+        gap: 14px !important;
+        background: rgba(0, 0, 0, 0.18) !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
+      }
+      .stat-pill {
+        flex: 1 !important;
+        min-width: 140px !important;
+        padding: 10px 16px !important;
+        border-radius: 12px !important;
+        background: rgba(255, 255, 255, 0.03) !important;
+        border: 1px solid rgba(255, 255, 255, 0.06) !important;
+      }
+
+      main {
+        flex: 1 !important;
+        display: block !important;
+        width: 100% !important;
+        max-width: 1700px !important;
+        margin: 0 auto !important;
+        padding: 24px 28px 80px 28px !important;
+      }
+
+      /* Tab Content Desktop Display Rules: ONLY ACTIVE TAB DISPLAYS */
+      .tab-content {
+        display: none !important;
+      }
+      .tab-content.active {
+        display: block !important;
+        animation: fadeInTab 0.22s ease-out;
+      }
+      @keyframes fadeInTab {
+        from { opacity: 0; transform: translateY(6px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      /* Desktop Multi-Column Grid for Voice Controls */
+      #tab-controls.active {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)) !important;
+        gap: 22px !important;
+        align-items: start !important;
+      }
+
+      /* Desktop Grid for Bot Cards */
+      #accounts-container {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)) !important;
+        gap: 18px !important;
+      }
+
+      /* Desktop Grid for Tokens, Settings & Proxies */
+      #tab-tokens.active, #tab-proxies.active, #tab-settings.active {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fit, minmax(480px, 1fr)) !important;
+        gap: 22px !important;
+        align-items: start !important;
+      }
+
+      /* Desktop Console / Logs */
+      #tab-logs.active {
+        display: block !important;
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+      #logs-container {
+        height: 640px !important;
+        font-size: 0.82rem !important;
+      }
+
+      /* Hover micro-interactions for desktop cards */
+      .card {
+        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease !important;
+      }
+      .card:hover {
+        border-color: rgba(139, 92, 246, 0.4) !important;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35) !important;
+      }
     }
   </style>
 </head>
@@ -1084,13 +1345,103 @@
     </div>
   </div>
 
-  <!-- Top App Header -->
-  <header>
-    <div class="brand">
-      <span>dc-</span>
-      <span class="brand-badge">PRO</span>
-    </div>
-    <div class="header-actions">
+  <!-- Desktop Layout Wrapper -->
+  <div class="app-shell">
+    <!-- Left Desktop Studio Sidebar (Visible on >= 1024px) -->
+    <aside class="desktop-sidebar" id="desktop-sidebar">
+      <div class="desktop-sidebar-header">
+        <div class="desktop-sidebar-logo">
+          <span>dc-</span>
+          <span class="badge" style="background:linear-gradient(135deg, #5865F2, #a855f7); color:#fff; font-size:0.7rem; font-weight:800; padding:2px 7px; border-radius:10px;">STUDIO</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px; font-size:0.7rem; color:#4ade80; background:rgba(34,197,94,0.15); border:1px solid rgba(34,197,94,0.3); padding:2px 8px; border-radius:12px;">
+          <span style="width:6px; height:6px; border-radius:50%; background:#22c55e; display:inline-block; box-shadow:0 0 6px #22c55e;"></span>
+          <span>Online</span>
+        </div>
+      </div>
+
+      <div class="desktop-sidebar-nav">
+        <!-- GROUP 1: CONTROL ROOM -->
+        <div class="desktop-nav-group">
+          <div class="desktop-nav-category">CONTROL ROOM</div>
+          <div class="desktop-nav-item active" data-tab="controls" onclick="switchTab('controls', this)">
+            <span class="desktop-nav-icon">🎛️</span>
+            <span class="desktop-nav-label">Voice & Audio Desk</span>
+            <span class="desktop-nav-pill" id="desktop-voice-pill">LIVE</span>
+          </div>
+          <div class="desktop-nav-item" data-tab="accounts" onclick="switchTab('accounts', this)">
+            <span class="desktop-nav-icon">🤖</span>
+            <span class="desktop-nav-label">Bot Fleet</span>
+            <span class="desktop-nav-badge" id="desktop-bots-count">0</span>
+          </div>
+          <div class="desktop-nav-item" data-tab="tokens" onclick="switchTab('tokens', this)">
+            <span class="desktop-nav-icon">🔑</span>
+            <span class="desktop-nav-label">Token Vault</span>
+          </div>
+        </div>
+
+        <!-- GROUP 2: SYSTEM & NETWORKING -->
+        <div class="desktop-nav-group">
+          <div class="desktop-nav-category">SYSTEM & NETWORK</div>
+          <div class="desktop-nav-item" data-tab="proxies" onclick="switchTab('proxies', this)">
+            <span class="desktop-nav-icon">🌐</span>
+            <span class="desktop-nav-label">Proxy Network</span>
+            <span class="desktop-nav-badge" id="desktop-proxy-count" style="background:rgba(34,197,94,0.2); color:#4ade80; border-color:rgba(34,197,94,0.4);">SOCKS5</span>
+          </div>
+          <div class="desktop-nav-item" data-tab="settings" onclick="switchTab('settings', this)">
+            <span class="desktop-nav-icon">⚙️</span>
+            <span class="desktop-nav-label">Settings & Spaces</span>
+          </div>
+          <div class="desktop-nav-item" data-tab="logs" onclick="switchTab('logs', this)">
+            <span class="desktop-nav-icon">📜</span>
+            <span class="desktop-nav-label">Live Console</span>
+            <span class="desktop-nav-badge" style="background:rgba(59,130,246,0.2); color:#60a5fa; border-color:rgba(59,130,246,0.4);">LOGS</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Action Deck in Sidebar -->
+      <div class="desktop-sidebar-actions">
+        <div style="font-size:0.68rem; font-weight:800; color:#64748b; text-transform:uppercase; margin-bottom:8px; letter-spacing:0.06em;">QUICK VOICE DISPATCH</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+          <button class="btn btn-primary btn-sm" onclick="triggerAction('move')" style="font-size:0.75rem; padding:6px 8px;">🔊 Join VC</button>
+          <button class="btn btn-danger btn-sm" onclick="triggerAction('disconnect')" style="font-size:0.75rem; padding:6px 8px;">✕ Leave</button>
+          <button class="btn btn-warning btn-sm" onclick="triggerAction('mute')" style="font-size:0.75rem; padding:6px 8px;">🔇 Mute</button>
+          <button class="btn btn-secondary btn-sm" onclick="triggerAction('unmute')" style="font-size:0.75rem; padding:6px 8px;">🔊 Unmute</button>
+        </div>
+      </div>
+
+      <!-- User & Workspace Footer -->
+      <div class="desktop-sidebar-footer">
+        <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:0; cursor:pointer;" onclick="switchOrViewWorkspace()" title="Active Space (Click to Manage)">
+          <div style="width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg, #5865F2, #a855f7); display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0; border:1px solid rgba(255,255,255,0.15);">
+            🏢
+          </div>
+          <div style="min-width:0; flex:1;">
+            <div id="desktop-user-display" style="font-weight:700; font-size:0.82rem; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">admin</div>
+            <div id="desktop-space-display" style="font-size:0.68rem; color:#c084fc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Master Workspace</div>
+          </div>
+        </div>
+        <button class="icon-btn" onclick="logoutDashboard()" style="min-height:30px; width:30px; border-radius:8px;" title="Lock Dashboard">🔒</button>
+      </div>
+    </aside>
+
+    <!-- Main Viewport Area -->
+    <div class="viewport-main">
+      <!-- Top App Header -->
+      <header>
+        <div class="brand">
+          <span>dc-</span>
+          <span class="brand-badge">PRO</span>
+        </div>
+        <div class="header-actions">
+          <!-- Desktop Quick Voice Action Bar -->
+          <div class="desktop-only-controls" style="display:none; align-items:center; gap:8px;">
+            <button class="btn btn-primary btn-sm" onclick="triggerAction('move')" style="font-size:0.75rem; padding:4px 10px;">🔊 Join VC</button>
+            <button class="btn btn-warning btn-sm" onclick="triggerAction('mute')" style="font-size:0.75rem; padding:4px 10px;">🔇 Mute All</button>
+            <button class="btn btn-secondary btn-sm" onclick="triggerAction('unmute')" style="font-size:0.75rem; padding:4px 10px;">🔊 Unmute All</button>
+            <button class="btn btn-danger btn-sm" onclick="triggerAction('disconnect')" style="font-size:0.75rem; padding:4px 10px;">✕ Disconnect</button>
+          </div>
       <div id="active-workspace-pill" onclick="switchOrViewWorkspace()" style="display:flex; align-items:center; gap:6px; font-size:0.75rem; background:linear-gradient(135deg, rgba(88,101,242,0.18), rgba(168,85,247,0.18)); border:1px solid rgba(139,92,246,0.35); padding:4px 10px; border-radius:16px; cursor:pointer;" title="Active Isolated Space (Click to Switch/Manage)">
         <span>🏢</span>
         <span id="active-space-name" style="font-weight:700; color:#c084fc;">Space: Master</span>
@@ -3612,6 +3963,8 @@
     </div>
 
   </main>
+    </div> <!-- /.viewport-main -->
+  </div> <!-- /.app-shell -->
 
   <!-- Sticky Mobile Quick-Dock (Visible on Tab 1 & 2) -->
   <div class="quick-thumb-dock" id="mobile-dock">
@@ -3902,14 +4255,26 @@
       vibrate(15);
       document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-      document.getElementById('tab-' + tabId).classList.add('active');
-      el.classList.add('active');
+      document.querySelectorAll('.desktop-nav-item').forEach(n => n.classList.remove('active'));
+
+      const target = document.getElementById('tab-' + tabId);
+      if (target) {
+        target.classList.add('active');
+      }
+
+      document.querySelectorAll(`[data-tab="${tabId}"]`).forEach(n => n.classList.add('active'));
+      if (el && el.classList) el.classList.add('active');
+
+      const vp = document.querySelector('.viewport-main');
+      if (vp) vp.scrollTop = 0;
 
       const dock = document.getElementById('mobile-dock');
-      if (tabId === 'logs' || tabId === 'tokens' || tabId === 'settings' || tabId === 'proxies') {
-        dock.style.display = 'none';
-      } else {
-        dock.style.display = 'flex';
+      if (dock) {
+        if (window.innerWidth >= 1024 || tabId === 'logs' || tabId === 'tokens' || tabId === 'settings' || tabId === 'proxies') {
+          dock.style.display = 'none';
+        } else {
+          dock.style.display = 'flex';
+        }
       }
       if (tabId === 'logs') {
         fetchLogs();
@@ -4274,6 +4639,9 @@
       document.getElementById('stat-voice').innerText = data.voice_accounts || 0;
       document.getElementById('stat-uptime').innerText = formatUptime(data.uptime);
 
+      const dBotsPill = document.getElementById('desktop-bots-count');
+      if (dBotsPill) dBotsPill.innerText = data.online_accounts !== undefined ? `${data.online_accounts}/${data.total_accounts || 0}` : (data.total_accounts || 0);
+
       // System Telemetry (Battery %, charging, thermals)
       const tel = data.system_telemetry || (data.battery_level !== undefined ? {
         battery_level: data.battery_level,
@@ -4318,6 +4686,10 @@
         const roleEl = document.getElementById('active-space-role');
         const badgeEl = document.getElementById('current-space-badge');
         if (nameEl) nameEl.innerText = ws.name ? `Space: ${ws.name}` : `Space: (${ws.key})`;
+        const dUser = document.getElementById('desktop-user-display');
+        const dSpace = document.getElementById('desktop-space-display');
+        if (dUser) dUser.innerText = ws.username || ws.key || 'admin';
+        if (dSpace) dSpace.innerText = ws.name || 'Master Workspace';
         if (roleEl) {
           roleEl.innerText = ws.is_admin ? 'Admin' : 'User';
           roleEl.style.background = ws.is_admin ? 'rgba(168,85,247,0.45)' : 'rgba(56,189,248,0.35)';
