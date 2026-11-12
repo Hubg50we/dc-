@@ -1019,9 +1019,36 @@
         <span class="badge" style="background:linear-gradient(135deg, #5865F2, #a855f7); color:#fff; font-size:0.75rem; font-weight:800; padding:2px 8px; border-radius:12px;">PRO</span>
       </div>
       <h3 style="font-size:1.15rem; font-weight:800; color:#e2e8f0; margin-bottom:6px;">Website Access Gate</h3>
-      <p style="font-size:0.82rem; color:var(--text-muted, #949ba4); margin-bottom:24px; line-height:1.45;">
-        This Discord Controller is protected. Enter the authorized access key to log in.
+      <p style="font-size:0.82rem; color:var(--text-muted, #949ba4); margin-bottom:18px; line-height:1.45;">
+        This Discord Controller is protected. Enter your authorized username and password to log in.
       </p>
+
+      <!-- Server Notice for GitHub Pages & Static Hosts -->
+      <div id="github-pages-notice" style="display:none; background:rgba(88,101,242,0.14); border:1px solid rgba(88,101,242,0.35); border-radius:12px; padding:12px; margin-bottom:16px; text-align:left; font-size:0.78rem;">
+        <div style="font-weight:700; color:#e0e7ff; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+          <span>💡</span>
+          <span>You are viewing on GitHub Pages</span>
+        </div>
+        <p style="color:#94a3b8; font-size:0.75rem; margin-bottom:10px; line-height:1.4;">
+          GitHub Pages is a static interface. The Discord bot engine runs on your PC. To access your live bots:
+        </p>
+        <a href="http://localhost:5000" style="display:flex; justify-content:center; align-items:center; gap:6px; background:#5865f2; color:#fff; text-decoration:none; padding:9px 12px; border-radius:8px; font-weight:700; font-size:0.82rem; margin-bottom:8px;">
+          <span>💻</span>
+          <span>Open on Local PC (http://localhost:5000)</span>
+        </a>
+        <div style="text-align:center;">
+          <a href="javascript:void(0)" onclick="toggleServerConfigInput()" style="color:#a5b4fc; text-decoration:underline; font-size:0.72rem;">
+            ⚙️ Connect Remote Cloudflare Tunnel / Server URL
+          </a>
+        </div>
+        <div id="remote-server-config" style="display:none; margin-top:8px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.1);">
+          <label style="font-size:0.7rem; color:#cbd5e1; display:block; margin-bottom:3px;">Backend Server URL:</label>
+          <div style="display:flex; gap:6px;">
+            <input type="text" id="custom-server-url-input" placeholder="e.g. https://xxx.trycloudflare.com" style="flex:1; padding:6px 8px; background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.2); border-radius:6px; color:#fff; font-size:0.75rem;">
+            <button onclick="saveCustomServerUrl()" class="btn btn-secondary btn-sm" style="font-size:0.72rem; padding:4px 8px;">Save</button>
+          </div>
+        </div>
+      </div>
 
       <div style="margin-bottom:12px; text-align:left;">
         <label style="font-size:0.75rem; font-weight:700; color:#cbd5e1; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:5px; display:block;">👤 Username</label>
@@ -9109,6 +9136,14 @@
       const portal = document.getElementById('login-portal-screen');
       if (portal) {
         portal.style.display = 'flex';
+        const ghNotice = document.getElementById('github-pages-notice');
+        if (ghNotice) {
+          if (window.location.hostname.endsWith('github.io') || window.location.protocol === 'file:') {
+            ghNotice.style.display = 'block';
+          } else {
+            ghNotice.style.display = 'none';
+          }
+        }
         setTimeout(() => {
           const uInp = document.getElementById('login-username-input');
           const pInp = document.getElementById('login-password-input');
@@ -9119,6 +9154,30 @@
           else if (pInp) pInp.focus();
         }, 150);
       }
+    }
+
+    function toggleServerConfigInput() {
+      const cfg = document.getElementById('remote-server-config');
+      if (!cfg) return;
+      cfg.style.display = cfg.style.display === 'none' ? 'block' : 'none';
+      const inp = document.getElementById('custom-server-url-input');
+      if (inp && !inp.value) {
+        inp.value = localStorage.getItem('dc_server_url') || '';
+      }
+    }
+
+    function saveCustomServerUrl() {
+      const inp = document.getElementById('custom-server-url-input');
+      if (!inp) return;
+      const val = inp.value.trim().replace(/\/+$/, '');
+      if (val) {
+        localStorage.setItem('dc_server_url', val);
+        showToast(`🌐 Backend server set: ${val}`);
+      } else {
+        localStorage.removeItem('dc_server_url');
+        showToast('🌐 Reset to local server path');
+      }
+      setTimeout(() => location.reload(), 400);
     }
 
     function hideLoginPortal() {
@@ -9161,6 +9220,9 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'login', username: uVal, password: pVal })
         });
+        if (!res.ok) {
+          throw new Error('HTTP ' + res.status);
+        }
         const data = await res.json();
 
         if (data && (data.valid || data.authenticated)) {
@@ -9190,7 +9252,11 @@
         }
       } catch (e) {
         if (err) {
-          err.innerText = '❌ Authentication error. Please try again.';
+          if (window.location.hostname.endsWith('github.io')) {
+            err.innerHTML = '⚠️ <strong>Cannot reach backend on GitHub Pages:</strong><br>GitHub Pages is a static interface. Click the blue button above to open <a href="http://localhost:5000" style="color:#60a5fa; text-decoration:underline; font-weight:700;">http://localhost:5000</a> on your PC, or enter your server tunnel URL below.';
+          } else {
+            err.innerText = '❌ Authentication error (' + (e.message || 'Server Unreachable') + '). Please check connection.';
+          }
           err.style.display = 'block';
         }
       } finally {
