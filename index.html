@@ -58,6 +58,22 @@
       --safe-bottom: env(safe-area-inset-bottom, 0px);
     }
 
+    body.theme-classic {
+      --bg-darker: #202225;
+      --bg-dark: #2f3136;
+      --bg-card: #36393f;
+      --bg-hover: #40444b;
+      --bg-glass: rgba(47, 49, 54, 0.95);
+      --accent: #7289da;
+      --accent-hover: #677bc4;
+      --accent-glow: rgba(114, 137, 218, 0.35);
+      --accent-subtle: rgba(114, 137, 218, 0.15);
+      --border: rgba(255, 255, 255, 0.08);
+      --border-focus: #7289da;
+      --text: #dcddde;
+      --text-muted: #8e9297;
+      --text-heading: #ffffff;
+    }
     body.amoled-mode,
     body.theme-amoled {
       --bg-darker: #000000;
@@ -1472,7 +1488,7 @@
         <option value="bn">🇧🇩 BN</option>
       </select>
       <button class="icon-btn" onclick="triggerPipMode()" title="Floating Picture-in-Picture Mini-Dock">🪟</button>
-      <button class="icon-btn" onclick="toggleAmoled()" title="AMOLED Black Toggle">⚡</button>
+      <button class="icon-btn" onclick="cycleTheme()" title="Switch Theme (Classic / Blurple / Cyberpunk / AMOLED / Matrix)" style="color:#7289da; border-color:rgba(114,137,218,0.4);">🎨</button>
       <button class="icon-btn" onclick="logoutDashboard()" title="Lock / Logout Dashboard" style="color:#c084fc; border-color:rgba(168,85,247,0.35);">🔐</button>
       <button class="icon-btn" onclick="refreshAll()" title="Refresh Dashboard">↻</button>
     </div>
@@ -1521,6 +1537,30 @@
 
     <!-- TAB 1: QUICK CONTROLS -->
     <div class="tab-content active" id="tab-controls">
+
+      <!-- 🚀 AI Studio Showcase Hero Card -->
+      <div class="card hero-studio-card" style="grid-column: 1 / -1; position:relative; overflow:hidden; padding:0; border-radius:18px; border:1px solid rgba(114, 137, 218, 0.45); background:#1e2024; box-shadow:0 12px 36px rgba(0,0,0,0.5); margin-bottom:4px;">
+        <div style="position:relative; height:180px; overflow:hidden; background:#111;">
+          <img src="/studio_banner.jpg" alt="Studio Banner" style="width:100%; height:100%; object-fit:cover; opacity:0.85; filter:contrast(1.08) saturate(1.15);">
+          <div style="position:absolute; inset:0; background:linear-gradient(180deg, rgba(10,11,14,0.1) 0%, rgba(15,17,21,0.92) 85%, var(--bg-card) 100%);"></div>
+          <div style="position:absolute; bottom:14px; left:18px; right:18px; display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:10px;">
+            <div>
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                <span class="badge" style="background:#7289da; color:#fff; font-size:0.7rem; font-weight:800; padding:2px 8px; border-radius:12px;">PRO STUDIO</span>
+                <span style="font-size:0.75rem; color:#4ade80; display:flex; align-items:center; gap:5px; font-weight:700;">
+                  <span style="width:7px; height:7px; border-radius:50%; background:#22c55e; box-shadow:0 0 8px #22c55e;"></span>
+                  <span>24/7 DAVE MLS E2EE Active</span>
+                </span>
+              </div>
+              <h2 style="font-size:1.35rem; font-weight:900; color:#fff; letter-spacing:-0.03em; margin:0; text-shadow:0 2px 8px rgba(0,0,0,0.8);">Discord Voice & Media Deck</h2>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <button class="btn btn-primary btn-sm" onclick="triggerAction('move')" style="box-shadow:0 0 16px rgba(114,137,218,0.4); font-weight:700;">🔊 Fast Join</button>
+              <button class="btn btn-secondary btn-sm" onclick="openAiGeneratorModal()" style="border-color:rgba(168,85,247,0.5); color:#c084fc; font-weight:700;">✨ AI Studio</button>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div class="card">
         <div class="card-title">
@@ -2585,6 +2625,9 @@
         </p>
 
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:8px; margin-bottom:12px;">
+          <button class="btn btn-secondary btn-sm" onclick="setAppTheme('classic')" id="theme-btn-classic" style="display:flex; align-items:center; justify-content:center; gap:6px; padding:8px; border-color:#7289da; color:#7289da; font-weight:700;">
+            <span>🕹️</span> <span>Classic 2015</span>
+          </button>
           <button class="btn btn-secondary btn-sm" onclick="setAppTheme('default')" id="theme-btn-default" style="display:flex; align-items:center; justify-content:center; gap:6px; padding:8px;">
             <span>👾</span> <span>Blurple</span>
           </button>
@@ -4016,6 +4059,46 @@
     </div>
   </div>
 
+  <!-- Modal Sheet for AI Voice Studio & Speech Synthesis -->
+  <div class="modal-overlay" id="ai-generator-modal" onclick="closeAiGeneratorModal(event)">
+    <div class="modal-card" style="max-width:540px; margin:0 auto; border-radius:22px; background:var(--bg-card); border:1px solid rgba(168,85,247,0.4); box-shadow:0 24px 64px rgba(0,0,0,0.85);" onclick="event.stopPropagation()">
+      <div class="modal-handle"></div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:1.4rem;">✨</span>
+          <h3 style="color:#fff; font-size:1.15rem; font-weight:800; margin:0;">AI Voice & Broadcast Studio</h3>
+        </div>
+        <button class="btn btn-secondary btn-sm" style="min-height:32px; width:32px; padding:0; border-radius:50%;" onclick="closeAiGeneratorModal()">✕</button>
+      </div>
+      <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:14px; line-height:1.45;">
+        Generate and broadcast realistic AI voice messages, roleplay co-host chatter, and custom server announcements directly to your Discord voice channel.
+      </p>
+
+      <div style="margin-bottom:12px;">
+        <label style="font-size:0.75rem; font-weight:700; color:#cbd5e1; display:block; margin-bottom:6px;">Choose Persona & Style:</label>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:6px;">
+          <button class="btn btn-secondary btn-sm" onclick="setAiPromptPreset('radio')" style="font-size:0.75rem; padding:6px;">🎙️ Radio DJ</button>
+          <button class="btn btn-secondary btn-sm" onclick="setAiPromptPreset('cyber')" style="font-size:0.75rem; padding:6px;">🤖 Cyberpunk</button>
+          <button class="btn btn-secondary btn-sm" onclick="setAiPromptPreset('announcer')" style="font-size:0.75rem; padding:6px;">📢 Tournament</button>
+          <button class="btn btn-secondary btn-sm" onclick="setAiPromptPreset('lofi')" style="font-size:0.75rem; padding:6px;">☕ Chill Lo-Fi</button>
+        </div>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label style="font-size:0.75rem; font-weight:700; color:#cbd5e1; display:block; margin-bottom:6px;">Voice Speech Text:</label>
+        <textarea id="ai-broadcast-text" rows="3" placeholder="Enter broadcast speech text..." style="width:100%; padding:10px 12px; background:rgba(0,0,0,0.45); border:1px solid rgba(255,255,255,0.18); border-radius:12px; color:#fff; font-size:0.85rem; font-family:inherit; outline:none; resize:none;"></textarea>
+      </div>
+
+      <div style="display:flex; gap:8px;">
+        <button class="btn btn-primary" onclick="broadcastAiVoice()" style="flex:1; display:flex; justify-content:center; align-items:center; gap:8px; font-weight:800; background:linear-gradient(135deg, #5865F2, #8b5cf6);">
+          <span>📢</span>
+          <span>Broadcast Live to VC</span>
+        </button>
+        <button class="btn btn-secondary" onclick="closeAiGeneratorModal()" style="font-size:0.82rem;">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal Sheet for In-App Update Progress -->
   <div class="modal-overlay" id="update-modal" onclick="closeUpdateModal(event)">
     <div class="modal-card" onclick="event.stopPropagation()">
@@ -4156,15 +4239,28 @@
       showToast(hapticEnabled ? 'Haptics: Enabled' : 'Haptics: Disabled');
     }
 
+    const AVAILABLE_THEMES = ['classic', 'default', 'cyberpunk', 'amoled', 'matrix', 'synthwave', 'midnight'];
+
+    function cycleTheme() {
+      const cur = localStorage.getItem('dc_theme') || 'classic';
+      const idx = AVAILABLE_THEMES.indexOf(cur);
+      const next = AVAILABLE_THEMES[(idx + 1) % AVAILABLE_THEMES.length];
+      setAppTheme(next);
+    }
+
     function setAppTheme(theme) {
-      document.body.classList.remove('theme-amoled', 'theme-cyberpunk', 'theme-synthwave', 'theme-matrix', 'theme-midnight', 'amoled-mode');
+      document.body.classList.remove('theme-classic', 'theme-amoled', 'theme-cyberpunk', 'theme-synthwave', 'theme-matrix', 'theme-midnight', 'amoled-mode');
       const badge = document.getElementById('current-theme-badge');
       const meta = document.getElementById('meta-theme-color');
       
       let badgeName = 'Discord Blurple';
       let metaColor = '#1e1f22';
       
-      if (theme === 'amoled') {
+      if (theme === 'classic') {
+        document.body.classList.add('theme-classic');
+        badgeName = 'Classic Discord 🕹️';
+        metaColor = '#2f3136';
+      } else if (theme === 'amoled') {
         document.body.classList.add('theme-amoled', 'amoled-mode');
         badgeName = 'AMOLED Black 🖤';
         metaColor = '#000000';
@@ -5466,6 +5562,62 @@
 
     function closeModal(e) {
       document.getElementById('account-modal').classList.remove('open');
+    }
+
+    function openAiGeneratorModal() {
+      const modal = document.getElementById('ai-generator-modal');
+      if (modal) modal.classList.add('open');
+      const txt = document.getElementById('ai-broadcast-text');
+      if (txt && !txt.value) {
+        txt.value = "Welcome to the 24/7 Discord Voice Lounge! Enjoy high-fidelity sound, 4K streaming, and automated voice bot protection.";
+      }
+    }
+
+    function closeAiGeneratorModal(e) {
+      const modal = document.getElementById('ai-generator-modal');
+      if (modal) modal.classList.remove('open');
+    }
+
+    function setAiPromptPreset(type) {
+      const txt = document.getElementById('ai-broadcast-text');
+      if (!txt) return;
+      if (type === 'radio') {
+        txt.value = "Hey everyone! You're tuned into the 24/7 Community Radio on Discord. Playing the finest chill beats, non-stop all day.";
+      } else if (type === 'cyber') {
+        txt.value = "Warning: Automated neural sentry activated on voice channel. Encryption level: DAVE MLS. Standby for audio handshake.";
+      } else if (type === 'announcer') {
+        txt.value = "Attention all players! The tournament room is now open. Please prepare your squads and check your audio levels!";
+      } else if (type === 'lofi') {
+        txt.value = "Slow down, take a deep breath, and grab a warm cup of coffee. The 24/7 study session is officially underway.";
+      }
+      vibrate(15);
+      showToast(`AI Preset: ${type.toUpperCase()}`);
+    }
+
+    async function broadcastAiVoice() {
+      const txt = document.getElementById('ai-broadcast-text');
+      if (!txt || !txt.value.trim()) {
+        showToast('Please enter text to broadcast', true);
+        return;
+      }
+      const speech = txt.value.trim();
+      showToast('📢 Generating AI speech and broadcasting to VC...');
+      closeAiGeneratorModal();
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'send_tts', text: speech })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('✅ AI Voice Broadcast sent to voice channel!');
+        } else {
+          showToast('⚠️ Notice: ' + (data.error || 'Check voice bot connection'));
+        }
+      } catch (e) {
+        showToast('Error sending broadcast: ' + e.message, true);
+      }
     }
 
     function saveBotProxy(aid) {
