@@ -1106,6 +1106,19 @@
         grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
         gap: 16px;
       }
+
+      /* 2-Column Balanced Proxy Fleet Studio */
+      #tab-proxies.active {
+        display: grid !important;
+        grid-template-columns: 460px 1fr !important;
+        gap: 20px !important;
+        align-items: start !important;
+      }
+      .proxy-column-ops, .proxy-column-pool {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
     }
   </style>
 </head>
@@ -3609,114 +3622,141 @@
     <!-- TAB: PROXIES & FREE PROXY POOL -->
     <div class="tab-content" id="tab-proxies">
 
-      <!-- Hero Cyberpunk Anti-Ban Card -->
-      <div class="card" style="border-color: rgba(0, 180, 216, 0.45); background: linear-gradient(135deg, rgba(16, 24, 38, 0.95), rgba(8, 32, 54, 0.95));">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
-          <div>
+      <!-- LEFT COLUMN: Operations & Custom Proxies -->
+      <div class="proxy-column-ops">
+
+        <!-- Proxy Fleet & Anti-Ban Hub Card -->
+        <div class="card" style="border-color: var(--border); background: var(--bg-card);">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px;">
+            <div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:1.4rem;">🌐</span>
+                <h2 style="font-size:1.15rem; font-weight:800; color:var(--text-heading); margin:0;">Proxy Fleet & Anti-Ban</h2>
+              </div>
+              <div style="font-size:0.75rem; color:var(--text-muted); margin-top:3px;">
+                Protect bots from Discord IP rate limits (HTTP 429) & Cloudflare verification blocks.
+              </div>
+            </div>
+            <span class="badge" style="background:rgba(35, 165, 90, 0.15); color:#23a55a; border:1px solid rgba(35, 165, 90, 0.35); font-weight:700;">
+              ● Shield Active
+            </span>
+          </div>
+
+          <!-- 4 Stat Counters Grid -->
+          <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; margin-bottom:14px;">
+            <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:12px;">
+              <div style="font-size:0.72rem; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Pool Proxies</div>
+              <div style="font-size:1.35rem; font-weight:800; color:var(--text-heading);" id="proxy-stat-total">0</div>
+            </div>
+            <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:12px;">
+              <div style="font-size:0.72rem; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Verified Online</div>
+              <div style="font-size:1.35rem; font-weight:800; color:#23a55a;" id="proxy-stat-online">0</div>
+            </div>
+            <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:12px;">
+              <div style="font-size:0.72rem; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Bots Protected</div>
+              <div style="font-size:1.35rem; font-weight:800; color:var(--accent);" id="proxy-stat-assigned">0 Bots</div>
+            </div>
+            <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:12px;">
+              <div style="font-size:0.72rem; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Avg Latency</div>
+              <div style="font-size:1.35rem; font-weight:800; color:#faa61a;" id="proxy-stat-ping">-- ms</div>
+            </div>
+          </div>
+
+          <!-- Automation & Protection Toggles -->
+          <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin-bottom:14px; display:flex; flex-direction:column; gap:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.82rem; font-weight:700; color:var(--text-heading);">
+                <input type="checkbox" id="chk-proxy-failover" onchange="toggleAutoFailover()" checked style="width:16px; height:16px; accent-color:var(--accent);">
+                <span>🛡️ Auto-Failover Watchdog</span>
+              </label>
+              <span style="font-size:0.7rem; color:var(--text-muted);">Re-binds on dead proxy</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid rgba(255,255,255,0.06); padding-top:10px;">
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.82rem; font-weight:700; color:var(--text-heading);">
+                <input type="checkbox" id="chk-proxy-auto-rotate" onchange="toggleAutoRotate()" style="width:16px; height:16px; accent-color:var(--accent);">
+                <span>🔄 Scheduled Auto-Rotate</span>
+              </label>
+              <select id="sel-proxy-rotate-interval" onchange="updateProxyRotateInterval()" style="background:var(--bg-card); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:3px 8px; font-size:0.72rem;">
+                <option value="300">Every 5 min</option>
+                <option value="900">Every 15 min</option>
+                <option value="1800" selected>Every 30 min</option>
+                <option value="3600">Every 1 hr</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 1-Click Operations Grid -->
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <div style="display:flex; gap:8px;">
+              <button class="btn btn-primary" onclick="fetchFreeProxies('socks5')" id="btn-fetch-socks5" style="flex:1; font-weight:700;">
+                ⚡ Fetch Free SOCKS5
+              </button>
+              <button class="btn btn-secondary" onclick="fetchFreeProxies('http')" id="btn-fetch-http" style="flex:1;">
+                🌐 Fetch Free HTTP
+              </button>
+            </div>
+            <button class="btn btn-success" onclick="distributeDedicatedProxies()" id="btn-distribute-dedicated" style="width:100%; background:linear-gradient(135deg, #10b981, #059669); border:none; font-weight:700; padding:10px;">
+              🛡️ 1 IP Per Bot (Dedicated Unique)
+            </button>
+            <div style="display:flex; gap:8px;">
+              <button class="btn btn-secondary" onclick="distributeProxiesToBots()" id="btn-distribute-proxies" style="flex:1;">
+                🎯 Distribute Shared
+              </button>
+              <button class="btn btn-secondary" onclick="clearAllBotProxies()" style="flex:1; color:var(--danger); border-color:rgba(242,63,67,0.3);">
+                🧹 Clear (Direct IP)
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Custom / Private Proxy Adder Card -->
+        <div class="card">
+          <div class="card-title">
+            <span>➕ Add Private / Custom Proxy</span>
+          </div>
+          <div class="field-group" style="margin-bottom:0;">
+            <label class="field-label">Supports SOCKS5, HTTP, HTTPS with optional auth</label>
+            <div class="input-row">
+              <input type="text" id="custom-proxy-input" placeholder="socks5://user:pass@1.2.3.4:1080 or http://1.2.3.4:8080" onkeydown="if(event.key==='Enter') addCustomProxy()">
+              <button class="btn btn-primary" onclick="addCustomProxy()">+ Add</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT COLUMN: Live Proxy Pool & Real-Time Filter -->
+      <div class="proxy-column-pool">
+        <div class="card" style="min-height:540px;">
+          <div class="card-title" style="flex-wrap:wrap; gap:8px;">
             <div style="display:flex; align-items:center; gap:8px;">
-              <span style="font-size:1.4rem;">🌐</span>
-              <h2 style="font-size:1.15rem; font-weight:800; color:#00b4d8; margin:0;">Free Proxy Pool & Anti-Ban</h2>
+              <span>📋 Active Proxy Pool</span>
+              <span class="badge" style="background:var(--bg-dark); border:1px solid var(--border);" id="proxy-pool-count-badge">0</span>
             </div>
-            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:3px;">
-              Prevent Discord IP rate limits (HTTP 429) & Cloudflare blocks with 1-click free rotating proxies.
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <button class="btn btn-secondary btn-sm active" id="pfilter-all" onclick="filterProxyList('all')">All</button>
+              <button class="btn btn-secondary btn-sm" id="pfilter-online" onclick="filterProxyList('online')">🟢 Online</button>
+              <button class="btn btn-secondary btn-sm" id="pfilter-socks5" onclick="filterProxyList('socks5')">SOCKS5</button>
+              <button class="btn btn-secondary btn-sm" id="pfilter-http" onclick="filterProxyList('http')">HTTP</button>
+              <button class="btn btn-secondary btn-sm" onclick="fetchStatus()" title="Refresh Proxy Pool">↻</button>
             </div>
           </div>
-          <span class="badge" style="background:rgba(0,180,216,0.18); color:#00b4d8; border:1px solid rgba(0,180,216,0.3); font-weight:700;">
-            ⚡ Live Shield Active
-          </span>
-        </div>
 
-        <!-- 4 Stat Counters Grid -->
-        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:10px; margin-bottom:14px;">
-          <div style="background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:10px;">
-            <div style="font-size:0.72rem; color:var(--text-muted);">Pool Proxies</div>
-            <div style="font-size:1.25rem; font-weight:800; color:#fff;" id="proxy-stat-total">0</div>
+          <!-- Real-Time Search Input -->
+          <div style="margin-bottom:12px;">
+            <input type="text" id="proxy-search-input" placeholder="🔍 Search IP, port, country (e.g. US, 1080, socks5)..." oninput="searchProxyPool(this.value)" style="width:100%; padding:9px 14px; background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; color:var(--text); font-size:0.85rem; outline:none; transition:border 0.2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
           </div>
-          <div style="background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:10px;">
-            <div style="font-size:0.72rem; color:var(--text-muted);">Verified Online</div>
-            <div style="font-size:1.25rem; font-weight:800; color:#23a55a;" id="proxy-stat-online">0</div>
-          </div>
-          <div style="background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:10px;">
-            <div style="font-size:0.72rem; color:var(--text-muted);">Bots Protected</div>
-            <div style="font-size:1.25rem; font-weight:800; color:#00b4d8;" id="proxy-stat-assigned">0</div>
-          </div>
-          <div style="background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:10px;">
-            <div style="font-size:0.72rem; color:var(--text-muted);">Avg Latency</div>
-            <div style="font-size:1.25rem; font-weight:800; color:#faa61a;" id="proxy-stat-ping">-- ms</div>
-          </div>
-        </div>
 
-        <!-- Automation & Protection Controls -->
-        <div style="background:rgba(0,0,0,0.4); border:1px solid rgba(0,180,216,0.25); border-radius:10px; padding:10px 14px; margin-bottom:12px; display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px;">
-          <div style="display:flex; align-items:center; gap:10px;">
-            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.82rem; font-weight:700; color:#fff;">
-              <input type="checkbox" id="chk-proxy-failover" onchange="toggleAutoFailover()" checked style="width:16px; height:16px; accent-color:#00b4d8;">
-              🛡️ Auto-Failover Watchdog (Dead Proxy Re-bind)
-            </label>
-          </div>
-          <div style="display:flex; align-items:center; gap:10px;">
-            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.82rem; font-weight:700; color:#fff;">
-              <input type="checkbox" id="chk-proxy-auto-rotate" onchange="toggleAutoRotate()" style="width:16px; height:16px; accent-color:#00b4d8;">
-              🔄 Scheduled Auto-Rotate
-            </label>
-            <select id="sel-proxy-rotate-interval" onchange="updateProxyRotateInterval()" style="background:#111; color:#00b4d8; border:1px solid rgba(0,180,216,0.3); border-radius:6px; padding:4px 8px; font-size:0.75rem;">
-              <option value="300">Every 5 min</option>
-              <option value="900">Every 15 min</option>
-              <option value="1800" selected>Every 30 min</option>
-              <option value="3600">Every 1 hr</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- 1-Click Action Commands -->
-        <div style="display:flex; flex-wrap:wrap; gap:8px;">
-          <button class="btn btn-primary" onclick="fetchFreeProxies('socks5')" id="btn-fetch-socks5" style="flex:1; min-width:140px; background:#00b4d8; border-color:#00b4d8;">
-            ⚡ Fetch Free SOCKS5
-          </button>
-          <button class="btn btn-secondary" onclick="fetchFreeProxies('http')" id="btn-fetch-http" style="flex:1; min-width:130px;">
-            🌐 Fetch Free HTTP
-          </button>
-          <button class="btn btn-success" onclick="distributeDedicatedProxies()" id="btn-distribute-dedicated" style="flex:1; min-width:170px; background:linear-gradient(135deg, #10b981, #059669); border:none; font-weight:700;">
-            🛡️ 1 IP Per Bot (Dedicated Unique)
-          </button>
-          <button class="btn btn-secondary" onclick="distributeProxiesToBots()" id="btn-distribute-proxies" style="flex:1; min-width:130px;">
-            🎯 Distribute Shared
-          </button>
-          <button class="btn btn-secondary" onclick="clearAllBotProxies()" style="color:var(--danger); border-color:rgba(242,63,67,0.3);">
-            🧹 Clear (Direct IP)
-          </button>
-        </div>
-      </div>
-
-      <!-- Custom Proxy Adder Card -->
-      <div class="card">
-        <div class="card-title">
-          <span>➕ Add Custom / Private Proxy</span>
-        </div>
-        <div class="field-group">
-          <label class="field-label">Proxy Address (supports SOCKS5, HTTP, HTTPS with optional auth)</label>
-          <div class="input-row">
-            <input type="text" id="custom-proxy-input" placeholder="socks5://user:pass@1.2.3.4:1080 or http://1.2.3.4:3128">
-            <button class="btn btn-primary" onclick="addCustomProxy()">+ Add Proxy</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Live Proxy List & Filter Strip -->
-      <div class="card">
-        <div class="card-title">
-          <span>📋 Active Proxy Pool</span>
-          <div style="display:flex; gap:6px;">
-            <button class="btn btn-secondary btn-sm" onclick="filterProxyList('all')">All</button>
-            <button class="btn btn-secondary btn-sm" onclick="filterProxyList('online')">🟢 Online</button>
-            <button class="btn btn-secondary btn-sm" onclick="filterProxyList('socks5')">SOCKS5</button>
-            <button class="btn btn-secondary btn-sm" onclick="filterProxyList('http')">HTTP</button>
-          </div>
-        </div>
-
-        <div id="proxy-list-container" style="display:flex; flex-direction:column; gap:8px; max-height:480px; overflow-y:auto; padding-right:4px;">
-          <div style="text-align:center; padding:24px; color:var(--text-muted); font-size:0.85rem;">
-            No proxies in pool yet. Click <strong>⚡ Fetch Free SOCKS5</strong> to automatically load live free proxies.
+          <!-- Proxy List Container -->
+          <div id="proxy-list-container" style="display:flex; flex-direction:column; gap:8px; max-height:560px; overflow-y:auto; padding-right:4px;">
+            <div style="text-align:center; padding:32px 16px; color:var(--text-muted); font-size:0.85rem;">
+              <div style="font-size:2rem; margin-bottom:8px;">🌐</div>
+              <div style="font-weight:700; color:var(--text-heading); margin-bottom:4px;">No Proxies in Pool Yet</div>
+              <div style="margin-bottom:14px; font-size:0.78rem;">Click below to automatically scan 40+ free fast proxies.</div>
+              <button class="btn btn-primary btn-sm" onclick="fetchFreeProxies('socks5')" style="display:inline-flex; align-items:center; gap:6px;">
+                ⚡ Auto-Scan Free SOCKS5 Now
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -4082,6 +4122,13 @@
       }
     }
 
+    let proxySearchQuery = '';
+
+    function searchProxyPool(query) {
+      proxySearchQuery = (query || '').toLowerCase().trim();
+      renderProxyCards();
+    }
+
     function updateProxyUI(summary) {
       if (!summary) return;
       currentProxyList = summary.proxies || [];
@@ -4090,11 +4137,13 @@
       const elOnline = document.getElementById('proxy-stat-online');
       const elAssigned = document.getElementById('proxy-stat-assigned');
       const elPing = document.getElementById('proxy-stat-ping');
+      const elBadge = document.getElementById('proxy-pool-count-badge');
       const chkFailover = document.getElementById('chk-proxy-failover');
       const chkRotate = document.getElementById('chk-proxy-auto-rotate');
       const selInterval = document.getElementById('sel-proxy-rotate-interval');
 
       if (elTotal) elTotal.innerText = summary.total || 0;
+      if (elBadge) elBadge.innerText = summary.total || 0;
       if (elOnline) elOnline.innerText = summary.online || 0;
       if (elAssigned) elAssigned.innerText = (summary.assigned_to_bots || 0) + ' Bots';
       if (elPing) elPing.innerText = summary.avg_ping ? (summary.avg_ping + ' ms') : '-- ms';
@@ -4107,6 +4156,13 @@
 
     function filterProxyList(filter) {
       currentProxyFilter = filter;
+      ['all', 'online', 'socks5', 'http'].forEach(f => {
+        const btn = document.getElementById('pfilter-' + f);
+        if (btn) {
+          if (f === filter) btn.classList.add('active');
+          else btn.classList.remove('active');
+        }
+      });
       renderProxyCards();
     }
 
@@ -4123,10 +4179,24 @@
         list = list.filter(p => p.protocol === 'HTTP');
       }
 
+      if (proxySearchQuery) {
+        list = list.filter(p => {
+          const u = (p.url || '').toLowerCase();
+          const c = (p.country || '').toLowerCase();
+          const proto = (p.protocol || '').toLowerCase();
+          return u.includes(proxySearchQuery) || c.includes(proxySearchQuery) || proto.includes(proxySearchQuery);
+        });
+      }
+
       if (list.length === 0) {
         container.innerHTML = `
-          <div style="text-align:center; padding:24px; color:var(--text-muted); font-size:0.85rem;">
-            No proxies matching filter "${currentProxyFilter}". Click <strong>⚡ Fetch Free SOCKS5</strong> to reload.
+          <div style="text-align:center; padding:32px 16px; color:var(--text-muted); font-size:0.85rem;">
+            <div style="font-size:1.8rem; margin-bottom:6px;">🔍</div>
+            <div style="font-weight:700; color:var(--text-heading); margin-bottom:4px;">No Matching Proxies</div>
+            <div style="margin-bottom:12px; font-size:0.78rem;">No proxies found for current filter or search.</div>
+            <button class="btn btn-primary btn-sm" onclick="fetchFreeProxies('socks5')">
+              ⚡ Scan 40+ SOCKS5
+            </button>
           </div>`;
         return;
       }
@@ -4135,32 +4205,36 @@
       list.forEach((p, idx) => {
         const isOnline = p.status === 'online';
         const hasBots = p.assigned_to && p.assigned_to.length > 0;
-        const protoColor = p.protocol === 'SOCKS5' ? '#00b4d8' : '#a855f7';
-        const protoBg = p.protocol === 'SOCKS5' ? 'rgba(0,180,216,0.18)' : 'rgba(168,85,247,0.18)';
-        const pingColor = (!p.ping || p.ping < 200) ? '#23a55a' : (p.ping < 500 ? '#faa61a' : '#f23f43');
+        const protoColor = p.protocol === 'SOCKS5' ? 'var(--accent)' : '#a855f7';
+        const protoBg = p.protocol === 'SOCKS5' ? 'rgba(88,101,242,0.18)' : 'rgba(168,85,247,0.18)';
+        const pingColor = (!p.ping || p.ping < 180) ? '#23a55a' : (p.ping < 450 ? '#faa61a' : '#f23f43');
 
         html += `
-          <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-dark); border:1px solid ${isOnline ? 'rgba(35,165,90,0.25)' : 'rgba(255,255,255,0.06)'}; border-radius:10px; padding:10px 14px; gap:8px; transition:border-color 0.15s, box-shadow 0.15s;" onmouseover="this.style.borderColor='rgba(0,180,216,0.4)'; this.style.boxShadow='0 4px 14px rgba(0,0,0,0.3)'" onmouseout="this.style.borderColor='${isOnline ? 'rgba(35,165,90,0.25)' : 'rgba(255,255,255,0.06)'}'; this.style.boxShadow='none'">
+          <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-dark); border:1px solid ${isOnline ? 'rgba(35,165,90,0.3)' : 'var(--border)'}; border-radius:10px; padding:10px 14px; gap:8px; transition:all 0.15s ease;" onmouseover="this.style.borderColor='var(--accent)'; this.style.boxShadow='0 4px 14px rgba(0,0,0,0.25)'" onmouseout="this.style.borderColor='${isOnline ? 'rgba(35,165,90,0.3)' : 'var(--border)'}'; this.style.boxShadow='none'">
             <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
-              <span style="font-size:0.8rem; font-weight:800; color:${protoColor}; background:${protoBg}; padding:3px 8px; border-radius:6px; box-shadow:0 0 10px ${protoBg};">
+              <span style="font-size:0.75rem; font-weight:800; color:${protoColor}; background:${protoBg}; padding:3px 7px; border-radius:6px;">
                 ${p.protocol}
               </span>
               <div style="min-width:0; overflow:hidden;">
-                <div style="font-size:0.88rem; font-weight:700; color:var(--text-heading); word-break:break-all;">
-                  ${escapeHtml(p.url)}
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <span style="font-size:0.86rem; font-weight:700; color:var(--text-heading); font-family:monospace; word-break:break-all;">
+                    ${escapeHtml(p.url)}
+                  </span>
+                  <button onclick="copyProxyUrl('${escapeHtml(p.url)}')" style="background:none; border:none; cursor:pointer; font-size:0.82rem; padding:0 3px; color:var(--text-muted); opacity:0.8;" title="Copy Proxy Address">📋</button>
                 </div>
-                <div style="display:flex; gap:8px; align-items:center; font-size:0.74rem; color:var(--text-muted); margin-top:2px;">
+                <div style="display:flex; gap:8px; align-items:center; font-size:0.74rem; color:var(--text-muted); margin-top:3px; flex-wrap:wrap;">
                   <span style="color:${isOnline ? '#23a55a' : '#888'}; font-weight:600;">● ${isOnline ? 'Online' : 'Untested'}</span>
-                  ${p.country ? `<span style="background:rgba(255,255,255,0.08); padding:1px 6px; border-radius:4px; font-weight:700; color:#ddd;">${escapeHtml(p.country)}</span>` : ''}
+                  ${p.country ? `<span style="background:rgba(255,255,255,0.06); padding:1px 6px; border-radius:4px; font-weight:700; color:#ddd;">${escapeHtml(p.country)}</span>` : ''}
                   ${p.ping ? `<span style="color:${pingColor}; font-weight:600;">⚡ ${p.ping}ms</span>` : ''}
-                  ${hasBots ? `<span style="color:#00b4d8; font-weight:600;">🤖 Assigned to Bot(s): #${p.assigned_to.join(', #')}</span>` : '<span style="color:#666;">Available</span>'}
+                  ${hasBots ? `<span style="color:var(--accent); font-weight:700;">🤖 Bot #${p.assigned_to.join(', #')}</span>` : '<span style="color:#666;">Available</span>'}
                 </div>
               </div>
             </div>
 
-            <div style="display:flex; gap:6px;">
-              <button class="btn btn-secondary btn-sm" onclick="testSingleProxyPing('${escapeHtml(p.url)}')" title="Test Ping">⚡ Ping</button>
-              <button class="btn btn-secondary btn-sm" style="color:var(--danger);" onclick="deleteProxyFromPool('${escapeHtml(p.url)}')" title="Delete">✕</button>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <button class="btn btn-secondary btn-sm" onclick="quickAssignToSelectedBot('${escapeHtml(p.url)}')" title="Assign this proxy to a bot" style="font-size:0.75rem; padding:5px 8px;">🎯 Bind</button>
+              <button class="btn btn-secondary btn-sm" onclick="testSingleProxyPing('${escapeHtml(p.url)}')" title="Test Ping" style="font-size:0.75rem; padding:5px 8px;">⚡ Ping</button>
+              <button class="btn btn-secondary btn-sm" style="color:var(--danger); font-size:0.75rem; padding:5px 7px;" onclick="deleteProxyFromPool('${escapeHtml(p.url)}')" title="Delete">✕</button>
             </div>
           </div>
         `;
@@ -4168,13 +4242,52 @@
       container.innerHTML = html;
     }
 
+    function copyProxyUrl(url) {
+      copyTextToClipboard(url).then(() => {
+        showToast('📋 Copied: ' + url);
+      });
+    }
+
+    async function quickAssignToSelectedBot(proxyUrl) {
+      vibrate(15);
+      const accs = window.lastStatusData && window.lastStatusData.accounts ? window.lastStatusData.accounts : [];
+      if (accs.length === 0) {
+        return showToast('No bots connected to assign proxy', true);
+      }
+      let targetId = null;
+      if (selectedAccountIds && selectedAccountIds.size > 0) {
+        targetId = Array.from(selectedAccountIds)[0];
+      } else {
+        const unassigned = accs.find(a => !a.proxy);
+        targetId = unassigned ? unassigned.id : accs[0].id;
+      }
+      showToast(`Binding proxy to Bot #${targetId}...`);
+      try {
+        const res = await sendPost('/api/action', { action: 'set_account_proxy', id: targetId, proxy: proxyUrl });
+        if (res.success) {
+          showToast(`✅ Proxy assigned to Bot #${targetId}!`);
+          fetchStatus();
+        } else {
+          showToast(res.error || 'Failed to bind proxy', true);
+        }
+      } catch (e) {
+        showToast('Error: ' + e.message, true);
+      }
+    }
+
     async function fetchFreeProxies(protocol) {
       vibrate(20);
-      showToast(`Fetching free ${protocol.toUpperCase()} proxies...`);
+      const btn = document.getElementById('btn-fetch-' + protocol);
+      const origText = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `⏳ Scanning ${protocol.toUpperCase()}...`;
+      }
+      showToast(`Scanning live free ${protocol.toUpperCase()} proxies...`);
       try {
         const res = await sendPost('/api/action', { action: 'fetch_free_proxies', protocol: protocol, limit: 40 });
         if (res.success) {
-          showToast(res.message);
+          showToast(`✅ ${res.message}`);
           updateProxyUI(res.summary);
           fetchStatus();
         } else {
@@ -4182,38 +4295,65 @@
         }
       } catch (e) {
         showToast('Error: ' + e.message, true);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = origText;
+        }
       }
     }
 
     async function distributeDedicatedProxies() {
       vibrate(25);
+      const btn = document.getElementById('btn-distribute-dedicated');
+      const origText = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '⏳ Binding 1 IP Per Bot...';
+      }
       showToast('Binding 1 dedicated unique IP per bot...');
       try {
         const res = await sendPost('/api/action', { action: 'distribute_proxies', dedicated: true, refresh: true });
         if (res.success) {
-          showToast(`Assigned ${res.assigned} unique dedicated IPs to bots!`);
+          showToast(`✅ Assigned ${res.assigned} unique dedicated IPs to bots!`);
           fetchStatus();
         } else {
           showToast(res.error || 'Failed to bind dedicated IPs', true);
         }
       } catch (e) {
         showToast('Error: ' + e.message, true);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = origText;
+        }
       }
     }
 
     async function distributeProxiesToBots() {
       vibrate(25);
+      const btn = document.getElementById('btn-distribute-proxies');
+      const origText = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '⏳ Distributing...';
+      }
       showToast('Distributing proxies to all bots...');
       try {
         const res = await sendPost('/api/action', { action: 'distribute_proxies' });
         if (res.success) {
-          showToast(`Assigned proxies to ${res.assigned} bots!`);
+          showToast(`✅ Assigned proxies to ${res.assigned} bots!`);
           fetchStatus();
         } else {
           showToast(res.error || 'Failed to distribute', true);
         }
       } catch (e) {
         showToast('Error: ' + e.message, true);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = origText;
+        }
       }
     }
 
@@ -4223,7 +4363,7 @@
       try {
         const res = await sendPost('/api/action', { action: 'clear_bot_proxies' });
         if (res.success) {
-          showToast(`Reverted ${res.cleared} bots to Direct IP.`);
+          showToast(`✅ Reverted ${res.cleared} bots to Direct IP.`);
           fetchStatus();
         }
       } catch (e) {
@@ -4240,8 +4380,8 @@
         const res = await sendPost('/api/action', { action: 'add_custom_proxy', url: val });
         if (res.success) {
           input.value = '';
-          showToast('Custom proxy added to pool!');
-          updateProxyUI(res.summary);
+          showToast('✅ Custom proxy added to pool!');
+          if (res.summary) updateProxyUI(res.summary);
           fetchStatus();
         } else {
           showToast(res.error || 'Failed to add proxy', true);
@@ -4252,52 +4392,16 @@
     }
 
     async function deleteProxyFromPool(url) {
+      if (!confirm('Remove proxy ' + url + ' from pool?')) return;
       try {
         const res = await sendPost('/api/action', { action: 'delete_proxy', url: url });
         if (res.success) {
           showToast('Proxy removed from pool');
-          updateProxyUI(res.summary);
-        }
-      } catch (e) {}
-    }
-
-    async function toggleAutoFailover() {
-      vibrate(20);
-      try {
-        const res = await sendPost('/api/action', { action: 'toggle_auto_failover' });
-        if (res.success) {
-          showToast(`Auto-Failover Watchdog: ${res.auto_failover ? 'ENABLED 🛡️' : 'DISABLED'}`);
           if (res.summary) updateProxyUI(res.summary);
+          fetchStatus();
         }
       } catch (e) {
-        showToast('Failover toggle failed: ' + e.message, true);
-      }
-    }
-
-    async function toggleAutoRotate() {
-      vibrate(20);
-      try {
-        const res = await sendPost('/api/action', { action: 'toggle_auto_rotate' });
-        if (res.success) {
-          showToast(`Proxy Auto-Rotate: ${res.auto_rotate ? 'ACTIVE 🔄' : 'STOPPED'}`);
-          if (res.summary) updateProxyUI(res.summary);
-        }
-      } catch (e) {
-        showToast('Auto-rotate toggle failed: ' + e.message, true);
-      }
-    }
-
-    async function updateProxyRotateInterval() {
-      const sel = document.getElementById('sel-proxy-rotate-interval');
-      const interval = sel ? parseInt(sel.value, 10) : 1800;
-      try {
-        const res = await sendPost('/api/action', { action: 'set_proxy_auto_rotate', interval: interval });
-        if (res.success) {
-          showToast(`Auto-Rotate interval set to ${Math.round(interval/60)}m`);
-          if (res.summary) updateProxyUI(res.summary);
-        }
-      } catch (e) {
-        showToast('Interval update failed: ' + e.message, true);
+        showToast('Error removing proxy: ' + e.message, true);
       }
     }
 
