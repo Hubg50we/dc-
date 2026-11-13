@@ -2525,8 +2525,11 @@ def save_env_config():
         if not key_system_found:
             new_lines.append(f"KEY_SYSTEM_ENABLED={KEY_SYSTEM_ENABLED}\n")
 
-        with open(env_path, "w", encoding="utf-8") as f:
-            f.writelines(new_lines)
+        secure_store.atomic_write_text(env_path, "".join(new_lines))
+        try:
+            os.chmod(env_path, 0o600)
+        except OSError:
+            pass
     except Exception as e:
         print(f"[!] Could not persist .env config: {e}")
 
