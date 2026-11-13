@@ -1016,12 +1016,6 @@ def run_tests():
               (is_remote or (mock_vc.sfx_played == ["airhorn"] and mock_vc.stopped is True)))
     except Exception as e:
         check("Audio / SFX Soundboard RFC 6716 Dispatch to Voice Connection", False, str(e))
-    finally:
-        # Never leak the mock string-keyed account into later tests.
-        try:
-            main.ACCOUNTS.pop("test_token", None)
-        except Exception:
-            pass
 
     # 92. Test Custom Audio & Remote Stream Dispatch to Voice Connection
     try:
