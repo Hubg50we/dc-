@@ -2400,6 +2400,51 @@ def parse_token_and_proxy(raw):
     return token, proxy
 
 
+def parse_account_line(raw):
+    """Parse a persisted account line into (token, proxy, owner_key)."""
+    if not raw or not isinstance(raw, str):
+        return "", None, None
+    raw = raw.strip()
+    if not raw or raw.startswith("#"):
+        return "", None, None
+    token_part = raw
+    proxy = None
+    owner = None
+
+    if "|" in raw:
+        parts = [p.strip() for p in raw.split("|")]
+        token_part = parts[0]
+        if len(parts) >= 2 and parts[1]:
+            cand = parts[1]
+            if cand.lower().startswith(("http://", "https://", "socks4://", "socks5://")):
+                proxy = cand
+                if len(parts) >= 3 and parts[2]:
+                    owner = parts[2]
+            else:
+                owner = cand
+                if len(parts) >= 3 and parts[2]:
+                    if parts[2].lower().startswith(("http://", "https://", "socks4://", "socks5://")):
+                        proxy = parts[2]
+    elif ":::" in raw:
+        parts = [p.strip() for p in raw.split(":::", 1)]
+        token_part = parts[0]
+        if len(parts) >= 2 and parts[1]:
+            proxy = parts[1]
+    else:
+        parts = raw.split()
+        if len(parts) >= 2:
+            token_part = parts[0]
+            if any(parts[1].lower().startswith(s) for s in ("http://", "https://", "socks5://", "socks4://")):
+                proxy = parts[1]
+            else:
+                owner = parts[1]
+
+    token = clean_token(token_part)
+    if owner:
+        owner = owner.strip().lower()
+    return token, proxy, owner
+
+
 def is_placeholder_token(token):
     if not token or len(token) < 20:
         return True
@@ -2418,11 +2463,12 @@ def sync_tokens_file():
         for a in ACCOUNTS.values():
             tok = a.get("token", "").strip()
             prx = a.get("proxy")
+            owner = (a.get("owner_key") or ACCESS_KEY or ADMIN_USERNAME).strip().lower()
             if tok and not is_placeholder_token(tok) and tok not in seen:
                 if prx:
-                    lines.append(f"{tok}|{prx}")
+                    lines.append(f"{tok}|{prx}|{owner}")
                 else:
-                    lines.append(tok)
+                    lines.append(f"{tok}|{owner}")
                 seen.add(tok)
         secure_store.write_token_lines("tokens.txt", lines)
     except Exception as e:
@@ -3171,10 +3217,10 @@ async def load_tokens_from_file(path):
         line_str = line_str.strip()
         if not line_str or line_str.startswith("#"):
             continue
-        tok, prx = parse_token_and_proxy(line_str)
+        tok, prx, owner = parse_account_line(line_str)
         if not tok or is_placeholder_token(tok):
             continue
-        await add_account(tok, proxy=prx)
+        await add_account(tok, proxy=prx, owner_key=owner)
         count += 1
     print(f"Loaded {count} token(s) from {path}.")
     return count
@@ -3185,8 +3231,12 @@ async def save_tokens_to_file(path):
     for acc in ACCOUNTS.values():
         tok = acc.get("token", "")
         prx = acc.get("proxy")
+        owner = (acc.get("owner_key") or ACCESS_KEY or ADMIN_USERNAME).strip().lower()
         if tok:
-            lines.append(f"{tok}|{prx}" if prx else tok)
+            if prx:
+                lines.append(f"{tok}|{prx}|{owner}")
+            else:
+                lines.append(f"{tok}|{owner}")
     try:
         secure_store.write_token_lines(path, lines)
     except Exception as e:
