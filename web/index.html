@@ -2635,6 +2635,21 @@
               </div>
             </div>
           </div>
+          <!-- Cloud Restart Auto-Heal & Render Environment Variable Helper -->
+          <div style="background:rgba(88,101,242,0.08); border:1px solid rgba(88,101,242,0.25); border-radius:10px; padding:10px 14px; margin-top:6px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span style="font-size:0.95rem;">⚡</span>
+                <span style="font-size:0.75rem; font-weight:700; color:#c7d2fe;">Browser Credential Auto-Heal:</span>
+                <span class="badge" style="background:rgba(34,197,94,0.2); color:#4ade80; font-size:0.65rem; font-weight:700;">ACTIVE</span>
+              </div>
+              <button type="button" onclick="copyRenderEnvKeyString()" class="btn btn-secondary btn-sm" style="font-size:0.68rem; padding:3px 8px; color:#a78bfa;">📋 Copy DC_ACCESS_KEY</button>
+            </div>
+            <p style="font-size:0.7rem; color:var(--text-muted); margin:6px 0 6px 0; line-height:1.4;">
+              Your customized password automatically re-syncs and persists across Render container restarts on this device. For multi-device permanence (phone & PC without re-entering), paste this into <strong>Render Dashboard → Environment</strong>:
+            </p>
+            <input type="text" id="render-env-key-string" readonly style="width:100%; font-family:monospace; font-size:0.75rem; background:rgba(0,0,0,0.45); border:1px solid var(--border); border-radius:6px; padding:6px 10px; color:#a5b4fc;" value="DC_ACCESS_KEY=hubg50">
+          </div>
           <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); margin-top:4px; padding-top:8px;">
             <span style="font-size:0.75rem; color:var(--text-muted);">Require key again on this browser?</span>
             <button onclick="logoutDashboard()" class="btn btn-secondary btn-sm" style="color:#f87171; border-color:rgba(239,68,68,0.3); display:flex; align-items:center; gap:4px;">
@@ -9680,12 +9695,49 @@
     })();
     let isKeySystemAuthenticated = false;
 
-    function initKeySystem() {
+    async function initKeySystem() {
       const portal = document.getElementById('login-portal-screen');
       if (!portal) return;
 
       const savedUser = localStorage.getItem('dc_username') || sessionStorage.getItem('dc_username') || '';
       const savedPass = localStorage.getItem('dc_password') || sessionStorage.getItem('dc_password') || currentAccessKey;
+      const savedCustomPass = localStorage.getItem('dc_custom_admin_pass') || '';
+      let cachedUsers = {};
+      try { cachedUsers = JSON.parse(localStorage.getItem('dc_persisted_users_backup') || '{}'); } catch(e){}
+
+      if (savedUser || savedPass || savedCustomPass) {
+        const uToTry = savedUser || 'admin';
+        const pToTry = savedPass || savedCustomPass;
+        try {
+          const res = await fetch('/api/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'auto_heal_auth',
+              username: uToTry,
+              password: pToTry,
+              client_custom_pass: savedCustomPass || (uToTry.toLowerCase() in { admin: 1, hubg50: 1, '': 1 } ? pToTry : ''),
+              users_backup: cachedUsers
+            })
+          });
+          const data = await res.json();
+          if (data && (data.valid || data.authenticated)) {
+            const resolvedUser = data.username || uToTry;
+            currentAccessKey = data.key || resolvedUser;
+            currentIsAdmin = Boolean(data.is_admin || resolvedUser.toLowerCase() in { admin: 1, hubg50: 1 });
+            hideLoginPortal();
+            updateKeySettingsUI(currentAccessKey, true);
+            if (data.auto_healed) {
+              console.log('⚡ [Auto-Heal] Successfully restored credentials & workspaces after server reboot');
+              showToast('⚡ Restored your custom password & spaces across server restart!');
+            }
+            fetchStatus();
+            return;
+          }
+        } catch(e) {
+          console.warn('[Auto-Heal] Handshake notice:', e);
+        }
+      }
 
       if (savedUser && savedPass) {
         verifyStoredCredentials(savedUser, savedPass);
@@ -9781,11 +9833,22 @@
       if (btn) btn.innerHTML = '<span>⏳</span><span>Verifying...</span>';
       if (err) err.style.display = 'none';
 
+      let cachedUsers = {};
+      try { cachedUsers = JSON.parse(localStorage.getItem('dc_persisted_users_backup') || '{}'); } catch(e){}
+      const savedCustomPass = localStorage.getItem('dc_custom_admin_pass') || '';
+      const isAdmU = (uVal.toLowerCase() in { admin: 1, hubg50: 1, '': 1 });
+
       try {
         const res = await fetch('/api/action', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'login', username: uVal, password: pVal })
+          body: JSON.stringify({
+            action: 'login',
+            username: uVal,
+            password: pVal,
+            client_custom_pass: isAdmU ? (savedCustomPass || pVal) : '',
+            users_backup: cachedUsers
+          })
         });
         if (!res.ok) {
           throw new Error('HTTP ' + res.status);
@@ -9795,6 +9858,7 @@
         if (data && (data.valid || data.authenticated)) {
           const resolvedUser = data.username || uVal || 'admin';
           currentAccessKey = data.key || resolvedUser;
+          currentIsAdmin = Boolean(data.is_admin || resolvedUser.toLowerCase() in { admin: 1, hubg50: 1 });
           const sec = (window.location.protocol === 'https:') ? '; Secure' : '';
           document.cookie = "dc_access_key=" + encodeURIComponent(currentAccessKey) + "; path=/; max-age=31536000; SameSite=Lax" + sec;
           document.cookie = "dc_username=" + encodeURIComponent(resolvedUser) + "; path=/; max-age=31536000; SameSite=Lax" + sec;
@@ -9803,6 +9867,9 @@
             localStorage.setItem('dc_access_key', currentAccessKey);
             localStorage.setItem('dc_username', resolvedUser);
             localStorage.setItem('dc_password', pVal);
+            if (currentIsAdmin) {
+              localStorage.setItem('dc_custom_admin_pass', pVal);
+            }
           } else {
             sessionStorage.setItem('dc_access_key', currentAccessKey);
             sessionStorage.setItem('dc_username', resolvedUser);
@@ -9810,7 +9877,11 @@
           }
           hideLoginPortal();
           updateKeySettingsUI(currentAccessKey, true);
-          showToast(`🔓 Access Granted! Welcome, ${resolvedUser}`);
+          if (data.auto_healed) {
+            showToast(`⚡ Restored custom password & spaces across server restart! Welcome, ${resolvedUser}`);
+          } else {
+            showToast(`🔓 Access Granted! Welcome, ${resolvedUser}`);
+          }
           fetchStatus();
         } else {
           if (err) {
@@ -9946,6 +10017,10 @@
     function updateKeySettingsUI(key, isAuthed) {
       const curInput = document.getElementById('settings-current-key');
       if (curInput) curInput.value = key || '';
+      const envKeyInput = document.getElementById('render-env-key-string');
+      if (envKeyInput && key) {
+        envKeyInput.value = `DC_ACCESS_KEY=${key}`;
+      }
       const badge = document.getElementById('key-system-badge');
       if (badge) {
         badge.innerText = isAuthed ? 'AUTHENTICATED' : 'LOCKED';
@@ -10401,6 +10476,17 @@
       });
     }
 
+    function copyRenderEnvKeyString() {
+      const el = document.getElementById('render-env-key-string');
+      const curKey = currentAccessKey || localStorage.getItem('dc_custom_admin_pass') || localStorage.getItem('dc_access_key') || 'hubg50';
+      const val = (el && el.value) || `DC_ACCESS_KEY=${curKey}`;
+      navigator.clipboard.writeText(val).then(() => {
+        showToast('📋 Copied: ' + val + ' (Paste into Render Environment)');
+      }).catch(() => {
+        prompt('Copy this into Render Environment Variables:', val);
+      });
+    }
+
     async function updateAccessKeyFromSettings() {
       const curInp = document.getElementById('settings-current-key');
       const newInp = document.getElementById('settings-new-key');
@@ -10422,10 +10508,16 @@
         const data = await res.json();
         if (data && data.success) {
           currentAccessKey = newK;
+          localStorage.setItem('dc_custom_admin_pass', newK);
           localStorage.setItem('dc_access_key', newK);
+          localStorage.setItem('dc_password', newK);
+          sessionStorage.setItem('dc_access_key', newK);
+          sessionStorage.setItem('dc_password', newK);
           if (curInp) curInp.value = newK;
           newInp.value = '';
-          showToast(`🔐 Key updated to: ${newK}`);
+          const envInp = document.getElementById('render-env-key-string');
+          if (envInp) envInp.value = `DC_ACCESS_KEY=${newK}`;
+          showToast(`🔐 Key updated to: ${newK} (Auto-heal active)`);
         } else {
           showToast(data.error || 'Failed to update access key.', true);
         }
