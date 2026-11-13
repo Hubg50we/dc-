@@ -144,6 +144,37 @@ def get_account_fingerprint(aid):
     return dict(DEVICE_FINGERPRINTS[aid % len(DEVICE_FINGERPRINTS)])
 
 API = "https://discord.com/api/v10"
+
+import math
+
+API = "https://discord.com/api/v10"
+
+
+def _sanitize_for_json(obj):
+    """Strip control chars and non-finite floats that Discord rejects (gateway 4002)."""
+    if isinstance(obj, str):
+        return "".join(ch for ch in obj if ch in ("\t", "\n", "\r") or ord(ch) >= 0x20)
+    if isinstance(obj, float):
+        if not math.isfinite(obj):
+            return 0
+        return obj
+    if isinstance(obj, dict):
+        return {str(k): _sanitize_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_sanitize_for_json(x) for x in obj]
+    return obj
+
+
+_original_json_dumps = json.dumps
+
+
+def safe_json_dumps(obj, *args, **kwargs):
+    kwargs.setdefault("ensure_ascii", True)
+    kwargs.setdefault("allow_nan", False)
+    return _original_json_dumps(_sanitize_for_json(obj), *args, **kwargs)
+
+
+json.dumps = safe_json_dumps
 APP_VERSION = "1.6.6"
 AUTO_REJOIN = True
 CUSTOM_ACTIVITY_NAME = os.environ.get("ACTIVITY_NAME", "")
