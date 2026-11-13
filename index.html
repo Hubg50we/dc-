@@ -194,23 +194,71 @@
     .brand {
       display: flex;
       align-items: center;
-      gap: 8px;
-      font-weight: 800;
-      font-size: 1.25rem;
-      letter-spacing: -0.5px;
-      color: var(--text-heading);
+      gap: 12px;
+      user-select: none;
+      cursor: pointer;
+      text-decoration: none;
+      transition: opacity 0.15s ease;
     }
-
-    .brand-badge {
-      background: var(--accent);
-      color: #FFFFFF;
-      padding: 3px 8px;
-      border-radius: var(--radius-sm);
-      font-size: 0.68rem;
-      font-weight: 700;
-      letter-spacing: 0.5px;
+    .brand:hover {
+      opacity: 0.95;
+    }
+    .brand-logo-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 11px;
+      background: linear-gradient(135deg, var(--accent) 0%, #a855f7 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      box-shadow: 0 4px 16px var(--accent-glow);
+      transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+      flex-shrink: 0;
+    }
+    .brand:hover .brand-logo-icon {
+      transform: scale(1.06) rotate(-3deg);
+      box-shadow: 0 6px 22px var(--accent-glow);
+    }
+    .brand-text-block {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.15;
+    }
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .brand-name {
+      font-size: 1.4rem;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      color: #ffffff;
       text-transform: uppercase;
-      box-shadow: 0 0 14px var(--accent-glow);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    .brand-dash {
+      color: var(--accent);
+      text-shadow: 0 0 12px var(--accent-glow);
+    }
+    .brand-badge-angled {
+      background: linear-gradient(135deg, rgba(88, 101, 242, 0.25), rgba(168, 85, 247, 0.35));
+      border: 1px solid rgba(139, 92, 246, 0.5);
+      color: #c084fc;
+      padding: 3px 8px;
+      font-size: 0.65rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      clip-path: polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%);
+      box-shadow: 0 2px 8px rgba(88, 101, 242, 0.25);
+    }
+    .brand-subtitle {
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.02em;
     }
 
     .header-actions {
@@ -1024,55 +1072,74 @@
         display: none !important;
       }
 
-      /* Clean Discord-Style Top Navigation Bar */
+      /* Angled & Perfectly Aligned Discord Desktop Tabs */
       .desktop-top-nav {
         display: flex;
         align-items: center;
-        justify-content: center;
         background: var(--bg-dark);
         border-bottom: 1px solid var(--border);
-        padding: 6px 16px;
+        padding: 0 20px;
         position: sticky;
-        top: 60px;
-        z-index: 99;
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
+        top: 66px;
+        z-index: 100;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
       }
       .desktop-nav-inner {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
         max-width: 1360px;
         width: 100%;
+        margin: 0 auto;
+        padding: 8px 0;
         overflow-x: auto;
       }
       .desktop-tab-btn {
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        padding: 8px 16px;
-        border-radius: 8px;
-        font-size: 0.88rem;
-        font-weight: 600;
+        padding: 9px 20px;
+        font-size: 0.86rem;
+        font-weight: 700;
         color: var(--text-muted);
-        background: transparent;
-        border: 1px solid transparent;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
         cursor: pointer;
-        transition: all 0.15s ease;
+        transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
         white-space: nowrap;
+        position: relative;
+        /* Geometric Angled Chamfer Geometry */
+        clip-path: polygon(10px 0%, 100% 0%, calc(100% - 10px) 100%, 0% 100%);
       }
       .desktop-tab-btn:hover {
         color: var(--text-heading);
-        background: var(--bg-hover);
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.16);
+        transform: translateY(-1px);
       }
       .desktop-tab-btn.active {
         color: #ffffff;
-        background: var(--accent);
+        background: linear-gradient(135deg, var(--accent) 0%, rgba(139, 92, 246, 0.9) 100%);
         border-color: var(--accent);
-        box-shadow: 0 2px 10px var(--accent-glow);
+        box-shadow: 0 4px 16px var(--accent-glow);
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+      }
+      .desktop-tab-btn.active::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 10px;
+        right: 10px;
+        height: 2px;
+        background: #ffffff;
+        border-radius: 2px;
+        box-shadow: 0 0 8px #ffffff;
       }
       .desktop-tab-icon {
-        font-size: 1.05rem;
+        font-size: 1rem;
+        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
       }
 
       /* Clean Centered Main Container */
@@ -1171,9 +1238,9 @@
       <div style="width:72px; height:72px; border-radius:50%; background:linear-gradient(135deg, rgba(88, 101, 242, 0.35), rgba(168, 85, 247, 0.5)); display:inline-flex; align-items:center; justify-content:center; font-size:2.2rem; margin-bottom:16px; border:2px solid rgba(168, 85, 247, 0.6); box-shadow:0 0 25px rgba(168,85,247,0.4);">
         🔐
       </div>
-      <div style="display:flex; justify-content:center; align-items:center; gap:8px; margin-bottom:6px;">
-        <span style="font-size:1.5rem; font-weight:900; color:#fff; letter-spacing:-0.03em;">dc-</span>
-        <span class="badge" style="background:linear-gradient(135deg, #5865F2, #a855f7); color:#fff; font-size:0.75rem; font-weight:800; padding:2px 8px; border-radius:12px;">PRO</span>
+      <div class="brand-title" style="justify-content:center; margin-bottom:6px;">
+        <span class="brand-name" style="font-size:1.75rem;">dc<span class="brand-dash">-</span></span>
+        <span class="brand-badge-angled">STUDIO PRO</span>
       </div>
       <h3 style="font-size:1.15rem; font-weight:800; color:#e2e8f0; margin-bottom:6px;">Website Access Gate</h3>
       <p style="font-size:0.82rem; color:var(--text-muted, #949ba4); margin-bottom:18px; line-height:1.45;">
@@ -1243,9 +1310,19 @@
 
   <!-- Top App Header -->
   <header>
-    <div class="brand">
-      <span>dc-</span>
-      <span class="brand-badge">PRO</span>
+    <div class="brand" onclick="switchTab('controls', document.querySelector('.desktop-tab-btn[data-tab=controls]'))" title="dc- Discord Voice Controller Studio">
+      <div class="brand-logo-icon">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+          <path d="M19.27 5.33C17.94 4.71 16.5 4.26 15 4a.09.09 0 0 0-.07.03c-.18.33-.39.76-.53 1.09a16.09 16.09 0 0 0-4.8 0c-.14-.34-.35-.76-.54-1.09-.01-.02-.04-.03-.07-.03-1.5.26-2.93.71-4.27 1.33-.01 0-.02.01-.03.02-2.72 4.07-3.47 8.03-3.1 11.95 0 .02.01.04.03.05 1.8 1.32 3.53 2.12 5.24 2.65.03.01.06 0 .07-.02.4-.55.76-1.13 1.07-1.74.02-.04 0-.08-.04-.09-.57-.22-1.11-.48-1.64-.78-.04-.02-.04-.08-.01-.11.11-.08.22-.17.33-.25.02-.02.05-.02.07-.01 3.44 1.57 7.15 1.57 10.55 0 .02-.01.05-.01.07.01.11.09.22.17.33.26.04.03.04.09-.01.11-.52.31-1.07.56-1.64.78-.04.01-.05.06-.04.09.32.61.68 1.19 1.07 1.74.03.01.06.02.09.01 1.72-.53 3.45-1.33 5.25-2.65.02-.01.03-.03.03-.05.44-4.53-.73-8.46-3.1-11.95-.01-.01-.02-.02-.04-.02zM8.52 14.91c-1.03 0-1.89-.95-1.89-2.12s.84-2.12 1.89-2.12c1.06 0 1.9.96 1.89 2.12 0 1.17-.84 2.12-1.89 2.12zm6.97 0c-1.03 0-1.89-.95-1.89-2.12s.84-2.12 1.89-2.12c1.06 0 1.9.96 1.89 2.12 0 1.17-.83 2.12-1.89 2.12z"/>
+        </svg>
+      </div>
+      <div class="brand-text-block">
+        <div class="brand-title">
+          <span class="brand-name">dc<span class="brand-dash">-</span></span>
+          <span class="brand-badge-angled">STUDIO PRO</span>
+        </div>
+        <div class="brand-subtitle">Discord Voice Controller</div>
+      </div>
     </div>
     <div class="header-actions">
       <div id="active-workspace-pill" onclick="switchOrViewWorkspace()" style="display:flex; align-items:center; gap:6px; font-size:0.75rem; background:linear-gradient(135deg, rgba(88,101,242,0.18), rgba(168,85,247,0.18)); border:1px solid rgba(139,92,246,0.35); padding:4px 10px; border-radius:16px; cursor:pointer;" title="Active Isolated Space (Click to Switch/Manage)">
