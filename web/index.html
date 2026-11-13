@@ -1064,6 +1064,28 @@
       display: none;
     }
 
+    /* Force Desktop / Mobile Layout Overrides */
+    body.force-desktop-layout {
+      padding-bottom: 32px !important;
+    }
+    body.force-desktop-layout .bottom-nav,
+    body.force-desktop-layout .quick-thumb-dock {
+      display: none !important;
+    }
+    body.force-desktop-layout .desktop-top-nav {
+      display: flex !important;
+    }
+
+    body.force-mobile-layout .desktop-top-nav {
+      display: none !important;
+    }
+    body.force-mobile-layout .bottom-nav {
+      display: flex !important;
+    }
+    body.force-mobile-layout {
+      padding-bottom: 80px !important;
+    }
+
     @media (min-width: 900px) {
       body {
         padding-bottom: 32px;
@@ -1330,7 +1352,12 @@
         <span id="active-space-name" style="font-weight:700; color:#c084fc;">Space: Master</span>
         <span id="active-space-role" style="font-size:0.65rem; background:rgba(88,101,242,0.4); padding:1px 5px; border-radius:8px; color:#fff;">Admin</span>
       </div>
-      <div id="live-indicator-pill" style="display:flex; align-items:center; gap:6px; font-size:0.75rem; background:var(--bg-card); border:1px solid var(--border); padding:4px 10px; border-radius:16px;">
+      <div id="visiting-device-pill" onclick="toggleLayoutMode()" style="display:flex; align-items:center; gap:5px; font-size:0.75rem; background:rgba(88,101,242,0.14); border:1px solid rgba(88,101,242,0.32); padding:4px 10px; border-radius:16px; cursor:pointer; color:#a5b4fc;" title="Click to toggle between Auto, PC, and Mobile Layout">
+        <span id="visiting-device-icon">💻</span>
+        <span id="visiting-device-txt" style="font-weight:700;">PC View</span>
+        <span style="font-size:0.65rem; opacity:0.7;">⇄</span>
+      </div>
+      <div id="live-indicator-pill" onclick="switchTab('settings'); document.getElementById('btn-dev-auto')?.scrollIntoView({behavior:'smooth'});" style="display:flex; align-items:center; gap:6px; font-size:0.75rem; background:var(--bg-card); border:1px solid var(--border); padding:4px 10px; border-radius:16px; cursor:pointer;" title="Click to change Discord Bot Device Appearance (Mobile/PC/Web/Both/Auto)">
         <span style="width:8px; height:8px; border-radius:50%; background:var(--success); display:inline-block;" id="status-bulb"></span>
         <span id="gateway-status-txt">📱 Mobile Gateway</span>
       </div>
@@ -2924,19 +2951,57 @@
         <div id="shizuku-details-box" style="font-size:0.75rem; color:var(--text-muted); display:none; padding:8px 10px; background:rgba(0,0,0,0.3); border-radius:var(--radius-sm); border:1px solid rgba(235,69,158,0.25);"></div>
       </div>
 
-      <div class="card">
-        <div class="card-title">
-          <span>📱 Discord Device Appearance</span>
+      <div class="card" style="border-color: rgba(99, 102, 241, 0.45);">
+        <div class="card-title" style="color:#a5b4fc;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.2rem;">📱</span>
+            <span>Discord Device Appearance & Visiting Auto-Sync</span>
+          </div>
+          <span class="badge" style="background:rgba(99, 102, 241, 0.25); color:#c7d2fe; font-weight:700;" id="active-dev-type-badge">MOBILE</span>
         </div>
-        <p style="font-size:0.8rem; color:var(--text-muted);">
-          Choose whether your Discord accounts show the green mobile phone indicator (📱) or the standard desktop circle (🟢) on their Discord profiles.
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px;">
+          Choose how your Discord accounts appear online: <strong>📱 Mobile Phone</strong> (phone badge), <strong>💻 PC Desktop</strong> (green dot), <strong>🌐 Web Browser</strong>, <strong>🔀 Both</strong> (50% Phone / 50% PC hybrid), or <strong>🎯 Auto</strong> (automatically follows the device you are currently visiting this dashboard from).
         </p>
-        <div class="input-row">
-          <button class="btn btn-secondary" style="flex:1;" id="btn-dev-mobile" onclick="setDeviceType('mobile')">
-            📱 Mobile (Phone Icon)
+        
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:8px; margin-bottom:12px;">
+          <button class="btn btn-secondary btn-sm" id="btn-dev-mobile" onclick="setDeviceType('mobile')" style="display:flex; flex-direction:column; align-items:center; gap:3px; padding:10px 6px;">
+            <span style="font-size:1.25rem;">📱</span>
+            <span style="font-weight:700; font-size:0.78rem;">Mobile</span>
+            <span style="font-size:0.67rem; color:var(--text-muted);">Phone Icon</span>
           </button>
-          <button class="btn btn-secondary" style="flex:1;" id="btn-dev-desktop" onclick="setDeviceType('desktop')">
-            💻 Desktop (Dot)
+          
+          <button class="btn btn-secondary btn-sm" id="btn-dev-desktop" onclick="setDeviceType('desktop')" style="display:flex; flex-direction:column; align-items:center; gap:3px; padding:10px 6px;">
+            <span style="font-size:1.25rem;">💻</span>
+            <span style="font-weight:700; font-size:0.78rem;">PC Desktop</span>
+            <span style="font-size:0.67rem; color:var(--text-muted);">Green Circle</span>
+          </button>
+          
+          <button class="btn btn-secondary btn-sm" id="btn-dev-web" onclick="setDeviceType('web')" style="display:flex; flex-direction:column; align-items:center; gap:3px; padding:10px 6px;">
+            <span style="font-size:1.25rem;">🌐</span>
+            <span style="font-weight:700; font-size:0.78rem;">Web</span>
+            <span style="font-size:0.67rem; color:var(--text-muted);">Chrome/Edge Web</span>
+          </button>
+
+          <button class="btn btn-secondary btn-sm" id="btn-dev-both" onclick="setDeviceType('both')" style="display:flex; flex-direction:column; align-items:center; gap:3px; padding:10px 6px;">
+            <span style="font-size:1.25rem;">🔀</span>
+            <span style="font-weight:700; font-size:0.78rem;">Both</span>
+            <span style="font-size:0.67rem; color:var(--text-muted);">50% Phone / 50% PC</span>
+          </button>
+
+          <button class="btn btn-secondary btn-sm" id="btn-dev-auto" onclick="setDeviceType('auto')" style="display:flex; flex-direction:column; align-items:center; gap:3px; padding:10px 6px;">
+            <span style="font-size:1.25rem;">🎯</span>
+            <span style="font-weight:700; font-size:0.78rem;">Auto-Sync</span>
+            <span style="font-size:0.67rem; color:var(--text-muted);">Visiting Device</span>
+          </button>
+        </div>
+
+        <div style="background:rgba(0,0,0,0.32); border:1px solid var(--border); border-radius:10px; padding:10px 14px; font-size:0.75rem; color:var(--text-muted); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span>🌐 Website Visiting Device:</span>
+            <span id="detected-visiting-dev-txt" style="color:#38bdf8; font-weight:700; font-family:monospace;">Detecting...</span>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="toggleLayoutMode()" style="font-size:0.68rem; padding:3px 10px; color:#c7d2fe;">
+            <span>Switch Website View (Mobile ⇄ PC)</span>
           </button>
         </div>
       </div>
@@ -4731,7 +4796,17 @@
       window.lastStatusData = data;
       if (data.proxy_summary) updateProxyUI(data.proxy_summary);
       document.getElementById('status-bulb').style.backgroundColor = 'var(--success)';
-      document.getElementById('gateway-status-txt').innerText = (data.device_type === 'desktop' ? '💻 Desktop' : '📱 Mobile') + ' Gateway';
+      const devType = (data.device_type || 'mobile').toLowerCase();
+      let devLabel = '📱 Mobile';
+      if (devType === 'desktop' || devType === 'pc') devLabel = '💻 PC Desktop';
+      else if (devType === 'web') devLabel = '🌐 Web Browser';
+      else if (devType === 'both' || devType === 'mixed') devLabel = '🔀 Both (Mobile + PC)';
+      else if (devType === 'auto') {
+        const vis = (data.active_visiting_device || detectVisitingDevice()).toUpperCase();
+        devLabel = `🎯 Auto (${vis})`;
+      }
+      const gwEl = document.getElementById('gateway-status-txt');
+      if (gwEl) gwEl.innerText = `${devLabel} Gateway`;
       document.getElementById('stat-total').innerText = data.total_accounts || 0;
       document.getElementById('stat-online').innerText = data.online_accounts || 0;
       document.getElementById('stat-voice').innerText = data.voice_accounts || 0;
@@ -4806,12 +4881,27 @@
       }
 
       // Active device button highlight
-      if (data.device_type === 'desktop') {
-        document.getElementById('btn-dev-desktop').style.borderColor = 'var(--accent)';
-        document.getElementById('btn-dev-mobile').style.borderColor = 'var(--border)';
-      } else {
-        document.getElementById('btn-dev-mobile').style.borderColor = 'var(--accent)';
-        document.getElementById('btn-dev-desktop').style.borderColor = 'var(--border)';
+      ['mobile', 'desktop', 'web', 'both', 'auto'].forEach(t => {
+        const btn = document.getElementById(`btn-dev-${t}`);
+        if (btn) {
+          const isAct = (devType === t || (t === 'desktop' && devType === 'pc') || (t === 'both' && devType === 'mixed'));
+          if (isAct) {
+            btn.style.borderColor = 'var(--accent)';
+            btn.style.background = 'rgba(88, 101, 242, 0.22)';
+          } else {
+            btn.style.borderColor = 'var(--border)';
+            btn.style.background = 'transparent';
+          }
+        }
+      });
+      const devBadge = document.getElementById('active-dev-type-badge');
+      if (devBadge) {
+        devBadge.innerText = devType.toUpperCase();
+      }
+      const detTxt = document.getElementById('detected-visiting-dev-txt');
+      if (detTxt) {
+        const naturalDev = detectVisitingDevice();
+        detTxt.innerText = naturalDev === 'mobile' ? '📱 Mobile Phone' : '💻 PC Desktop / Laptop';
       }
 
       // Auto-Rejoin Guard state sync
@@ -5994,13 +6084,76 @@
       }
     }
 
+    function detectVisitingDevice() {
+      const ua = navigator.userAgent || '';
+      const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+      const isMobileWidth = window.innerWidth < 900;
+      return (isMobileUA || isMobileWidth) ? 'mobile' : 'desktop';
+    }
+
+    function applyLayoutMode(mode) {
+      document.body.classList.remove('force-desktop-layout', 'force-mobile-layout');
+      const icon = document.getElementById('visiting-device-icon');
+      const txt = document.getElementById('visiting-device-txt');
+      const detTxt = document.getElementById('detected-visiting-dev-txt');
+
+      const naturalDev = detectVisitingDevice();
+      const naturalLabel = naturalDev === 'mobile' ? '📱 Mobile Phone' : '💻 PC Desktop / Laptop';
+      if (detTxt) detTxt.innerText = naturalLabel;
+
+      if (mode === 'desktop') {
+        document.body.classList.add('force-desktop-layout');
+        if (icon) icon.innerText = '💻';
+        if (txt) txt.innerText = 'PC View (Forced)';
+      } else if (mode === 'mobile') {
+        document.body.classList.add('force-mobile-layout');
+        if (icon) icon.innerText = '📱';
+        if (txt) txt.innerText = 'Mobile View (Forced)';
+      } else {
+        if (icon) icon.innerText = naturalDev === 'mobile' ? '📱' : '💻';
+        if (txt) txt.innerText = naturalDev === 'mobile' ? 'Phone View' : 'PC View';
+      }
+    }
+
+    function toggleLayoutMode() {
+      const current = localStorage.getItem('dc_forced_layout') || 'auto';
+      let next = 'auto';
+      if (current === 'auto') next = 'desktop';
+      else if (current === 'desktop') next = 'mobile';
+      else next = 'auto';
+      localStorage.setItem('dc_forced_layout', next);
+      applyLayoutMode(next);
+      const labels = {
+        'auto': '🎯 Auto-Adaptive View (Follows device & screen size)',
+        'desktop': '💻 Forced PC Desktop View Enabled',
+        'mobile': '📱 Forced Mobile Phone View Enabled'
+      };
+      showToast(labels[next]);
+      if (window.lastStatusData && window.lastStatusData.device_type === 'auto') {
+        setDeviceType('auto');
+      }
+    }
+
+    window.addEventListener('resize', () => {
+      const savedMode = localStorage.getItem('dc_forced_layout') || 'auto';
+      applyLayoutMode(savedMode);
+    });
+
     async function setDeviceType(type) {
       vibrate(15);
+      const visitingDev = detectVisitingDevice();
       try {
         const res = await fetch('/api/action', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'set_device_type', device_type: type })
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Client-Device': visitingDev
+          },
+          body: JSON.stringify({
+            action: 'set_device_type',
+            device_type: type,
+            client_device: visitingDev
+          })
         });
         const json = await res.json();
         showToast(json.message);
@@ -10535,6 +10688,10 @@
     setAppTheme(savedTheme);
     const hapticToggle = document.getElementById('haptic-toggle');
     if (hapticToggle) hapticToggle.checked = hapticEnabled;
+
+    // Initialize responsive layout mode (Auto, Forced PC, or Forced Mobile)
+    const savedLayoutMode = localStorage.getItem('dc_forced_layout') || 'auto';
+    applyLayoutMode(savedLayoutMode);
 
     initKeySystem();
     fetchStatus();

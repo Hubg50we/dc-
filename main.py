@@ -67,12 +67,9 @@ WEB_PORT = int(os.environ.get("PORT", "5000"))
 WEB_HOST = os.environ.get("HOST", "0.0.0.0")
 MAIN_LOOP = None
 
-# Device appearance: "mobile" (shows 📱 phone icon on Discord) or "desktop" (shows 🟢 dot)
+# Device appearance: "mobile" (📱 phone icon), "desktop" / "pc" (🟢 green dot), "web" (🌐 browser), "both" (🔀 50/50 split), "auto" (🎯 follows visiting device)
 DEVICE_TYPE = os.environ.get("DEVICE_TYPE", "mobile").lower()
-if DEVICE_TYPE == "desktop":
-    GATEWAY_PROPERTIES = {"$os": "windows", "$browser": "chrome", "$device": "pc"}
-else:
-    GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
+ACTIVE_VISITING_DEVICE = "desktop"
 
 DEVICE_FINGERPRINTS = [
     {"$os": "Android", "$browser": "Discord Android", "$device": "Samsung Galaxy S24 Ultra", "$system_locale": "en-US"},
@@ -85,9 +82,62 @@ DEVICE_FINGERPRINTS = [
     {"$os": "Android", "$browser": "Discord Android", "$device": "Nothing Phone (2)", "$system_locale": "en-GB"},
 ]
 
+DESKTOP_FINGERPRINTS = [
+    {"$os": "windows", "$browser": "Discord Client", "$device": "Windows 11 PC", "$system_locale": "en-US"},
+    {"$os": "Mac OS X", "$browser": "Discord Client", "$device": "MacBook Pro M3", "$system_locale": "en-US"},
+    {"$os": "Linux", "$browser": "Discord Client", "$device": "Ubuntu Desktop", "$system_locale": "en-US"},
+    {"$os": "windows", "$browser": "Discord Client", "$device": "Alienware Aurora R16", "$system_locale": "en-US"},
+    {"$os": "windows", "$browser": "Discord Client", "$device": "ASUS ROG Strix G16", "$system_locale": "en-US"},
+]
+
+WEB_FINGERPRINTS = [
+    {"$os": "windows", "$browser": "Discord Web", "$device": "Chrome Web Browser", "$system_locale": "en-US"},
+    {"$os": "windows", "$browser": "Discord Web", "$device": "Microsoft Edge Web", "$system_locale": "en-US"},
+    {"$os": "windows", "$browser": "Discord Web", "$device": "Mozilla Firefox Web", "$system_locale": "en-US"},
+    {"$os": "Mac OS X", "$browser": "Discord Web", "$device": "Safari Web Browser", "$system_locale": "en-US"},
+]
+
+def update_gateway_properties():
+    global GATEWAY_PROPERTIES
+    dev = (DEVICE_TYPE or "mobile").lower()
+    if dev in ("desktop", "pc"):
+        GATEWAY_PROPERTIES = {"$os": "windows", "$browser": "chrome", "$device": "pc"}
+    elif dev == "web":
+        GATEWAY_PROPERTIES = {"$os": "windows", "$browser": "Discord Web", "$device": "Chrome Web Browser"}
+    elif dev in ("both", "mixed"):
+        GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Hybrid Mobile/PC"}
+    elif dev == "auto":
+        if ACTIVE_VISITING_DEVICE in ("desktop", "pc"):
+            GATEWAY_PROPERTIES = {"$os": "windows", "$browser": "chrome", "$device": "pc"}
+        elif ACTIVE_VISITING_DEVICE == "web":
+            GATEWAY_PROPERTIES = {"$os": "windows", "$browser": "Discord Web", "$device": "Chrome Web Browser"}
+        else:
+            GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
+    else:
+        GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
+
+update_gateway_properties()
+
 def get_account_fingerprint(aid):
-    if DEVICE_TYPE == "desktop":
-        return {"$os": "windows", "$browser": "chrome", "$device": "pc"}
+    dev = (DEVICE_TYPE or "mobile").lower()
+    if dev in ("desktop", "pc"):
+        return dict(DESKTOP_FINGERPRINTS[aid % len(DESKTOP_FINGERPRINTS)])
+    elif dev == "web":
+        return dict(WEB_FINGERPRINTS[aid % len(WEB_FINGERPRINTS)])
+    elif dev in ("both", "mixed"):
+        if aid % 2 == 0:
+            return dict(DEVICE_FINGERPRINTS[aid % len(DEVICE_FINGERPRINTS)])
+        elif aid % 4 == 1:
+            return dict(DESKTOP_FINGERPRINTS[aid % len(DESKTOP_FINGERPRINTS)])
+        else:
+            return dict(WEB_FINGERPRINTS[aid % len(WEB_FINGERPRINTS)])
+    elif dev == "auto":
+        active = (ACTIVE_VISITING_DEVICE or "mobile").lower()
+        if active in ("desktop", "pc"):
+            return dict(DESKTOP_FINGERPRINTS[aid % len(DESKTOP_FINGERPRINTS)])
+        elif active == "web":
+            return dict(WEB_FINGERPRINTS[aid % len(WEB_FINGERPRINTS)])
+        return dict(DEVICE_FINGERPRINTS[aid % len(DEVICE_FINGERPRINTS)])
     return dict(DEVICE_FINGERPRINTS[aid % len(DEVICE_FINGERPRINTS)])
 
 API = "https://discord.com/api/v10"
@@ -3631,6 +3681,18 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(500, f"Error reading UI file: {e}")
 
     def serve_status(self):
+        global ACTIVE_VISITING_DEVICE
+        ua = (self.headers.get("User-Agent") or "").lower()
+        client_hdr = self.headers.get("X-Client-Device")
+        if client_hdr:
+            ACTIVE_VISITING_DEVICE = client_hdr.lower()
+        elif any(m in ua for m in ("mobile", "android", "iphone", "ipod", "blackberry", "windows phone")):
+            ACTIVE_VISITING_DEVICE = "mobile"
+        else:
+            ACTIVE_VISITING_DEVICE = "desktop"
+        if DEVICE_TYPE == "auto":
+            update_gateway_properties()
+
         req_key = self.get_request_key()
         ws_info = get_workspace_info(req_key) or {
             "key": req_key,
@@ -3653,6 +3715,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             "default_guild": ws_info.get("guild_id") or GUILD_ID,
             "default_channel": ws_info.get("channel_id") or CHANNEL_ID,
             "device_type": DEVICE_TYPE,
+            "active_visiting_device": ACTIVE_VISITING_DEVICE,
             "auto_rejoin": AUTO_REJOIN,
             "activity_name": CUSTOM_ACTIVITY_NAME,
             "activity_type": CUSTOM_ACTIVITY_TYPE,
@@ -3886,7 +3949,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(404, "Not Found")
 
     def execute_action(self, payload):
-        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, GATEWAY_PROPERTIES, SPEAKING_SIM, VOICE_FLAGS, ACTIVE_SFX, VOICE_STATUS, HUMAN_CHATTER_ENABLED, HUMAN_CHATTER_TASK, REAL_VIDEO_ACTIVE, REAL_VIDEO_MODE, REAL_VIDEO_TITLE, WEB_SHARE_URL, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE, STREAMBOT_QUEUE, STREAMBOT_CURRENT, STREAMBOT_STATUS, STREAMBOT_LOOP_MODE, STREAMBOT_VOLUME, STREAMBOT_RESOLUTION, STREAMBOT_FPS, STREAMBOT_BITRATE, STREAM_PROFILE, SPOTIFY_SONG, SPOTIFY_ARTIST, SPOTIFY_ALBUM, SPOTIFY_DURATION, VISUALIZER_MODE, STREAM_OVERLAY_ENABLED, STREAM_OVERLAY_TITLE, STREAM_OVERLAY_TICKER, CHAT_AUTO_RESPONDER_ENABLED, CHAT_AUTO_RESPONDER_RULES, DESKTOP_SCREEN_CAPTURE, AUDIO_BASS_BOOST, AUDIO_PITCH_SHIFT, AUDIO_NORMALIZER, AUDIO_EQ_PRESET, AUTO_REJOIN, CUSTOM_ACTIVITY_NAME, CUSTOM_ACTIVITY_TYPE, STEALTH_DELAY, ONE_BOT_PER_VC, ACCESS_KEY, ADMIN_PASSWORD, KEY_SYSTEM_ENABLED, RECORDING_ACTIVE, RECORDING_START_TIME, RECORDING_FILENAME, STADIUM_ECHO_ENABLED, STADIUM_ECHO_DELAY_MS, PTT_ACTIVE, PTT_TOTAL_CHUNKS, TOKEN_HEALTH_INDEX, RATE_LIMIT_COOLDOWN, RATE_LIMIT_HITS, ACTIVE_RADIO_STATION, AI_COHOST_ENABLED, AI_COHOST_PERSONA, AI_COHOST_API_KEY, FREE_PROXY_POOL, PROXY_AUTO_ROTATE, PROXY_LAST_FETCH, PROXY_AUTO_FAILOVER, PROXY_AUTO_ROTATE_INTERVAL, PROXY_LAST_AUTO_ROTATE, SOUNDBOARD_PADS
+        global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, ACTIVE_VISITING_DEVICE, GATEWAY_PROPERTIES, SPEAKING_SIM, VOICE_FLAGS, ACTIVE_SFX, VOICE_STATUS, HUMAN_CHATTER_ENABLED, HUMAN_CHATTER_TASK, REAL_VIDEO_ACTIVE, REAL_VIDEO_MODE, REAL_VIDEO_TITLE, WEB_SHARE_URL, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE, STREAMBOT_QUEUE, STREAMBOT_CURRENT, STREAMBOT_STATUS, STREAMBOT_LOOP_MODE, STREAMBOT_VOLUME, STREAMBOT_RESOLUTION, STREAMBOT_FPS, STREAMBOT_BITRATE, STREAM_PROFILE, SPOTIFY_SONG, SPOTIFY_ARTIST, SPOTIFY_ALBUM, SPOTIFY_DURATION, VISUALIZER_MODE, STREAM_OVERLAY_ENABLED, STREAM_OVERLAY_TITLE, STREAM_OVERLAY_TICKER, CHAT_AUTO_RESPONDER_ENABLED, CHAT_AUTO_RESPONDER_RULES, DESKTOP_SCREEN_CAPTURE, AUDIO_BASS_BOOST, AUDIO_PITCH_SHIFT, AUDIO_NORMALIZER, AUDIO_EQ_PRESET, AUTO_REJOIN, CUSTOM_ACTIVITY_NAME, CUSTOM_ACTIVITY_TYPE, STEALTH_DELAY, ONE_BOT_PER_VC, ACCESS_KEY, ADMIN_PASSWORD, KEY_SYSTEM_ENABLED, RECORDING_ACTIVE, RECORDING_START_TIME, RECORDING_FILENAME, STADIUM_ECHO_ENABLED, STADIUM_ECHO_DELAY_MS, PTT_ACTIVE, PTT_TOTAL_CHUNKS, TOKEN_HEALTH_INDEX, RATE_LIMIT_COOLDOWN, RATE_LIMIT_HITS, ACTIVE_RADIO_STATION, AI_COHOST_ENABLED, AI_COHOST_PERSONA, AI_COHOST_API_KEY, FREE_PROXY_POOL, PROXY_AUTO_ROTATE, PROXY_LAST_FETCH, PROXY_AUTO_FAILOVER, PROXY_AUTO_ROTATE_INTERVAL, PROXY_LAST_AUTO_ROTATE, SOUNDBOARD_PADS
         action = payload.get("action", "")
         req_key = self.get_request_key(payload)
 
@@ -5290,15 +5353,28 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
 
         if action == "set_device_type":
             new_dev = payload.get("device_type", "mobile").lower()
-            if new_dev in ("mobile", "desktop"):
-                DEVICE_TYPE = new_dev
-                if DEVICE_TYPE == "desktop":
-                    GATEWAY_PROPERTIES = {"$os": "windows", "$browser": "chrome", "$device": "pc"}
-                else:
-                    GATEWAY_PROPERTIES = {"$os": "Android", "$browser": "Discord Android", "$device": "Android"}
+            if new_dev in ("mobile", "desktop", "pc", "web", "both", "mixed", "auto"):
+                DEVICE_TYPE = "desktop" if new_dev == "pc" else ("both" if new_dev == "mixed" else new_dev)
+                if "client_device" in payload and payload["client_device"]:
+                    ACTIVE_VISITING_DEVICE = str(payload["client_device"]).lower()
+                update_gateway_properties()
                 save_env_config()
-                return {"success": True, "message": f"Device appearance set to {DEVICE_TYPE.upper()} (saved to .env)"}
-            return {"success": False, "error": "Invalid device_type (use 'mobile' or 'desktop')"}
+                label_map = {
+                    "mobile": "📱 MOBILE (Phone Icon)",
+                    "desktop": "💻 DESKTOP (Green Dot)",
+                    "web": "🌐 WEB (Browser)",
+                    "both": "🔀 BOTH (50/50 Mobile + PC Hybrid)",
+                    "auto": f"🎯 AUTO-SYNC (Following {ACTIVE_VISITING_DEVICE.upper()})"
+                }
+                disp_label = label_map.get(DEVICE_TYPE, DEVICE_TYPE.upper())
+                log(f"📱 Discord Device Appearance updated: {disp_label}")
+                return {
+                    "success": True,
+                    "device_type": DEVICE_TYPE,
+                    "active_visiting_device": ACTIVE_VISITING_DEVICE,
+                    "message": f"Device appearance set to {disp_label} (saved to .env)"
+                }
+            return {"success": False, "error": "Invalid device_type (use 'mobile', 'desktop', 'web', 'both', or 'auto')"}
 
         if action == "set_auto_rejoin":
             AUTO_REJOIN = bool(payload.get("auto_rejoin", True))
