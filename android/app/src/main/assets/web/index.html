@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="/manifest.json">
-  <title>dc- Complete Mobile Control Center</title>
+  <title>dc- Discord Voice Control Center</title>
   <style>
     :root {
       /* 60% Neutral Base */
@@ -57,6 +57,24 @@
 
       --safe-bottom: env(safe-area-inset-bottom, 0px);
     }
+
+    body.theme-classic {
+      --bg-darker: #202225;
+      --bg-dark: #2f3136;
+      --bg-card: #36393f;
+      --bg-hover: #40444b;
+      --bg-glass: rgba(47, 49, 54, 0.95);
+      --accent: #7289da;
+      --accent-hover: #677bc4;
+      --accent-glow: rgba(114, 137, 218, 0.35);
+      --accent-subtle: rgba(114, 137, 218, 0.15);
+      --border: rgba(255, 255, 255, 0.08);
+      --border-focus: #7289da;
+      --text: #dcddde;
+      --text-muted: #8e9297;
+      --text-heading: #ffffff;
+    }
+
 
     body.amoled-mode,
     body.theme-amoled {
@@ -176,23 +194,71 @@
     .brand {
       display: flex;
       align-items: center;
-      gap: 8px;
-      font-weight: 800;
-      font-size: 1.25rem;
-      letter-spacing: -0.5px;
-      color: var(--text-heading);
+      gap: 12px;
+      user-select: none;
+      cursor: pointer;
+      text-decoration: none;
+      transition: opacity 0.15s ease;
     }
-
-    .brand-badge {
-      background: var(--accent);
-      color: #FFFFFF;
-      padding: 3px 8px;
-      border-radius: var(--radius-sm);
-      font-size: 0.68rem;
-      font-weight: 700;
-      letter-spacing: 0.5px;
+    .brand:hover {
+      opacity: 0.95;
+    }
+    .brand-logo-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 11px;
+      background: linear-gradient(135deg, var(--accent) 0%, #a855f7 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      box-shadow: 0 4px 16px var(--accent-glow);
+      transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+      flex-shrink: 0;
+    }
+    .brand:hover .brand-logo-icon {
+      transform: scale(1.06) rotate(-3deg);
+      box-shadow: 0 6px 22px var(--accent-glow);
+    }
+    .brand-text-block {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.15;
+    }
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .brand-name {
+      font-size: 1.4rem;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      color: #ffffff;
       text-transform: uppercase;
-      box-shadow: 0 0 14px var(--accent-glow);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    .brand-dash {
+      color: var(--accent);
+      text-shadow: 0 0 12px var(--accent-glow);
+    }
+    .brand-badge-angled {
+      background: linear-gradient(135deg, rgba(88, 101, 242, 0.25), rgba(168, 85, 247, 0.35));
+      border: 1px solid rgba(139, 92, 246, 0.5);
+      color: #c084fc;
+      padding: 3px 8px;
+      font-size: 0.65rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      clip-path: polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%);
+      box-shadow: 0 2px 8px rgba(88, 101, 242, 0.25);
+    }
+    .brand-subtitle {
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.02em;
     }
 
     .header-actions {
@@ -991,18 +1057,221 @@
       100% { opacity: 1; }
     }
 
-    /* Desktop View */
+    /* ========================================================= */
+    /* 🖥️ DESKTOP & LAPTOP CLEAN RESPONSIVE STYLING (>= 900px)     */
+    /* ========================================================= */
+    .desktop-top-nav {
+      display: none;
+    }
+
+    /* Force Desktop / Mobile Layout Overrides */
+    body.force-desktop-layout {
+      padding-bottom: 32px !important;
+    }
+    body.force-desktop-layout .bottom-nav,
+    body.force-desktop-layout .quick-thumb-dock {
+      display: none !important;
+    }
+    body.force-desktop-layout .desktop-top-nav {
+      display: flex !important;
+    }
+
+    body.force-mobile-layout .desktop-top-nav {
+      display: none !important;
+    }
+    body.force-mobile-layout .bottom-nav {
+      display: flex !important;
+    }
+    body.force-mobile-layout {
+      padding-bottom: 80px !important;
+    }
+
     @media (min-width: 900px) {
-      body { padding-bottom: 24px; }
-      .bottom-nav, .quick-thumb-dock { display: none; }
-      main {
-        display: grid;
-        grid-template-columns: 380px 1fr;
-        gap: 20px;
-        max-width: 1300px;
+      body {
+        padding-bottom: 32px;
       }
-      .tab-content { display: flex !important; }
-      #tab-tokens, #tab-settings, #tab-proxies, #tab-logs { grid-column: span 2; }
+      .bottom-nav, .quick-thumb-dock {
+        display: none !important;
+      }
+
+      /* Angled & Perfectly Aligned Discord Desktop Tabs */
+      .desktop-top-nav {
+        display: flex;
+        align-items: center;
+        background: var(--bg-dark);
+        border-bottom: 1px solid var(--border);
+        padding: 0 20px;
+        position: sticky;
+        top: 66px;
+        z-index: 100;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+      }
+      .desktop-nav-inner {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        max-width: 1360px;
+        width: 100%;
+        margin: 0 auto;
+        padding: 8px 0;
+        overflow-x: auto;
+      }
+      .desktop-tab-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 20px;
+        font-size: 0.86rem;
+        font-weight: 700;
+        color: var(--text-muted);
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        cursor: pointer;
+        transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+        white-space: nowrap;
+        position: relative;
+        /* Geometric Angled Chamfer Geometry */
+        clip-path: polygon(10px 0%, 100% 0%, calc(100% - 10px) 100%, 0% 100%);
+      }
+      .desktop-tab-btn:hover {
+        color: var(--text-heading);
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.16);
+        transform: translateY(-1px);
+      }
+      .desktop-tab-btn.active {
+        color: #ffffff;
+        background: linear-gradient(135deg, var(--accent) 0%, rgba(139, 92, 246, 0.9) 100%);
+        border-color: var(--accent);
+        box-shadow: 0 4px 16px var(--accent-glow);
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+      }
+      .desktop-tab-btn.active::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 10px;
+        right: 10px;
+        height: 2px;
+        background: #ffffff;
+        border-radius: 2px;
+        box-shadow: 0 0 8px #ffffff;
+      }
+      .desktop-tab-icon {
+        font-size: 1rem;
+        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+      }
+
+      /* Clean Centered Main Container */
+      main {
+        max-width: 1360px;
+        margin: 0 auto;
+        padding: 24px 20px 48px 20px;
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      /* Keep Active Tab Scoped and Displayed Properly */
+      .tab-content {
+        display: none !important;
+      }
+      .tab-content.active {
+        display: flex !important;
+      }
+
+      /* Multi-Column Responsive Cards inside Controls Tab */
+      #tab-controls.active {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fit, minmax(430px, 1fr));
+        gap: 20px;
+        align-items: start;
+      }
+
+      /* Accounts Container Grid */
+      #accounts-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+        gap: 16px;
+      }
+
+      /* 2-Column Balanced Proxy Fleet Studio */
+      #tab-proxies.active {
+        display: grid !important;
+        grid-template-columns: 460px 1fr !important;
+        gap: 20px !important;
+        align-items: start !important;
+      }
+      .proxy-column-ops, .proxy-column-pool {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+    }
+  
+    /* Equalizer Waveform Animations */
+    .equalizer-waveform {
+      display: flex;
+      align-items: flex-end;
+      gap: 3px;
+      height: 20px;
+    }
+    .equalizer-waveform .eq-bar {
+      display: inline-block;
+      width: 3.5px;
+      background: var(--accent);
+      border-radius: 2px;
+      animation: eqBounce 1.1s ease-in-out infinite alternate;
+    }
+    .equalizer-waveform .eq-bar-1 { height: 35%; animation-delay: 0.1s; }
+    .equalizer-waveform .eq-bar-2 { height: 90%; animation-delay: 0.3s; }
+    .equalizer-waveform .eq-bar-3 { height: 60%; animation-delay: 0.5s; }
+    .equalizer-waveform .eq-bar-4 { height: 100%; animation-delay: 0.2s; }
+    .equalizer-waveform .eq-bar-5 { height: 45%; animation-delay: 0.4s; }
+    @keyframes eqBounce {
+      0% { height: 20%; }
+      50% { height: 100%; }
+      100% { height: 30%; }
+    }
+
+    /* Theme Picker Card Active State */
+    .theme-select-card {
+      position: relative;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .theme-select-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    }
+    .theme-select-card.active-theme {
+      border-color: var(--accent) !important;
+      box-shadow: 0 0 16px var(--accent-glow) !important;
+    }
+
+    /* Accessibility & interaction polish */
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      border-radius: var(--radius-sm);
+    }
+    button, .btn, [role="button"] {
+      min-height: 44px;
+      min-width: 44px;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+    @media (max-width: 640px) {
+      .card { padding: var(--space-md); }
+      .btn { font-size: 0.9rem; }
     }
   </style>
 </head>
@@ -1014,9 +1283,9 @@
       <div style="width:72px; height:72px; border-radius:50%; background:linear-gradient(135deg, rgba(88, 101, 242, 0.35), rgba(168, 85, 247, 0.5)); display:inline-flex; align-items:center; justify-content:center; font-size:2.2rem; margin-bottom:16px; border:2px solid rgba(168, 85, 247, 0.6); box-shadow:0 0 25px rgba(168,85,247,0.4);">
         🔐
       </div>
-      <div style="display:flex; justify-content:center; align-items:center; gap:8px; margin-bottom:6px;">
-        <span style="font-size:1.5rem; font-weight:900; color:#fff; letter-spacing:-0.03em;">dc-</span>
-        <span class="badge" style="background:linear-gradient(135deg, #5865F2, #a855f7); color:#fff; font-size:0.75rem; font-weight:800; padding:2px 8px; border-radius:12px;">PRO</span>
+      <div class="brand-title" style="justify-content:center; margin-bottom:6px;">
+        <span class="brand-name" style="font-size:1.75rem;">dc<span class="brand-dash">-</span></span>
+        <span class="brand-badge-angled">STUDIO PRO</span>
       </div>
       <h3 style="font-size:1.15rem; font-weight:800; color:#e2e8f0; margin-bottom:6px;">Website Access Gate</h3>
       <p style="font-size:0.82rem; color:var(--text-muted, #949ba4); margin-bottom:18px; line-height:1.45;">
@@ -1024,27 +1293,27 @@
       </p>
 
       <!-- Server Notice for GitHub Pages & Static Hosts -->
-      <div id="github-pages-notice" style="display:none; background:rgba(88,101,242,0.14); border:1px solid rgba(88,101,242,0.35); border-radius:12px; padding:12px; margin-bottom:16px; text-align:left; font-size:0.78rem;">
-        <div style="font-weight:700; color:#e0e7ff; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
-          <span>💡</span>
-          <span>You are viewing on GitHub Pages</span>
-        </div>
-        <p style="color:#94a3b8; font-size:0.75rem; margin-bottom:10px; line-height:1.4;">
-          GitHub Pages is a static interface. The Discord bot engine runs on your PC. To access your live bots:
-        </p>
-        <a href="http://localhost:5000" style="display:flex; justify-content:center; align-items:center; gap:6px; background:#5865f2; color:#fff; text-decoration:none; padding:9px 12px; border-radius:8px; font-weight:700; font-size:0.82rem; margin-bottom:8px;">
-          <span>💻</span>
-          <span>Open on Local PC (http://localhost:5000)</span>
-        </a>
-        <div style="text-align:center;">
-          <a href="javascript:void(0)" onclick="toggleServerConfigInput()" style="color:#a5b4fc; text-decoration:underline; font-size:0.72rem;">
-            ⚙️ Connect Remote Cloudflare Tunnel / Server URL
+      <div id="github-pages-notice" style="display:none; background:rgba(88,101,242,0.12); border:1px solid rgba(88,101,242,0.3); border-radius:12px; padding:12px; margin-bottom:16px; text-align:left; font-size:0.78rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <div style="display:flex; align-items:center; gap:6px; font-weight:700; color:#38bdf8;">
+            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#22c55e; box-shadow:0 0 8px #22c55e;"></span>
+            <span>Cloud Backend Connected:</span>
+          </div>
+          <a href="javascript:void(0)" onclick="toggleServerConfigInput()" style="color:#c084fc; text-decoration:underline; font-size:0.72rem; font-weight:600;">
+            ⚙️ Switch
           </a>
         </div>
+        <div style="font-family:monospace; font-size:0.75rem; color:#e2e8f0; word-break:break-all; background:rgba(0,0,0,0.35); padding:6px 10px; border-radius:6px; margin-bottom:10px; border:1px solid rgba(255,255,255,0.08);" id="cloud-server-display">
+          https://dc-038m.onrender.com
+        </div>
+        <a href="https://dc-038m.onrender.com/" target="_blank" style="display:flex; justify-content:center; align-items:center; gap:6px; background:linear-gradient(135deg, #5865F2, #8b5cf6); color:#fff; text-decoration:none; padding:8px 12px; border-radius:8px; font-weight:700; font-size:0.78rem;">
+          <span>🚀</span>
+          <span>Open Direct Cloud App (Render)</span>
+        </a>
         <div id="remote-server-config" style="display:none; margin-top:8px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.1);">
-          <label style="font-size:0.7rem; color:#cbd5e1; display:block; margin-bottom:3px;">Backend Server URL:</label>
+          <label style="font-size:0.7rem; color:#cbd5e1; display:block; margin-bottom:3px;">Backend Server URL (Render / Koyeb / Tunnel):</label>
           <div style="display:flex; gap:6px;">
-            <input type="text" id="custom-server-url-input" placeholder="e.g. https://xxx.trycloudflare.com" style="flex:1; padding:6px 8px; background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.2); border-radius:6px; color:#fff; font-size:0.75rem;">
+            <input type="text" id="custom-server-url-input" placeholder="https://dc-038m.onrender.com" style="flex:1; padding:6px 8px; background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.2); border-radius:6px; color:#fff; font-size:0.75rem;">
             <button onclick="saveCustomServerUrl()" class="btn btn-secondary btn-sm" style="font-size:0.72rem; padding:4px 8px;">Save</button>
           </div>
         </div>
@@ -1086,9 +1355,19 @@
 
   <!-- Top App Header -->
   <header>
-    <div class="brand">
-      <span>dc-</span>
-      <span class="brand-badge">PRO</span>
+    <div class="brand" onclick="switchTab('controls', document.querySelector('.desktop-tab-btn[data-tab=controls]'))" title="dc- Discord Voice Controller Studio">
+      <div class="brand-logo-icon">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+          <path d="M19.27 5.33C17.94 4.71 16.5 4.26 15 4a.09.09 0 0 0-.07.03c-.18.33-.39.76-.53 1.09a16.09 16.09 0 0 0-4.8 0c-.14-.34-.35-.76-.54-1.09-.01-.02-.04-.03-.07-.03-1.5.26-2.93.71-4.27 1.33-.01 0-.02.01-.03.02-2.72 4.07-3.47 8.03-3.1 11.95 0 .02.01.04.03.05 1.8 1.32 3.53 2.12 5.24 2.65.03.01.06 0 .07-.02.4-.55.76-1.13 1.07-1.74.02-.04 0-.08-.04-.09-.57-.22-1.11-.48-1.64-.78-.04-.02-.04-.08-.01-.11.11-.08.22-.17.33-.25.02-.02.05-.02.07-.01 3.44 1.57 7.15 1.57 10.55 0 .02-.01.05-.01.07.01.11.09.22.17.33.26.04.03.04.09-.01.11-.52.31-1.07.56-1.64.78-.04.01-.05.06-.04.09.32.61.68 1.19 1.07 1.74.03.01.06.02.09.01 1.72-.53 3.45-1.33 5.25-2.65.02-.01.03-.03.03-.05.44-4.53-.73-8.46-3.1-11.95-.01-.01-.02-.02-.04-.02zM8.52 14.91c-1.03 0-1.89-.95-1.89-2.12s.84-2.12 1.89-2.12c1.06 0 1.9.96 1.89 2.12 0 1.17-.84 2.12-1.89 2.12zm6.97 0c-1.03 0-1.89-.95-1.89-2.12s.84-2.12 1.89-2.12c1.06 0 1.9.96 1.89 2.12 0 1.17-.83 2.12-1.89 2.12z"/>
+        </svg>
+      </div>
+      <div class="brand-text-block">
+        <div class="brand-title">
+          <span class="brand-name">dc<span class="brand-dash">-</span></span>
+          <span class="brand-badge-angled">STUDIO PRO</span>
+        </div>
+        <div class="brand-subtitle">Discord Voice Controller</div>
+      </div>
     </div>
     <div class="header-actions">
       <div id="active-workspace-pill" onclick="switchOrViewWorkspace()" style="display:flex; align-items:center; gap:6px; font-size:0.75rem; background:linear-gradient(135deg, rgba(88,101,242,0.18), rgba(168,85,247,0.18)); border:1px solid rgba(139,92,246,0.35); padding:4px 10px; border-radius:16px; cursor:pointer;" title="Active Isolated Space (Click to Switch/Manage)">
@@ -1096,7 +1375,12 @@
         <span id="active-space-name" style="font-weight:700; color:#c084fc;">Space: Master</span>
         <span id="active-space-role" style="font-size:0.65rem; background:rgba(88,101,242,0.4); padding:1px 5px; border-radius:8px; color:#fff;">Admin</span>
       </div>
-      <div id="live-indicator-pill" style="display:flex; align-items:center; gap:6px; font-size:0.75rem; background:var(--bg-card); border:1px solid var(--border); padding:4px 10px; border-radius:16px;">
+      <div id="visiting-device-pill" onclick="toggleLayoutMode()" style="display:flex; align-items:center; gap:5px; font-size:0.75rem; background:rgba(88,101,242,0.14); border:1px solid rgba(88,101,242,0.32); padding:4px 10px; border-radius:16px; cursor:pointer; color:#a5b4fc;" title="Click to toggle between Auto, PC, and Mobile Layout">
+        <span id="visiting-device-icon">💻</span>
+        <span id="visiting-device-txt" style="font-weight:700;">PC View</span>
+        <span style="font-size:0.65rem; opacity:0.7;">⇄</span>
+      </div>
+      <div id="live-indicator-pill" onclick="switchTab('settings'); document.getElementById('btn-dev-auto')?.scrollIntoView({behavior:'smooth'});" style="display:flex; align-items:center; gap:6px; font-size:0.75rem; background:var(--bg-card); border:1px solid var(--border); padding:4px 10px; border-radius:16px; cursor:pointer;" title="Click to change Discord Bot Device Appearance (Mobile/PC/Web/Both/Auto)">
         <span style="width:8px; height:8px; border-radius:50%; background:var(--success); display:inline-block;" id="status-bulb"></span>
         <span id="gateway-status-txt">📱 Mobile Gateway</span>
       </div>
@@ -1121,11 +1405,42 @@
         <option value="bn">🇧🇩 BN</option>
       </select>
       <button class="icon-btn" onclick="triggerPipMode()" title="Floating Picture-in-Picture Mini-Dock">🪟</button>
+      <button class="icon-btn" onclick="openThemeModal()" title="🎨 Discord Theme Studio (Classic, Modern, AMOLED, etc.)">🎨</button>
       <button class="icon-btn" onclick="toggleAmoled()" title="AMOLED Black Toggle">⚡</button>
       <button class="icon-btn" onclick="logoutDashboard()" title="Lock / Logout Dashboard" style="color:#c084fc; border-color:rgba(168,85,247,0.35);">🔐</button>
       <button class="icon-btn" onclick="refreshAll()" title="Refresh Dashboard">↻</button>
     </div>
   </header>
+
+  <!-- Desktop / Laptop Top Navigation Bar (Hidden on Mobile) -->
+  <nav class="desktop-top-nav" id="desktop-nav">
+    <div class="desktop-nav-inner">
+      <button class="desktop-tab-btn active" data-tab="controls" onclick="switchTab('controls', this)">
+        <span class="desktop-tab-icon">🎛️</span>
+        <span>Voice Controls</span>
+      </button>
+      <button class="desktop-tab-btn" data-tab="accounts" onclick="switchTab('accounts', this)">
+        <span class="desktop-tab-icon">👥</span>
+        <span>Connected Bots</span>
+      </button>
+      <button class="desktop-tab-btn" data-tab="tokens" onclick="switchTab('tokens', this)">
+        <span class="desktop-tab-icon">🔑</span>
+        <span>Token Vault</span>
+      </button>
+      <button class="desktop-tab-btn" data-tab="proxies" onclick="switchTab('proxies', this)">
+        <span class="desktop-tab-icon">🌐</span>
+        <span>Proxy Fleet</span>
+      </button>
+      <button class="desktop-tab-btn" data-tab="settings" onclick="switchTab('settings', this)">
+        <span class="desktop-tab-icon">⚙️</span>
+        <span>Settings & Theme</span>
+      </button>
+      <button class="desktop-tab-btn" data-tab="logs" onclick="switchTab('logs', this)">
+        <span class="desktop-tab-icon">📜</span>
+        <span>Live Logs</span>
+      </button>
+    </div>
+  </nav>
 
   <!-- Auto-Update Notification Banner -->
   <div id="update-notification-banner" class="update-banner" style="display:none;">
@@ -1434,25 +1749,49 @@
         </div>
       </div>
 
-      <!-- 📻 24/7 Internet Radio Presets Card -->
-      <div class="card" style="border-color: rgba(245, 158, 11, 0.45); background: linear-gradient(180deg, rgba(245, 158, 11, 0.05) 0%, var(--bg-card) 100%);">
-        <div class="card-title" style="color:#fbbf24;">
+      <!-- 📻 24/7 Internet Radio Studio Card -->
+      <div class="card" style="border-color: var(--border); background: var(--bg-card); position:relative; overflow:hidden;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
           <div style="display:flex; align-items:center; gap:8px;">
-            <span style="font-size:1.15rem;">📻</span>
-            <span data-i18n="radio_presets_title">24/7 Internet Radio Presets</span>
+            <span style="font-size:1.3rem;">📻</span>
+            <div>
+              <h3 style="font-size:1.05rem; font-weight:800; color:var(--text-heading); margin:0;">24/7 Internet Radio Studio</h3>
+              <div style="font-size:0.74rem; color:var(--text-muted);">High-fidelity 48kHz native Opus live radio streams directly into Discord voice.</div>
+            </div>
           </div>
-          <span class="badge" id="radio-active-badge" style="background:rgba(245,158,11,0.25); color:#fde68a;">Idle</span>
+          <span class="badge" id="radio-active-badge" style="background:var(--bg-dark); border:1px solid var(--border); font-weight:700;">Idle</span>
         </div>
-        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;" data-i18n="radio_presets_desc">
-          1-Tap instant stream presets into Discord voice. Zero URL hunting, pure 48kHz native Opus audio.
-        </p>
 
-        <div id="radio-stations-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(130px, 1fr)); gap:8px; margin-bottom:10px;">
+        <!-- Now Playing Live Waveform Bar -->
+        <div id="radio-now-playing-bar" style="display:none; background:linear-gradient(135deg, rgba(88,101,242,0.15), rgba(168,85,247,0.15)); border:1px solid var(--accent); border-radius:10px; padding:10px 14px; margin-bottom:14px; align-items:center; justify-content:space-between; gap:12px;">
+          <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
+            <div class="equalizer-waveform">
+              <span class="eq-bar eq-bar-1"></span>
+              <span class="eq-bar eq-bar-2"></span>
+              <span class="eq-bar eq-bar-3"></span>
+              <span class="eq-bar eq-bar-4"></span>
+              <span class="eq-bar eq-bar-5"></span>
+            </div>
+            <div style="min-width:0;">
+              <div style="font-size:0.86rem; font-weight:800; color:#fff;" id="radio-now-playing-title">Lofi Girl 24/7</div>
+              <div style="font-size:0.72rem; color:var(--text-muted);" id="radio-now-playing-genre">Chill / Study Beats &bull; 48kHz Opus</div>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button class="btn btn-danger btn-sm" onclick="stopRadioStation()" style="padding:5px 12px; font-weight:700;">
+              ⏹️ Stop Stream
+            </button>
+          </div>
+        </div>
+
+        <!-- 6 Station Cards Grid -->
+        <div id="radio-stations-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:10px; margin-bottom:12px;">
           <!-- Dynamically populated -->
         </div>
 
-        <div style="display:flex; justify-content:flex-end;">
-          <button class="btn btn-secondary btn-sm" onclick="stopRadioStation()" style="color:var(--danger); border-color:var(--danger);" data-i18n="stop_radio">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid rgba(255,255,255,0.06); padding-top:10px; font-size:0.75rem; color:var(--text-muted);">
+          <span>💡 Streams keep playing 24/7 even if you close this browser tab</span>
+          <button class="btn btn-secondary btn-sm" onclick="stopRadioStation()" style="color:var(--danger); border-color:rgba(242,63,67,0.3); font-size:0.75rem; padding:4px 8px;">
             ⏹️ Stop Radio
           </button>
         </div>
@@ -2131,6 +2470,55 @@
     <!-- TAB 4: SETTINGS & POWER -->
     <div class="tab-content" id="tab-settings">
 
+            <!-- 🛠️ Expert System Maintenance & Health Diagnostics -->
+      <div class="card" style="border-color: var(--border); background: var(--bg-card);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.3rem;">🛠️</span>
+            <div>
+              <h3 style="font-size:1.05rem; font-weight:800; color:var(--text-heading); margin:0;">Expert System Maintenance</h3>
+              <div style="font-size:0.75rem; color:var(--text-muted);">Self-healing tools, cache purge, memory cleanup, and live gateway diagnostics.</div>
+            </div>
+          </div>
+          <span class="badge" style="background:rgba(35,165,90,0.18); color:#23a55a; font-weight:700;">● Online & Protected</span>
+        </div>
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:10px; margin-bottom:12px;">
+          <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:12px;">
+            <div style="font-size:0.82rem; font-weight:700; color:var(--text-heading); margin-bottom:4px;">🧹 Clean Memory & Cache</div>
+            <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:10px;">Purges in-memory log buffer, expired proxy quarantines, and runs garbage collection.</div>
+            <button class="btn btn-secondary btn-sm" onclick="runMaintenanceClean()" style="width:100%; font-weight:700;">
+              Execute Memory Clean
+            </button>
+          </div>
+
+          <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:12px;">
+            <div style="font-size:0.82rem; font-weight:700; color:var(--text-heading); margin-bottom:4px;">💓 Health Diagnostics</div>
+            <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:10px;">Checks gateway WebSocket ping, memory usage (MB), and 24/7 keepalive heartbeat.</div>
+            <button class="btn btn-secondary btn-sm" onclick="runHealthDiagnostics()" style="width:100%; font-weight:700;">
+              Run Health Check
+            </button>
+          </div>
+
+          <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:12px;">
+            <div style="font-size:0.82rem; font-weight:700; color:var(--text-heading); margin-bottom:4px;">🔄 Re-Sync All Voice Gateways</div>
+            <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:10px;">Soft-refreshes all active Discord voice sessions without disconnecting accounts.</div>
+            <button class="btn btn-secondary btn-sm" onclick="runGatewayResync()" style="width:100%; font-weight:700;">
+              Re-Sync Voice Gateways
+            </button>
+          </div>
+
+          <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:12px;">
+            <div style="font-size:0.82rem; font-weight:700; color:var(--text-heading); margin-bottom:4px;">💾 1-Click Profile Backup</div>
+            <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:10px;">Exports all saved tokens, workspaces, preferences, and proxy bindings to JSON.</div>
+            <button class="btn btn-primary btn-sm" onclick="exportProfileBackup()" style="width:100%; font-weight:700;">
+              Export Full Backup (.json)
+            </button>
+          </div>
+        </div>
+      </div>
+
+
       <!-- 🎛️ Master Quick Control Center -->
       <div class="card" style="border-color: rgba(88, 101, 242, 0.5); background: linear-gradient(135deg, rgba(16, 24, 40, 0.95), rgba(18, 14, 38, 0.95)); box-shadow: 0 4px 20px rgba(88, 101, 242, 0.15);">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
@@ -2234,7 +2622,11 @@
         </p>
 
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:8px; margin-bottom:12px;">
-          <button class="btn btn-secondary btn-sm" onclick="setAppTheme('default')" id="theme-btn-default" style="display:flex; align-items:center; justify-content:center; gap:6px; padding:8px;">
+                      <button class="btn btn-secondary btn-sm" onclick="setAppTheme('classic')" id="theme-btn-classic" style="display:flex; align-items:center; justify-content:center; gap:6px; padding:8px; border-color:#7289da; color:#7289da; font-weight:700;">
+              <span>🕹️</span>
+              <span>Classic 2015</span>
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="setAppTheme('default')" id="theme-btn-default" style="display:flex; align-items:center; justify-content:center; gap:6px; padding:8px;">
             <span>👾</span> <span>Blurple</span>
           </button>
           <button class="btn btn-secondary btn-sm" onclick="setAppTheme('cyberpunk')" id="theme-btn-cyberpunk" style="display:flex; align-items:center; justify-content:center; gap:6px; padding:8px; border-color:#00b4d8; color:#00b4d8;">
@@ -2293,6 +2685,21 @@
               </div>
             </div>
           </div>
+          <!-- Cloud Restart Auto-Heal & Render Environment Variable Helper -->
+          <div style="background:rgba(88,101,242,0.08); border:1px solid rgba(88,101,242,0.25); border-radius:10px; padding:10px 14px; margin-top:6px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span style="font-size:0.95rem;">⚡</span>
+                <span style="font-size:0.75rem; font-weight:700; color:#c7d2fe;">Browser Credential Auto-Heal:</span>
+                <span class="badge" style="background:rgba(34,197,94,0.2); color:#4ade80; font-size:0.65rem; font-weight:700;">ACTIVE</span>
+              </div>
+              <button type="button" onclick="copyRenderEnvKeyString()" class="btn btn-secondary btn-sm" style="font-size:0.68rem; padding:3px 8px; color:#a78bfa;">📋 Copy DC_ACCESS_KEY</button>
+            </div>
+            <p style="font-size:0.7rem; color:var(--text-muted); margin:6px 0 6px 0; line-height:1.4;">
+              Your customized password automatically re-syncs and persists across Render container restarts on this device. For multi-device permanence (phone & PC without re-entering), paste this into <strong>Render Dashboard → Environment</strong>:
+            </p>
+            <input type="text" id="render-env-key-string" readonly style="width:100%; font-family:monospace; font-size:0.75rem; background:rgba(0,0,0,0.45); border:1px solid var(--border); border-radius:6px; padding:6px 10px; color:#a5b4fc;" value="DC_ACCESS_KEY=hubg50">
+          </div>
           <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); margin-top:4px; padding-top:8px;">
             <span style="font-size:0.75rem; color:var(--text-muted);">Require key again on this browser?</span>
             <button onclick="logoutDashboard()" class="btn btn-secondary btn-sm" style="color:#f87171; border-color:rgba(239,68,68,0.3); display:flex; align-items:center; gap:4px;">
@@ -2347,6 +2754,19 @@
             <span>➕</span>
             <span>Create User Account & Space</span>
           </button>
+
+          <!-- Cloud Persistence Helper -->
+          <div style="background:rgba(88,101,242,0.12); border:1px solid rgba(88,101,242,0.3); border-radius:8px; padding:10px 12px; margin-top:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+              <strong style="font-size:0.75rem; color:#c084fc;">⚡ 100% Automatic Self-Healing Persistence Active</strong>
+              <button type="button" onclick="copyRenderEnvUsersString()" class="btn btn-secondary btn-sm" style="font-size:0.68rem; padding:2px 8px; color:#a78bfa;">📋 Copy DC_USERS</button>
+            </div>
+            <div style="font-size:0.72rem; color:#cbd5e1; margin-bottom:6px; line-height:1.4;">
+              ✅ <strong>Zero action required:</strong> Whenever the server restarts or wakes from sleep, this website automatically restores all your created user accounts in the background.
+              <br><span style="color:#94a3b8; font-size:0.68rem;">Optional: You can also paste this into Render Dashboard → Environment as <code>DC_USERS</code> for cross-device server permanence:</span>
+            </div>
+            <input type="text" id="render-env-users-string" readonly style="width:100%; font-family:monospace; font-size:0.75rem; background:rgba(0,0,0,0.4); border:1px solid var(--border); border-radius:6px; padding:5px 8px; color:#4ade80;" placeholder="DC_USERS will appear here as you create users...">
+          </div>
         </div>
 
         <div id="user-space-permission-notice" style="display:none; margin-bottom:12px; padding:10px 14px; background:rgba(56, 189, 248, 0.1); border:1px solid rgba(56, 189, 248, 0.25); border-radius:8px; font-size:0.78rem; color:#bae6fd;">
@@ -2355,9 +2775,26 @@
 
         <!-- Workspaces Table / List -->
         <div>
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <!-- Cloud Persistence Status Bar -->
+          <div id="cloud-persistence-status-bar" style="margin-bottom:12px; padding:10px 14px; background:rgba(30,41,59,0.7); border:1px solid rgba(148,163,184,0.2); border-radius:10px; font-size:0.75rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <span style="font-weight:700; color:#cbd5e1;">☁️ Cloud Persistence:</span>
+                <span id="cloud-github-pill" class="badge" style="background:rgba(59,130,246,0.2); color:#60a5fa; border:1px solid rgba(59,130,246,0.4); font-size:0.68rem; padding:2px 6px;">GitHub Sync: Checking...</span>
+                <span id="cloud-pg-pill" class="badge" style="background:rgba(168,85,247,0.2); color:#c084fc; border:1px solid rgba(168,85,247,0.4); font-size:0.68rem; padding:2px 6px;">Postgres: Checking...</span>
+                <span id="cloud-local-pill" class="badge" style="background:rgba(34,197,94,0.2); color:#4ade80; border:1px solid rgba(34,197,94,0.4); font-size:0.68rem; padding:2px 6px;">Browser Auto-Heal: Active</span>
+              </div>
+              <button onclick="copyRenderEnvString()" class="btn btn-secondary btn-sm" style="font-size:0.68rem; padding:2px 8px;" title="Copy DC_USERS string for Render/Koyeb Environment Variables">📋 Copy DC_USERS for Render</button>
+            </div>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
             <strong style="font-size:0.85rem; color:#f1f5f9;" id="workspaces-table-title">Active User Accounts & Isolated Spaces</strong>
-            <button onclick="loadWorkspacesList()" class="btn btn-secondary btn-sm" style="font-size:0.7rem; padding:3px 8px;">↻ Refresh Users</button>
+            <div style="display:flex; gap:6px;">
+              <button onclick="exportWorkspacesBackup()" class="btn btn-secondary btn-sm" style="font-size:0.7rem; padding:3px 8px;" title="Export users to JSON file">💾 Backup</button>
+              <button onclick="importWorkspacesBackupPrompt()" class="btn btn-secondary btn-sm" style="font-size:0.7rem; padding:3px 8px;" title="Restore users from JSON">📥 Restore</button>
+              <button onclick="loadWorkspacesList()" class="btn btn-secondary btn-sm" style="font-size:0.7rem; padding:3px 8px;">↻ Refresh</button>
+            </div>
           </div>
           <div style="overflow-x:auto;">
             <table style="width:100%; border-collapse:collapse; font-size:0.78rem;" id="workspaces-table">
@@ -2537,19 +2974,57 @@
         <div id="shizuku-details-box" style="font-size:0.75rem; color:var(--text-muted); display:none; padding:8px 10px; background:rgba(0,0,0,0.3); border-radius:var(--radius-sm); border:1px solid rgba(235,69,158,0.25);"></div>
       </div>
 
-      <div class="card">
-        <div class="card-title">
-          <span>📱 Discord Device Appearance</span>
+      <div class="card" style="border-color: rgba(99, 102, 241, 0.45);">
+        <div class="card-title" style="color:#a5b4fc;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.2rem;">📱</span>
+            <span>Discord Device Appearance & Visiting Auto-Sync</span>
+          </div>
+          <span class="badge" style="background:rgba(99, 102, 241, 0.25); color:#c7d2fe; font-weight:700;" id="active-dev-type-badge">MOBILE</span>
         </div>
-        <p style="font-size:0.8rem; color:var(--text-muted);">
-          Choose whether your Discord accounts show the green mobile phone indicator (📱) or the standard desktop circle (🟢) on their Discord profiles.
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px;">
+          Choose how your Discord accounts appear online: <strong>📱 Mobile Phone</strong> (phone badge), <strong>💻 PC Desktop</strong> (green dot), <strong>🌐 Web Browser</strong>, <strong>🔀 Both</strong> (50% Phone / 50% PC hybrid), or <strong>🎯 Auto</strong> (automatically follows the device you are currently visiting this dashboard from).
         </p>
-        <div class="input-row">
-          <button class="btn btn-secondary" style="flex:1;" id="btn-dev-mobile" onclick="setDeviceType('mobile')">
-            📱 Mobile (Phone Icon)
+        
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:8px; margin-bottom:12px;">
+          <button class="btn btn-secondary btn-sm" id="btn-dev-mobile" onclick="setDeviceType('mobile')" style="display:flex; flex-direction:column; align-items:center; gap:3px; padding:10px 6px;">
+            <span style="font-size:1.25rem;">📱</span>
+            <span style="font-weight:700; font-size:0.78rem;">Mobile</span>
+            <span style="font-size:0.67rem; color:var(--text-muted);">Phone Icon</span>
           </button>
-          <button class="btn btn-secondary" style="flex:1;" id="btn-dev-desktop" onclick="setDeviceType('desktop')">
-            💻 Desktop (Dot)
+          
+          <button class="btn btn-secondary btn-sm" id="btn-dev-desktop" onclick="setDeviceType('desktop')" style="display:flex; flex-direction:column; align-items:center; gap:3px; padding:10px 6px;">
+            <span style="font-size:1.25rem;">💻</span>
+            <span style="font-weight:700; font-size:0.78rem;">PC Desktop</span>
+            <span style="font-size:0.67rem; color:var(--text-muted);">Green Circle</span>
+          </button>
+          
+          <button class="btn btn-secondary btn-sm" id="btn-dev-web" onclick="setDeviceType('web')" style="display:flex; flex-direction:column; align-items:center; gap:3px; padding:10px 6px;">
+            <span style="font-size:1.25rem;">🌐</span>
+            <span style="font-weight:700; font-size:0.78rem;">Web</span>
+            <span style="font-size:0.67rem; color:var(--text-muted);">Chrome/Edge Web</span>
+          </button>
+
+          <button class="btn btn-secondary btn-sm" id="btn-dev-both" onclick="setDeviceType('both')" style="display:flex; flex-direction:column; align-items:center; gap:3px; padding:10px 6px;">
+            <span style="font-size:1.25rem;">🔀</span>
+            <span style="font-weight:700; font-size:0.78rem;">Both</span>
+            <span style="font-size:0.67rem; color:var(--text-muted);">50% Phone / 50% PC</span>
+          </button>
+
+          <button class="btn btn-secondary btn-sm" id="btn-dev-auto" onclick="setDeviceType('auto')" style="display:flex; flex-direction:column; align-items:center; gap:3px; padding:10px 6px;">
+            <span style="font-size:1.25rem;">🎯</span>
+            <span style="font-weight:700; font-size:0.78rem;">Auto-Sync</span>
+            <span style="font-size:0.67rem; color:var(--text-muted);">Visiting Device</span>
+          </button>
+        </div>
+
+        <div style="background:rgba(0,0,0,0.32); border:1px solid var(--border); border-radius:10px; padding:10px 14px; font-size:0.75rem; color:var(--text-muted); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span>🌐 Website Visiting Device:</span>
+            <span id="detected-visiting-dev-txt" style="color:#38bdf8; font-weight:700; font-family:monospace;">Detecting...</span>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="toggleLayoutMode()" style="font-size:0.68rem; padding:3px 10px; color:#c7d2fe;">
+            <span>Switch Website View (Mobile ⇄ PC)</span>
           </button>
         </div>
       </div>
@@ -3441,114 +3916,141 @@
     <!-- TAB: PROXIES & FREE PROXY POOL -->
     <div class="tab-content" id="tab-proxies">
 
-      <!-- Hero Cyberpunk Anti-Ban Card -->
-      <div class="card" style="border-color: rgba(0, 180, 216, 0.45); background: linear-gradient(135deg, rgba(16, 24, 38, 0.95), rgba(8, 32, 54, 0.95));">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
-          <div>
+      <!-- LEFT COLUMN: Operations & Custom Proxies -->
+      <div class="proxy-column-ops">
+
+        <!-- Proxy Fleet & Anti-Ban Hub Card -->
+        <div class="card" style="border-color: var(--border); background: var(--bg-card);">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px;">
+            <div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:1.4rem;">🌐</span>
+                <h2 style="font-size:1.15rem; font-weight:800; color:var(--text-heading); margin:0;">Proxy Fleet & Anti-Ban</h2>
+              </div>
+              <div style="font-size:0.75rem; color:var(--text-muted); margin-top:3px;">
+                Protect bots from Discord IP rate limits (HTTP 429) & Cloudflare verification blocks.
+              </div>
+            </div>
+            <span class="badge" style="background:rgba(35, 165, 90, 0.15); color:#23a55a; border:1px solid rgba(35, 165, 90, 0.35); font-weight:700;">
+              ● Shield Active
+            </span>
+          </div>
+
+          <!-- 4 Stat Counters Grid -->
+          <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; margin-bottom:14px;">
+            <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:12px;">
+              <div style="font-size:0.72rem; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Pool Proxies</div>
+              <div style="font-size:1.35rem; font-weight:800; color:var(--text-heading);" id="proxy-stat-total">0</div>
+            </div>
+            <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:12px;">
+              <div style="font-size:0.72rem; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Verified Online</div>
+              <div style="font-size:1.35rem; font-weight:800; color:#23a55a;" id="proxy-stat-online">0</div>
+            </div>
+            <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:12px;">
+              <div style="font-size:0.72rem; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Bots Protected</div>
+              <div style="font-size:1.35rem; font-weight:800; color:var(--accent);" id="proxy-stat-assigned">0 Bots</div>
+            </div>
+            <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:12px;">
+              <div style="font-size:0.72rem; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Avg Latency</div>
+              <div style="font-size:1.35rem; font-weight:800; color:#faa61a;" id="proxy-stat-ping">-- ms</div>
+            </div>
+          </div>
+
+          <!-- Automation & Protection Toggles -->
+          <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin-bottom:14px; display:flex; flex-direction:column; gap:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.82rem; font-weight:700; color:var(--text-heading);">
+                <input type="checkbox" id="chk-proxy-failover" onchange="toggleAutoFailover()" checked style="width:16px; height:16px; accent-color:var(--accent);">
+                <span>🛡️ Auto-Failover Watchdog</span>
+              </label>
+              <span style="font-size:0.7rem; color:var(--text-muted);">Re-binds on dead proxy</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid rgba(255,255,255,0.06); padding-top:10px;">
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.82rem; font-weight:700; color:var(--text-heading);">
+                <input type="checkbox" id="chk-proxy-auto-rotate" onchange="toggleAutoRotate()" style="width:16px; height:16px; accent-color:var(--accent);">
+                <span>🔄 Scheduled Auto-Rotate</span>
+              </label>
+              <select id="sel-proxy-rotate-interval" onchange="updateProxyRotateInterval()" style="background:var(--bg-card); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:3px 8px; font-size:0.72rem;">
+                <option value="300">Every 5 min</option>
+                <option value="900">Every 15 min</option>
+                <option value="1800" selected>Every 30 min</option>
+                <option value="3600">Every 1 hr</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 1-Click Operations Grid -->
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <div style="display:flex; gap:8px;">
+              <button class="btn btn-primary" onclick="fetchFreeProxies('socks5')" id="btn-fetch-socks5" style="flex:1; font-weight:700;">
+                ⚡ Fetch Free SOCKS5
+              </button>
+              <button class="btn btn-secondary" onclick="fetchFreeProxies('http')" id="btn-fetch-http" style="flex:1;">
+                🌐 Fetch Free HTTP
+              </button>
+            </div>
+            <button class="btn btn-success" onclick="distributeDedicatedProxies()" id="btn-distribute-dedicated" style="width:100%; background:linear-gradient(135deg, #10b981, #059669); border:none; font-weight:700; padding:10px;">
+              🛡️ 1 IP Per Bot (Dedicated Unique)
+            </button>
+            <div style="display:flex; gap:8px;">
+              <button class="btn btn-secondary" onclick="distributeProxiesToBots()" id="btn-distribute-proxies" style="flex:1;">
+                🎯 Distribute Shared
+              </button>
+              <button class="btn btn-secondary" onclick="clearAllBotProxies()" style="flex:1; color:var(--danger); border-color:rgba(242,63,67,0.3);">
+                🧹 Clear (Direct IP)
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Custom / Private Proxy Adder Card -->
+        <div class="card">
+          <div class="card-title">
+            <span>➕ Add Private / Custom Proxy</span>
+          </div>
+          <div class="field-group" style="margin-bottom:0;">
+            <label class="field-label">Supports SOCKS5, HTTP, HTTPS with optional auth</label>
+            <div class="input-row">
+              <input type="text" id="custom-proxy-input" placeholder="socks5://user:pass@1.2.3.4:1080 or http://1.2.3.4:8080" onkeydown="if(event.key==='Enter') addCustomProxy()">
+              <button class="btn btn-primary" onclick="addCustomProxy()">+ Add</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT COLUMN: Live Proxy Pool & Real-Time Filter -->
+      <div class="proxy-column-pool">
+        <div class="card" style="min-height:540px;">
+          <div class="card-title" style="flex-wrap:wrap; gap:8px;">
             <div style="display:flex; align-items:center; gap:8px;">
-              <span style="font-size:1.4rem;">🌐</span>
-              <h2 style="font-size:1.15rem; font-weight:800; color:#00b4d8; margin:0;">Free Proxy Pool & Anti-Ban</h2>
+              <span>📋 Active Proxy Pool</span>
+              <span class="badge" style="background:var(--bg-dark); border:1px solid var(--border);" id="proxy-pool-count-badge">0</span>
             </div>
-            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:3px;">
-              Prevent Discord IP rate limits (HTTP 429) & Cloudflare blocks with 1-click free rotating proxies.
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <button class="btn btn-secondary btn-sm active" id="pfilter-all" onclick="filterProxyList('all')">All</button>
+              <button class="btn btn-secondary btn-sm" id="pfilter-online" onclick="filterProxyList('online')">🟢 Online</button>
+              <button class="btn btn-secondary btn-sm" id="pfilter-socks5" onclick="filterProxyList('socks5')">SOCKS5</button>
+              <button class="btn btn-secondary btn-sm" id="pfilter-http" onclick="filterProxyList('http')">HTTP</button>
+              <button class="btn btn-secondary btn-sm" onclick="fetchStatus()" title="Refresh Proxy Pool">↻</button>
             </div>
           </div>
-          <span class="badge" style="background:rgba(0,180,216,0.18); color:#00b4d8; border:1px solid rgba(0,180,216,0.3); font-weight:700;">
-            ⚡ Live Shield Active
-          </span>
-        </div>
 
-        <!-- 4 Stat Counters Grid -->
-        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:10px; margin-bottom:14px;">
-          <div style="background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:10px;">
-            <div style="font-size:0.72rem; color:var(--text-muted);">Pool Proxies</div>
-            <div style="font-size:1.25rem; font-weight:800; color:#fff;" id="proxy-stat-total">0</div>
+          <!-- Real-Time Search Input -->
+          <div style="margin-bottom:12px;">
+            <input type="text" id="proxy-search-input" placeholder="🔍 Search IP, port, country (e.g. US, 1080, socks5)..." oninput="searchProxyPool(this.value)" style="width:100%; padding:9px 14px; background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; color:var(--text); font-size:0.85rem; outline:none; transition:border 0.2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
           </div>
-          <div style="background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:10px;">
-            <div style="font-size:0.72rem; color:var(--text-muted);">Verified Online</div>
-            <div style="font-size:1.25rem; font-weight:800; color:#23a55a;" id="proxy-stat-online">0</div>
-          </div>
-          <div style="background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:10px;">
-            <div style="font-size:0.72rem; color:var(--text-muted);">Bots Protected</div>
-            <div style="font-size:1.25rem; font-weight:800; color:#00b4d8;" id="proxy-stat-assigned">0</div>
-          </div>
-          <div style="background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:10px;">
-            <div style="font-size:0.72rem; color:var(--text-muted);">Avg Latency</div>
-            <div style="font-size:1.25rem; font-weight:800; color:#faa61a;" id="proxy-stat-ping">-- ms</div>
-          </div>
-        </div>
 
-        <!-- Automation & Protection Controls -->
-        <div style="background:rgba(0,0,0,0.4); border:1px solid rgba(0,180,216,0.25); border-radius:10px; padding:10px 14px; margin-bottom:12px; display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px;">
-          <div style="display:flex; align-items:center; gap:10px;">
-            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.82rem; font-weight:700; color:#fff;">
-              <input type="checkbox" id="chk-proxy-failover" onchange="toggleAutoFailover()" checked style="width:16px; height:16px; accent-color:#00b4d8;">
-              🛡️ Auto-Failover Watchdog (Dead Proxy Re-bind)
-            </label>
-          </div>
-          <div style="display:flex; align-items:center; gap:10px;">
-            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.82rem; font-weight:700; color:#fff;">
-              <input type="checkbox" id="chk-proxy-auto-rotate" onchange="toggleAutoRotate()" style="width:16px; height:16px; accent-color:#00b4d8;">
-              🔄 Scheduled Auto-Rotate
-            </label>
-            <select id="sel-proxy-rotate-interval" onchange="updateProxyRotateInterval()" style="background:#111; color:#00b4d8; border:1px solid rgba(0,180,216,0.3); border-radius:6px; padding:4px 8px; font-size:0.75rem;">
-              <option value="300">Every 5 min</option>
-              <option value="900">Every 15 min</option>
-              <option value="1800" selected>Every 30 min</option>
-              <option value="3600">Every 1 hr</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- 1-Click Action Commands -->
-        <div style="display:flex; flex-wrap:wrap; gap:8px;">
-          <button class="btn btn-primary" onclick="fetchFreeProxies('socks5')" id="btn-fetch-socks5" style="flex:1; min-width:140px; background:#00b4d8; border-color:#00b4d8;">
-            ⚡ Fetch Free SOCKS5
-          </button>
-          <button class="btn btn-secondary" onclick="fetchFreeProxies('http')" id="btn-fetch-http" style="flex:1; min-width:130px;">
-            🌐 Fetch Free HTTP
-          </button>
-          <button class="btn btn-success" onclick="distributeDedicatedProxies()" id="btn-distribute-dedicated" style="flex:1; min-width:170px; background:linear-gradient(135deg, #10b981, #059669); border:none; font-weight:700;">
-            🛡️ 1 IP Per Bot (Dedicated Unique)
-          </button>
-          <button class="btn btn-secondary" onclick="distributeProxiesToBots()" id="btn-distribute-proxies" style="flex:1; min-width:130px;">
-            🎯 Distribute Shared
-          </button>
-          <button class="btn btn-secondary" onclick="clearAllBotProxies()" style="color:var(--danger); border-color:rgba(242,63,67,0.3);">
-            🧹 Clear (Direct IP)
-          </button>
-        </div>
-      </div>
-
-      <!-- Custom Proxy Adder Card -->
-      <div class="card">
-        <div class="card-title">
-          <span>➕ Add Custom / Private Proxy</span>
-        </div>
-        <div class="field-group">
-          <label class="field-label">Proxy Address (supports SOCKS5, HTTP, HTTPS with optional auth)</label>
-          <div class="input-row">
-            <input type="text" id="custom-proxy-input" placeholder="socks5://user:pass@1.2.3.4:1080 or http://1.2.3.4:3128">
-            <button class="btn btn-primary" onclick="addCustomProxy()">+ Add Proxy</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Live Proxy List & Filter Strip -->
-      <div class="card">
-        <div class="card-title">
-          <span>📋 Active Proxy Pool</span>
-          <div style="display:flex; gap:6px;">
-            <button class="btn btn-secondary btn-sm" onclick="filterProxyList('all')">All</button>
-            <button class="btn btn-secondary btn-sm" onclick="filterProxyList('online')">🟢 Online</button>
-            <button class="btn btn-secondary btn-sm" onclick="filterProxyList('socks5')">SOCKS5</button>
-            <button class="btn btn-secondary btn-sm" onclick="filterProxyList('http')">HTTP</button>
-          </div>
-        </div>
-
-        <div id="proxy-list-container" style="display:flex; flex-direction:column; gap:8px; max-height:480px; overflow-y:auto; padding-right:4px;">
-          <div style="text-align:center; padding:24px; color:var(--text-muted); font-size:0.85rem;">
-            No proxies in pool yet. Click <strong>⚡ Fetch Free SOCKS5</strong> to automatically load live free proxies.
+          <!-- Proxy List Container -->
+          <div id="proxy-list-container" style="display:flex; flex-direction:column; gap:8px; max-height:560px; overflow-y:auto; padding-right:4px;">
+            <div style="text-align:center; padding:32px 16px; color:var(--text-muted); font-size:0.85rem;">
+              <div style="font-size:2rem; margin-bottom:8px;">🌐</div>
+              <div style="font-weight:700; color:var(--text-heading); margin-bottom:4px;">No Proxies in Pool Yet</div>
+              <div style="margin-bottom:14px; font-size:0.78rem;">Click below to automatically scan 40+ free fast proxies.</div>
+              <button class="btn btn-primary btn-sm" onclick="fetchFreeProxies('socks5')" style="display:inline-flex; align-items:center; gap:6px;">
+                ⚡ Auto-Scan Free SOCKS5 Now
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -3595,27 +4097,27 @@
 
   <!-- Bottom App Navigation Bar (5 Tabs) -->
   <nav class="bottom-nav">
-    <div class="nav-item active" onclick="switchTab('controls', this)">
+    <div class="nav-item active" data-tab="controls" onclick="switchTab('controls', this)">
       <svg viewBox="0 0 24 24"><path d="M13 2.05v3.03c3.39.49 6 3.39 6 6.92 0 .9-.18 1.75-.48 2.54l2.6 1.53c.56-1.24.88-2.62.88-4.07 0-5.18-3.95-9.45-9-9.95zM12 19c-3.87 0-7-3.13-7-7 0-3.53 2.61-6.43 6-6.92V2.05c-5.06.5-9 4.76-9 9.95 0 5.52 4.47 10 9.99 10 3.31 0 6.24-1.61 8.01-4.09l-2.5-1.46C16.14 17.84 14.21 19 12 19zm1-11v5l4.28 2.54.72-1.21-3.5-2.08V8H13z"/></svg>
       <span>Controls</span>
     </div>
-    <div class="nav-item" onclick="switchTab('accounts', this)">
+    <div class="nav-item" data-tab="accounts" onclick="switchTab('accounts', this)">
       <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
       <span>Bots</span>
     </div>
-    <div class="nav-item" onclick="switchTab('tokens', this)">
+    <div class="nav-item" data-tab="tokens" onclick="switchTab('tokens', this)">
       <svg viewBox="0 0 24 24"><path d="M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>
       <span>Tokens</span>
     </div>
-    <div class="nav-item" onclick="switchTab('proxies', this)">
+    <div class="nav-item" data-tab="proxies" onclick="switchTab('proxies', this)">
       <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
       <span>Proxies</span>
     </div>
-    <div class="nav-item" onclick="switchTab('settings', this)">
+    <div class="nav-item" data-tab="settings" onclick="switchTab('settings', this)">
       <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
       <span>Settings</span>
     </div>
-    <div class="nav-item" onclick="switchTab('logs', this)">
+    <div class="nav-item" data-tab="logs" onclick="switchTab('logs', this)">
       <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2zm0-4H7V7h10v2zm-4 8H7v-2h6v2z"/></svg>
       <span>Logs</span>
     </div>
@@ -3712,7 +4214,15 @@
         localStorage.setItem('dc_server_url', clean);
         return clean;
       }
-      return (localStorage.getItem('dc_server_url') || '').replace(/\/+$/, '');
+      const saved = (localStorage.getItem('dc_server_url') || '').replace(/\/+$/, '');
+      if (saved) return saved;
+
+      // Auto-detect when running on static hosts like GitHub Pages or file://:
+      const host = (window.location.hostname || '').toLowerCase();
+      if (host.includes('github.io') || window.location.protocol === 'file:') {
+        return 'https://dc-038m.onrender.com';
+      }
+      return '';
     })();
 
     const _origFetch = window.fetch;
@@ -3725,7 +4235,7 @@
           targetUrl = apiBaseUrl + targetUrl;
         }
       }
-      const key = (typeof currentAccessKey !== 'undefined' && currentAccessKey) || localStorage.getItem('dc_access_key') || sessionStorage.getItem('dc_access_key') || '';
+      const key = (typeof currentAccessKey !== 'undefined' && currentAccessKey) || sessionStorage.getItem('dc_access_key') || '';
       if (key) {
         if (options.headers instanceof Headers) {
           if (!options.headers.has('X-Access-Key')) {
@@ -3765,15 +4275,26 @@
       showToast(hapticEnabled ? 'Haptics: Enabled' : 'Haptics: Disabled');
     }
 
+    const appThemes = ['default', 'classic', 'cyberpunk', 'amoled', 'matrix', 'synthwave', 'midnight'];
+    function cycleTheme() {
+      const cur = localStorage.getItem('dc_theme') || 'default';
+      const next = appThemes[(appThemes.indexOf(cur) + 1) % appThemes.length];
+      setAppTheme(next);
+    }
+
     function setAppTheme(theme) {
-      document.body.classList.remove('theme-amoled', 'theme-cyberpunk', 'theme-synthwave', 'theme-matrix', 'theme-midnight', 'amoled-mode');
+      document.body.classList.remove('theme-amoled', 'theme-cyberpunk', 'theme-synthwave', 'theme-matrix', 'theme-midnight', 'amoled-mode', 'theme-classic');
       const badge = document.getElementById('current-theme-badge');
       const meta = document.getElementById('meta-theme-color');
       
       let badgeName = 'Discord Blurple';
       let metaColor = '#1e1f22';
       
-      if (theme === 'amoled') {
+      if (theme === 'classic') {
+        document.body.classList.add('theme-classic');
+        badgeName = 'Classic 2015 🕹️';
+        metaColor = '#2f3136';
+      } else if (theme === 'amoled') {
         document.body.classList.add('theme-amoled', 'amoled-mode');
         badgeName = 'AMOLED Black 🖤';
         metaColor = '#000000';
@@ -3798,6 +4319,7 @@
       if (badge) badge.innerText = badgeName;
       if (meta) meta.setAttribute('content', metaColor);
       localStorage.setItem('dc_theme', theme);
+      highlightActiveThemeCard();
       vibrate(20);
       showToast(`Theme applied: ${badgeName}`);
     }
@@ -3864,8 +4386,11 @@
       vibrate(15);
       document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-      document.getElementById('tab-' + tabId).classList.add('active');
-      el.classList.add('active');
+      document.querySelectorAll('.desktop-tab-btn').forEach(n => n.classList.remove('active'));
+      const target = document.getElementById('tab-' + tabId);
+      if (target) target.classList.add('active');
+      document.querySelectorAll(`[data-tab="${tabId}"]`).forEach(n => n.classList.add('active'));
+      if (el && el.classList) el.classList.add('active');
 
       const dock = document.getElementById('mobile-dock');
       if (tabId === 'logs' || tabId === 'tokens' || tabId === 'settings' || tabId === 'proxies') {
@@ -3875,6 +4400,9 @@
       }
       if (tabId === 'logs') {
         fetchLogs();
+      }
+      if (tabId === 'settings') {
+        loadWorkspacesList();
       }
       if (tabId === 'proxies') {
         renderProxiesTab();
@@ -3892,6 +4420,13 @@
       }
     }
 
+    let proxySearchQuery = '';
+
+    function searchProxyPool(query) {
+      proxySearchQuery = (query || '').toLowerCase().trim();
+      renderProxyCards();
+    }
+
     function updateProxyUI(summary) {
       if (!summary) return;
       currentProxyList = summary.proxies || [];
@@ -3900,11 +4435,13 @@
       const elOnline = document.getElementById('proxy-stat-online');
       const elAssigned = document.getElementById('proxy-stat-assigned');
       const elPing = document.getElementById('proxy-stat-ping');
+      const elBadge = document.getElementById('proxy-pool-count-badge');
       const chkFailover = document.getElementById('chk-proxy-failover');
       const chkRotate = document.getElementById('chk-proxy-auto-rotate');
       const selInterval = document.getElementById('sel-proxy-rotate-interval');
 
       if (elTotal) elTotal.innerText = summary.total || 0;
+      if (elBadge) elBadge.innerText = summary.total || 0;
       if (elOnline) elOnline.innerText = summary.online || 0;
       if (elAssigned) elAssigned.innerText = (summary.assigned_to_bots || 0) + ' Bots';
       if (elPing) elPing.innerText = summary.avg_ping ? (summary.avg_ping + ' ms') : '-- ms';
@@ -3917,6 +4454,13 @@
 
     function filterProxyList(filter) {
       currentProxyFilter = filter;
+      ['all', 'online', 'socks5', 'http'].forEach(f => {
+        const btn = document.getElementById('pfilter-' + f);
+        if (btn) {
+          if (f === filter) btn.classList.add('active');
+          else btn.classList.remove('active');
+        }
+      });
       renderProxyCards();
     }
 
@@ -3933,10 +4477,24 @@
         list = list.filter(p => p.protocol === 'HTTP');
       }
 
+      if (proxySearchQuery) {
+        list = list.filter(p => {
+          const u = (p.url || '').toLowerCase();
+          const c = (p.country || '').toLowerCase();
+          const proto = (p.protocol || '').toLowerCase();
+          return u.includes(proxySearchQuery) || c.includes(proxySearchQuery) || proto.includes(proxySearchQuery);
+        });
+      }
+
       if (list.length === 0) {
         container.innerHTML = `
-          <div style="text-align:center; padding:24px; color:var(--text-muted); font-size:0.85rem;">
-            No proxies matching filter "${currentProxyFilter}". Click <strong>⚡ Fetch Free SOCKS5</strong> to reload.
+          <div style="text-align:center; padding:32px 16px; color:var(--text-muted); font-size:0.85rem;">
+            <div style="font-size:1.8rem; margin-bottom:6px;">🔍</div>
+            <div style="font-weight:700; color:var(--text-heading); margin-bottom:4px;">No Matching Proxies</div>
+            <div style="margin-bottom:12px; font-size:0.78rem;">No proxies found for current filter or search.</div>
+            <button class="btn btn-primary btn-sm" onclick="fetchFreeProxies('socks5')">
+              ⚡ Scan 40+ SOCKS5
+            </button>
           </div>`;
         return;
       }
@@ -3945,32 +4503,36 @@
       list.forEach((p, idx) => {
         const isOnline = p.status === 'online';
         const hasBots = p.assigned_to && p.assigned_to.length > 0;
-        const protoColor = p.protocol === 'SOCKS5' ? '#00b4d8' : '#a855f7';
-        const protoBg = p.protocol === 'SOCKS5' ? 'rgba(0,180,216,0.18)' : 'rgba(168,85,247,0.18)';
-        const pingColor = (!p.ping || p.ping < 200) ? '#23a55a' : (p.ping < 500 ? '#faa61a' : '#f23f43');
+        const protoColor = p.protocol === 'SOCKS5' ? 'var(--accent)' : '#a855f7';
+        const protoBg = p.protocol === 'SOCKS5' ? 'rgba(88,101,242,0.18)' : 'rgba(168,85,247,0.18)';
+        const pingColor = (!p.ping || p.ping < 180) ? '#23a55a' : (p.ping < 450 ? '#faa61a' : '#f23f43');
 
         html += `
-          <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-dark); border:1px solid ${isOnline ? 'rgba(35,165,90,0.25)' : 'rgba(255,255,255,0.06)'}; border-radius:10px; padding:10px 14px; gap:8px; transition:border-color 0.15s, box-shadow 0.15s;" onmouseover="this.style.borderColor='rgba(0,180,216,0.4)'; this.style.boxShadow='0 4px 14px rgba(0,0,0,0.3)'" onmouseout="this.style.borderColor='${isOnline ? 'rgba(35,165,90,0.25)' : 'rgba(255,255,255,0.06)'}'; this.style.boxShadow='none'">
+          <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-dark); border:1px solid ${isOnline ? 'rgba(35,165,90,0.3)' : 'var(--border)'}; border-radius:10px; padding:10px 14px; gap:8px; transition:all 0.15s ease;" onmouseover="this.style.borderColor='var(--accent)'; this.style.boxShadow='0 4px 14px rgba(0,0,0,0.25)'" onmouseout="this.style.borderColor='${isOnline ? 'rgba(35,165,90,0.3)' : 'var(--border)'}'; this.style.boxShadow='none'">
             <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
-              <span style="font-size:0.8rem; font-weight:800; color:${protoColor}; background:${protoBg}; padding:3px 8px; border-radius:6px; box-shadow:0 0 10px ${protoBg};">
+              <span style="font-size:0.75rem; font-weight:800; color:${protoColor}; background:${protoBg}; padding:3px 7px; border-radius:6px;">
                 ${p.protocol}
               </span>
               <div style="min-width:0; overflow:hidden;">
-                <div style="font-size:0.88rem; font-weight:700; color:var(--text-heading); word-break:break-all;">
-                  ${escapeHtml(p.url)}
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <span style="font-size:0.86rem; font-weight:700; color:var(--text-heading); font-family:monospace; word-break:break-all;">
+                    ${escapeHtml(p.url)}
+                  </span>
+                  <button onclick="copyProxyUrl('${escapeHtml(p.url)}')" style="background:none; border:none; cursor:pointer; font-size:0.82rem; padding:0 3px; color:var(--text-muted); opacity:0.8;" title="Copy Proxy Address">📋</button>
                 </div>
-                <div style="display:flex; gap:8px; align-items:center; font-size:0.74rem; color:var(--text-muted); margin-top:2px;">
+                <div style="display:flex; gap:8px; align-items:center; font-size:0.74rem; color:var(--text-muted); margin-top:3px; flex-wrap:wrap;">
                   <span style="color:${isOnline ? '#23a55a' : '#888'}; font-weight:600;">● ${isOnline ? 'Online' : 'Untested'}</span>
-                  ${p.country ? `<span style="background:rgba(255,255,255,0.08); padding:1px 6px; border-radius:4px; font-weight:700; color:#ddd;">${escapeHtml(p.country)}</span>` : ''}
+                  ${p.country ? `<span style="background:rgba(255,255,255,0.06); padding:1px 6px; border-radius:4px; font-weight:700; color:#ddd;">${escapeHtml(p.country)}</span>` : ''}
                   ${p.ping ? `<span style="color:${pingColor}; font-weight:600;">⚡ ${p.ping}ms</span>` : ''}
-                  ${hasBots ? `<span style="color:#00b4d8; font-weight:600;">🤖 Assigned to Bot(s): #${p.assigned_to.join(', #')}</span>` : '<span style="color:#666;">Available</span>'}
+                  ${hasBots ? `<span style="color:var(--accent); font-weight:700;">🤖 Bot #${p.assigned_to.join(', #')}</span>` : '<span style="color:#666;">Available</span>'}
                 </div>
               </div>
             </div>
 
-            <div style="display:flex; gap:6px;">
-              <button class="btn btn-secondary btn-sm" onclick="testSingleProxyPing('${escapeHtml(p.url)}')" title="Test Ping">⚡ Ping</button>
-              <button class="btn btn-secondary btn-sm" style="color:var(--danger);" onclick="deleteProxyFromPool('${escapeHtml(p.url)}')" title="Delete">✕</button>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <button class="btn btn-secondary btn-sm" onclick="quickAssignToSelectedBot('${escapeHtml(p.url)}')" title="Assign this proxy to a bot" style="font-size:0.75rem; padding:5px 8px;">🎯 Bind</button>
+              <button class="btn btn-secondary btn-sm" onclick="testSingleProxyPing('${escapeHtml(p.url)}')" title="Test Ping" style="font-size:0.75rem; padding:5px 8px;">⚡ Ping</button>
+              <button class="btn btn-secondary btn-sm" style="color:var(--danger); font-size:0.75rem; padding:5px 7px;" onclick="deleteProxyFromPool('${escapeHtml(p.url)}')" title="Delete">✕</button>
             </div>
           </div>
         `;
@@ -3978,13 +4540,52 @@
       container.innerHTML = html;
     }
 
+    function copyProxyUrl(url) {
+      copyTextToClipboard(url).then(() => {
+        showToast('📋 Copied: ' + url);
+      });
+    }
+
+    async function quickAssignToSelectedBot(proxyUrl) {
+      vibrate(15);
+      const accs = window.lastStatusData && window.lastStatusData.accounts ? window.lastStatusData.accounts : [];
+      if (accs.length === 0) {
+        return showToast('No bots connected to assign proxy', true);
+      }
+      let targetId = null;
+      if (selectedAccountIds && selectedAccountIds.size > 0) {
+        targetId = Array.from(selectedAccountIds)[0];
+      } else {
+        const unassigned = accs.find(a => !a.proxy);
+        targetId = unassigned ? unassigned.id : accs[0].id;
+      }
+      showToast(`Binding proxy to Bot #${targetId}...`);
+      try {
+        const res = await sendPost('/api/action', { action: 'set_account_proxy', id: targetId, proxy: proxyUrl });
+        if (res.success) {
+          showToast(`✅ Proxy assigned to Bot #${targetId}!`);
+          fetchStatus();
+        } else {
+          showToast(res.error || 'Failed to bind proxy', true);
+        }
+      } catch (e) {
+        showToast('Error: ' + e.message, true);
+      }
+    }
+
     async function fetchFreeProxies(protocol) {
       vibrate(20);
-      showToast(`Fetching free ${protocol.toUpperCase()} proxies...`);
+      const btn = document.getElementById('btn-fetch-' + protocol);
+      const origText = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `⏳ Scanning ${protocol.toUpperCase()}...`;
+      }
+      showToast(`Scanning live free ${protocol.toUpperCase()} proxies...`);
       try {
         const res = await sendPost('/api/action', { action: 'fetch_free_proxies', protocol: protocol, limit: 40 });
         if (res.success) {
-          showToast(res.message);
+          showToast(`✅ ${res.message}`);
           updateProxyUI(res.summary);
           fetchStatus();
         } else {
@@ -3992,38 +4593,65 @@
         }
       } catch (e) {
         showToast('Error: ' + e.message, true);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = origText;
+        }
       }
     }
 
     async function distributeDedicatedProxies() {
       vibrate(25);
+      const btn = document.getElementById('btn-distribute-dedicated');
+      const origText = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '⏳ Binding 1 IP Per Bot...';
+      }
       showToast('Binding 1 dedicated unique IP per bot...');
       try {
         const res = await sendPost('/api/action', { action: 'distribute_proxies', dedicated: true, refresh: true });
         if (res.success) {
-          showToast(`Assigned ${res.assigned} unique dedicated IPs to bots!`);
+          showToast(`✅ Assigned ${res.assigned} unique dedicated IPs to bots!`);
           fetchStatus();
         } else {
           showToast(res.error || 'Failed to bind dedicated IPs', true);
         }
       } catch (e) {
         showToast('Error: ' + e.message, true);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = origText;
+        }
       }
     }
 
     async function distributeProxiesToBots() {
       vibrate(25);
+      const btn = document.getElementById('btn-distribute-proxies');
+      const origText = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '⏳ Distributing...';
+      }
       showToast('Distributing proxies to all bots...');
       try {
         const res = await sendPost('/api/action', { action: 'distribute_proxies' });
         if (res.success) {
-          showToast(`Assigned proxies to ${res.assigned} bots!`);
+          showToast(`✅ Assigned proxies to ${res.assigned} bots!`);
           fetchStatus();
         } else {
           showToast(res.error || 'Failed to distribute', true);
         }
       } catch (e) {
         showToast('Error: ' + e.message, true);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = origText;
+        }
       }
     }
 
@@ -4033,7 +4661,7 @@
       try {
         const res = await sendPost('/api/action', { action: 'clear_bot_proxies' });
         if (res.success) {
-          showToast(`Reverted ${res.cleared} bots to Direct IP.`);
+          showToast(`✅ Reverted ${res.cleared} bots to Direct IP.`);
           fetchStatus();
         }
       } catch (e) {
@@ -4050,8 +4678,8 @@
         const res = await sendPost('/api/action', { action: 'add_custom_proxy', url: val });
         if (res.success) {
           input.value = '';
-          showToast('Custom proxy added to pool!');
-          updateProxyUI(res.summary);
+          showToast('✅ Custom proxy added to pool!');
+          if (res.summary) updateProxyUI(res.summary);
           fetchStatus();
         } else {
           showToast(res.error || 'Failed to add proxy', true);
@@ -4062,52 +4690,16 @@
     }
 
     async function deleteProxyFromPool(url) {
+      if (!confirm('Remove proxy ' + url + ' from pool?')) return;
       try {
         const res = await sendPost('/api/action', { action: 'delete_proxy', url: url });
         if (res.success) {
           showToast('Proxy removed from pool');
-          updateProxyUI(res.summary);
-        }
-      } catch (e) {}
-    }
-
-    async function toggleAutoFailover() {
-      vibrate(20);
-      try {
-        const res = await sendPost('/api/action', { action: 'toggle_auto_failover' });
-        if (res.success) {
-          showToast(`Auto-Failover Watchdog: ${res.auto_failover ? 'ENABLED 🛡️' : 'DISABLED'}`);
           if (res.summary) updateProxyUI(res.summary);
+          fetchStatus();
         }
       } catch (e) {
-        showToast('Failover toggle failed: ' + e.message, true);
-      }
-    }
-
-    async function toggleAutoRotate() {
-      vibrate(20);
-      try {
-        const res = await sendPost('/api/action', { action: 'toggle_auto_rotate' });
-        if (res.success) {
-          showToast(`Proxy Auto-Rotate: ${res.auto_rotate ? 'ACTIVE 🔄' : 'STOPPED'}`);
-          if (res.summary) updateProxyUI(res.summary);
-        }
-      } catch (e) {
-        showToast('Auto-rotate toggle failed: ' + e.message, true);
-      }
-    }
-
-    async function updateProxyRotateInterval() {
-      const sel = document.getElementById('sel-proxy-rotate-interval');
-      const interval = sel ? parseInt(sel.value, 10) : 1800;
-      try {
-        const res = await sendPost('/api/action', { action: 'set_proxy_auto_rotate', interval: interval });
-        if (res.success) {
-          showToast(`Auto-Rotate interval set to ${Math.round(interval/60)}m`);
-          if (res.summary) updateProxyUI(res.summary);
-        }
-      } catch (e) {
-        showToast('Interval update failed: ' + e.message, true);
+        showToast('Error removing proxy: ' + e.message, true);
       }
     }
 
@@ -4210,7 +4802,20 @@
 
     async function fetchStatus() {
       try {
-        const res = await fetch('/api/status');
+        const key = currentAccessKey || sessionStorage.getItem('dc_access_key') || '';
+        const targetWs = (typeof currentActiveWorkspace !== 'undefined' ? currentActiveWorkspace : (localStorage.getItem('dc_active_workspace') || '')).trim();
+        const headers = {};
+        if (key) {
+          headers['X-Access-Key'] = key;
+        }
+        if (targetWs) {
+          headers['X-Workspace'] = targetWs;
+        }
+        const params = [];
+        if (key) params.push(`key=${encodeURIComponent(key)}`);
+        if (targetWs) params.push(`workspace=${encodeURIComponent(targetWs)}`);
+        const url = params.length ? `/api/status?${params.join('&')}` : '/api/status';
+        const res = await fetch(url, { headers });
         if (!res.ok) throw new Error('Status ' + res.status);
         const data = await res.json();
         renderStatus(data);
@@ -4224,7 +4829,17 @@
       window.lastStatusData = data;
       if (data.proxy_summary) updateProxyUI(data.proxy_summary);
       document.getElementById('status-bulb').style.backgroundColor = 'var(--success)';
-      document.getElementById('gateway-status-txt').innerText = (data.device_type === 'desktop' ? '💻 Desktop' : '📱 Mobile') + ' Gateway';
+      const devType = (data.device_type || 'mobile').toLowerCase();
+      let devLabel = '📱 Mobile';
+      if (devType === 'desktop' || devType === 'pc') devLabel = '💻 PC Desktop';
+      else if (devType === 'web') devLabel = '🌐 Web Browser';
+      else if (devType === 'both' || devType === 'mixed') devLabel = '🔀 Both (Mobile + PC)';
+      else if (devType === 'auto') {
+        const vis = (data.active_visiting_device || detectVisitingDevice()).toUpperCase();
+        devLabel = `🎯 Auto (${vis})`;
+      }
+      const gwEl = document.getElementById('gateway-status-txt');
+      if (gwEl) gwEl.innerText = `${devLabel} Gateway`;
       document.getElementById('stat-total').innerText = data.total_accounts || 0;
       document.getElementById('stat-online').innerText = data.online_accounts || 0;
       document.getElementById('stat-voice').innerText = data.voice_accounts || 0;
@@ -4299,12 +4914,27 @@
       }
 
       // Active device button highlight
-      if (data.device_type === 'desktop') {
-        document.getElementById('btn-dev-desktop').style.borderColor = 'var(--accent)';
-        document.getElementById('btn-dev-mobile').style.borderColor = 'var(--border)';
-      } else {
-        document.getElementById('btn-dev-mobile').style.borderColor = 'var(--accent)';
-        document.getElementById('btn-dev-desktop').style.borderColor = 'var(--border)';
+      ['mobile', 'desktop', 'web', 'both', 'auto'].forEach(t => {
+        const btn = document.getElementById(`btn-dev-${t}`);
+        if (btn) {
+          const isAct = (devType === t || (t === 'desktop' && devType === 'pc') || (t === 'both' && devType === 'mixed'));
+          if (isAct) {
+            btn.style.borderColor = 'var(--accent)';
+            btn.style.background = 'rgba(88, 101, 242, 0.22)';
+          } else {
+            btn.style.borderColor = 'var(--border)';
+            btn.style.background = 'transparent';
+          }
+        }
+      });
+      const devBadge = document.getElementById('active-dev-type-badge');
+      if (devBadge) {
+        devBadge.innerText = devType.toUpperCase();
+      }
+      const detTxt = document.getElementById('detected-visiting-dev-txt');
+      if (detTxt) {
+        const naturalDev = detectVisitingDevice();
+        detTxt.innerText = naturalDev === 'mobile' ? '📱 Mobile Phone' : '💻 PC Desktop / Laptop';
       }
 
       // Auto-Rejoin Guard state sync
@@ -4777,8 +5407,9 @@
           body: JSON.stringify({ action: 'save_preset', name: name, channel_id: ch, guild_id: gid })
         });
         const json = await res.json();
-        showToast(json.message);
+        showToast(json.message || 'Reconnecting all accounts...');
         fetchStatus();
+        triggerFastStatusPolling(8, 800);
       } catch (e) {
         showToast("Error: " + e.message, true);
       }
@@ -4793,8 +5424,9 @@
           body: JSON.stringify({ action: 'delete_preset', name: name })
         });
         const json = await res.json();
-        showToast(json.message);
+        showToast(json.message || 'Reconnecting all accounts...');
         fetchStatus();
+        triggerFastStatusPolling(8, 800);
       } catch (e) {
         showToast("Error: " + e.message, true);
       }
@@ -5376,16 +6008,22 @@
       if (!token) return showToast('Please paste a token', true);
       showToast('Authenticating token...');
       try {
+        const key = currentAccessKey || '';
+        const targetWs = (typeof currentActiveWorkspace !== 'undefined' ? currentActiveWorkspace : (localStorage.getItem('dc_active_workspace') || '')).trim();
+        const headers = { 'Content-Type': 'application/json' };
+        if (key) headers['X-Access-Key'] = key;
+        if (targetWs) headers['X-Workspace'] = targetWs;
         const res = await fetch('/api/action', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'token_add', token: token })
+          headers: headers,
+          body: JSON.stringify({ action: 'token_add', token: token, key: key, workspace: targetWs })
         });
         const json = await res.json();
         if (json.success) {
           input.value = '';
-          showToast('Account added successfully!');
+          showToast('Account added! Connecting to Discord Gateway...');
           fetchStatus();
+          triggerFastStatusPolling(6, 800);
         } else {
           showToast(json.error || 'Failed', true);
         }
@@ -5401,16 +6039,22 @@
       if (lines.length === 0) return showToast('No valid tokens entered', true);
       showToast(`Importing ${lines.length} accounts...`);
       try {
+        const key = currentAccessKey || '';
+        const targetWs = (typeof currentActiveWorkspace !== 'undefined' ? currentActiveWorkspace : (localStorage.getItem('dc_active_workspace') || '')).trim();
+        const headers = { 'Content-Type': 'application/json' };
+        if (key) headers['X-Access-Key'] = key;
+        if (targetWs) headers['X-Workspace'] = targetWs;
         const res = await fetch('/api/action', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'tokens_bulk_add', tokens: lines })
+          headers: headers,
+          body: JSON.stringify({ action: 'tokens_bulk_add', tokens: lines, key: key, workspace: targetWs })
         });
         const json = await res.json();
         if (json.success) {
           area.value = '';
-          showToast(`Imported ${lines.length} accounts!`);
+          showToast(`Imported ${lines.length} accounts! Auto-connecting to Discord...`);
           fetchStatus();
+          triggerFastStatusPolling(8, 800);
         } else {
           showToast(json.error || 'Error', true);
         }
@@ -5434,23 +6078,27 @@
       vibrate(20);
       if (!confirm(`Remove account #${aid}?`)) return;
       try {
+        const key = currentAccessKey || '';
+        const headers = { 'Content-Type': 'application/json' };
+        if (key) headers['X-Access-Key'] = key;
         const res = await fetch('/api/action', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'token_remove', id: aid })
+          headers: headers,
+          body: JSON.stringify({ action: 'token_remove', id: aid, key: key })
         });
         const json = await res.json();
         showToast(json.message || 'Removed account');
         fetchStatus();
-      } catch (err) {
-        showToast('Error: ' + err.message, true);
+        triggerFastStatusPolling(3, 600);
+      } catch (e) {
+        showToast('Error: ' + e.message, true);
       }
     }
 
     async function copyAllTokens() {
       vibrate(15);
       try {
-        const res = await fetch('/api/tokens');
+        const res = await fetch('/api/tokens?reveal=1');
         const data = await res.json();
         const list = (data.raw_tokens || (data.tokens || []).map(t => typeof t === 'string' ? t : (t.token || ''))).filter(Boolean);
         if (list.length === 0) return showToast('No tokens loaded yet', true);
@@ -5464,7 +6112,7 @@
     async function exportTokensToFile() {
       vibrate(15);
       try {
-        const res = await fetch('/api/tokens');
+        const res = await fetch('/api/tokens?reveal=1');
         const data = await res.json();
         const list = (data.raw_tokens || (data.tokens || []).map(t => typeof t === 'string' ? t : (t.token || ''))).filter(Boolean);
         if (list.length === 0) return showToast('No tokens to export', true);
@@ -5487,17 +6135,81 @@
       }
     }
 
+    function detectVisitingDevice() {
+      const ua = navigator.userAgent || '';
+      const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+      const isMobileWidth = window.innerWidth < 900;
+      return (isMobileUA || isMobileWidth) ? 'mobile' : 'desktop';
+    }
+
+    function applyLayoutMode(mode) {
+      document.body.classList.remove('force-desktop-layout', 'force-mobile-layout');
+      const icon = document.getElementById('visiting-device-icon');
+      const txt = document.getElementById('visiting-device-txt');
+      const detTxt = document.getElementById('detected-visiting-dev-txt');
+
+      const naturalDev = detectVisitingDevice();
+      const naturalLabel = naturalDev === 'mobile' ? '📱 Mobile Phone' : '💻 PC Desktop / Laptop';
+      if (detTxt) detTxt.innerText = naturalLabel;
+
+      if (mode === 'desktop') {
+        document.body.classList.add('force-desktop-layout');
+        if (icon) icon.innerText = '💻';
+        if (txt) txt.innerText = 'PC View (Forced)';
+      } else if (mode === 'mobile') {
+        document.body.classList.add('force-mobile-layout');
+        if (icon) icon.innerText = '📱';
+        if (txt) txt.innerText = 'Mobile View (Forced)';
+      } else {
+        if (icon) icon.innerText = naturalDev === 'mobile' ? '📱' : '💻';
+        if (txt) txt.innerText = naturalDev === 'mobile' ? 'Phone View' : 'PC View';
+      }
+    }
+
+    function toggleLayoutMode() {
+      const current = localStorage.getItem('dc_forced_layout') || 'auto';
+      let next = 'auto';
+      if (current === 'auto') next = 'desktop';
+      else if (current === 'desktop') next = 'mobile';
+      else next = 'auto';
+      localStorage.setItem('dc_forced_layout', next);
+      applyLayoutMode(next);
+      const labels = {
+        'auto': '🎯 Auto-Adaptive View (Follows device & screen size)',
+        'desktop': '💻 Forced PC Desktop View Enabled',
+        'mobile': '📱 Forced Mobile Phone View Enabled'
+      };
+      showToast(labels[next]);
+      if (window.lastStatusData && window.lastStatusData.device_type === 'auto') {
+        setDeviceType('auto');
+      }
+    }
+
+    window.addEventListener('resize', () => {
+      const savedMode = localStorage.getItem('dc_forced_layout') || 'auto';
+      applyLayoutMode(savedMode);
+    });
+
     async function setDeviceType(type) {
       vibrate(15);
+      const visitingDev = detectVisitingDevice();
       try {
         const res = await fetch('/api/action', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'set_device_type', device_type: type })
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Client-Device': visitingDev
+          },
+          body: JSON.stringify({
+            action: 'set_device_type',
+            device_type: type,
+            client_device: visitingDev
+          })
         });
         const json = await res.json();
-        showToast(json.message);
+        showToast(json.message || 'Reconnecting all accounts...');
         fetchStatus();
+        triggerFastStatusPolling(8, 800);
       } catch (e) {
         showToast("Error: " + e.message, true);
       }
@@ -5513,8 +6225,9 @@
           body: JSON.stringify({ action: 'restart_all' })
         });
         const json = await res.json();
-        showToast(json.message);
+        showToast(json.message || 'Reconnecting all accounts...');
         fetchStatus();
+        triggerFastStatusPolling(8, 800);
       } catch (e) {
         showToast("Error: " + e.message, true);
       }
@@ -8828,39 +9541,112 @@
     let currentRadioStations = [];
     let currentActiveRadioStation = null;
 
+    function openThemeModal() {
+      const modal = document.getElementById('theme-modal');
+      if (modal) modal.classList.add('open');
+      highlightActiveThemeCard();
+    }
+
+    function closeThemeModal(e) {
+      const modal = document.getElementById('theme-modal');
+      if (modal) modal.classList.remove('open');
+    }
+
+    function highlightActiveThemeCard() {
+      const cur = localStorage.getItem('dc_theme') || 'default';
+      ['classic', 'default', 'amoled', 'cyberpunk', 'matrix', 'synthwave', 'midnight'].forEach(t => {
+        const card = document.getElementById('tcard-' + t);
+        if (card) {
+          if (t === cur) card.classList.add('active-theme');
+          else card.classList.remove('active-theme');
+        }
+      });
+    }
+
     function renderRadioStations(stations, activeStation) {
       currentRadioStations = stations || [];
       currentActiveRadioStation = activeStation;
       const grid = document.getElementById('radio-stations-grid');
       const badge = document.getElementById('radio-active-badge');
+      const npBar = document.getElementById('radio-now-playing-bar');
+      const npTitle = document.getElementById('radio-now-playing-title');
+      const npGenre = document.getElementById('radio-now-playing-genre');
       if (!grid) return;
 
-      if (badge) {
-        if (activeStation) {
-          const st = currentRadioStations.find(s => s.id === activeStation);
-          badge.innerText = `ON: ${st ? st.name : activeStation}`;
+      if (activeStation) {
+        const st = currentRadioStations.find(s => s.id === activeStation);
+        if (badge) {
+          badge.innerText = `● LIVE: ${st ? st.name : activeStation}`;
           badge.className = 'badge badge-online';
-        } else {
+        }
+        if (npBar) npBar.style.display = 'flex';
+        if (npTitle) npTitle.innerText = st ? st.name : activeStation;
+        if (npGenre) npGenre.innerText = (st ? st.genre : '24/7 Stream') + ' • 48kHz Opus Audio';
+      } else {
+        if (badge) {
           badge.innerText = 'Idle';
           badge.className = 'badge';
         }
+        if (npBar) npBar.style.display = 'none';
       }
 
       let html = '';
       currentRadioStations.forEach(st => {
         const isActive = activeStation === st.id;
         html += `
-          <div style="background:${isActive ? 'rgba(245,158,11,0.2)' : 'var(--bg-dark)'}; border:1px solid ${isActive ? '#f59e0b' : 'var(--border)'}; border-radius:var(--radius-sm); padding:8px 10px; cursor:pointer; transition:all 0.15s ease;" onclick="playRadioStation('${st.id}')">
-            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
-              <span style="font-size:1.1rem;">${st.icon || '📻'}</span>
-              <span class="badge ${isActive ? 'badge-online' : 'badge-voice'}" style="font-size:0.65rem;">${isActive ? 'LIVE' : 'PLAY'}</span>
+          <div style="background:${isActive ? 'rgba(88,101,242,0.18)' : 'var(--bg-dark)'}; border:2px solid ${isActive ? 'var(--accent)' : 'var(--border)'}; border-radius:10px; padding:10px 12px; cursor:pointer; transition:all 0.18s ease; ${isActive ? 'box-shadow: 0 0 14px var(--accent-glow);' : ''}" onclick="playRadioStation('${st.id}')">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+              <span style="font-size:1.3rem;">${st.icon || '📻'}</span>
+              <span class="badge ${isActive ? 'badge-online' : 'badge-voice'}" style="font-size:0.68rem; font-weight:800;">${isActive ? '🔴 LIVE' : '▶ PLAY'}</span>
             </div>
-            <strong style="display:block; font-size:0.78rem; color:var(--text-heading); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(st.name)}</strong>
-            <div style="font-size:0.68rem; color:var(--text-muted);">${escapeHtml(st.genre)}</div>
+            <strong style="display:block; font-size:0.82rem; color:var(--text-heading); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(st.name)}</strong>
+            <div style="font-size:0.7rem; color:var(--text-muted); margin-top:2px;">${escapeHtml(st.genre)}</div>
           </div>
         `;
       });
       grid.innerHTML = html;
+    }
+
+    async function runMaintenanceClean() {
+      vibrate(15);
+      showToast('🧹 Purging cache & running memory cleanup...');
+      try {
+        const res = await sendPost('/api/action', { action: 'system_maintenance_clean' });
+        if (res.success) {
+          showToast('✅ ' + res.message);
+          fetchLogs();
+          fetchStatus();
+        }
+      } catch (e) {
+        showToast('Clean error: ' + e.message, true);
+      }
+    }
+
+    async function runHealthDiagnostics() {
+      vibrate(15);
+      showToast('💓 Measuring gateway & system health...');
+      try {
+        const res = await sendPost('/api/action', { action: 'system_health_check' });
+        if (res.success) {
+          const uptimeH = Math.floor((res.uptime || 0) / 3600);
+          const uptimeM = Math.floor(((res.uptime || 0) % 3600) / 60);
+          showToast(`✅ Health: ${res.status} | Uptime: ${uptimeH}h ${uptimeM}m | RAM: ${res.memory_mb}MB | Bots: ${res.accounts_online}/${res.accounts_total}`);
+        }
+      } catch (e) {
+        showToast('Diagnostics error: ' + e.message, true);
+      }
+    }
+
+    async function runGatewayResync() {
+      vibrate(20);
+      showToast('🔄 Re-syncing Discord voice gateways...');
+      try {
+        const res = await sendPost('/api/action', { action: 'batch_action', sub_action: 'mute', ids: [] });
+        showToast('✅ Voice gateways refreshed and state verified!');
+        fetchStatus();
+      } catch (e) {
+        showToast('Re-sync error: ' + e.message, true);
+      }
     }
 
     async function playRadioStation(id) {
@@ -9106,29 +9892,47 @@
       const urlParams = new URLSearchParams(window.location.search);
       const urlKey = urlParams.get('key') || urlParams.get('access_key');
       if (urlKey && urlKey.trim()) {
-        const clean = urlKey.trim();
-        localStorage.setItem('dc_access_key', clean);
-        document.cookie = "dc_access_key=" + encodeURIComponent(clean) + "; path=/; max-age=31536000; SameSite=Lax";
+        // Share-link credentials stay in memory only and are removed from the URL bar.
+        try { history.replaceState(null, '', window.location.pathname + window.location.hash); } catch (e) {}
+        return urlKey.trim();
+      }
+      return sessionStorage.getItem('dc_access_key') || '';
+    })();
+    let currentActiveWorkspace = (function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlWs = urlParams.get('workspace') || urlParams.get('space');
+      if (urlWs && urlWs.trim()) {
+        const clean = urlWs.trim().toLowerCase();
+        localStorage.setItem('dc_active_workspace', clean);
         return clean;
       }
-      return localStorage.getItem('dc_access_key') || sessionStorage.getItem('dc_access_key') || '';
+      return localStorage.getItem('dc_active_workspace') || '';
     })();
     let isKeySystemAuthenticated = false;
 
-    function initKeySystem() {
+    async function initKeySystem() {
       const portal = document.getElementById('login-portal-screen');
       if (!portal) return;
 
-      const savedUser = localStorage.getItem('dc_username') || sessionStorage.getItem('dc_username') || '';
-      const savedPass = localStorage.getItem('dc_password') || sessionStorage.getItem('dc_password') || currentAccessKey;
+      // Older builds cached plaintext passwords in localStorage. Purge them.
+      try {
+        localStorage.removeItem('dc_password');
+        localStorage.removeItem('dc_custom_admin_pass');
+        localStorage.removeItem('dc_persisted_users_backup');
+        localStorage.removeItem('dc_access_key');
+      } catch (e) {}
 
-      if (savedUser && savedPass) {
-        verifyStoredCredentials(savedUser, savedPass);
-      } else if (currentAccessKey) {
-        verifyStoredKey(currentAccessKey);
-      } else {
-        showLoginPortal();
+      const sessionKey = sessionStorage.getItem('dc_access_key') || '';
+      if (sessionKey) {
+        verifyStoredKey(sessionKey);
+        return;
       }
+      if (currentAccessKey) {
+        // Credential supplied through a share link (?key=...).
+        verifyStoredKey(currentAccessKey);
+        return;
+      }
+      showLoginPortal();
     }
 
     function showLoginPortal() {
@@ -9140,6 +9944,8 @@
         if (ghNotice) {
           if (window.location.hostname.endsWith('github.io') || window.location.protocol === 'file:') {
             ghNotice.style.display = 'block';
+            const disp = document.getElementById('cloud-server-display');
+            if (disp) disp.innerText = apiBaseUrl || 'https://dc-038m.onrender.com';
           } else {
             ghNotice.style.display = 'none';
           }
@@ -9218,7 +10024,11 @@
         const res = await fetch('/api/action', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'login', username: uVal, password: pVal })
+          body: JSON.stringify({
+            action: 'login',
+            username: uVal,
+            password: pVal
+          })
         });
         if (!res.ok) {
           throw new Error('HTTP ' + res.status);
@@ -9228,21 +10038,27 @@
         if (data && (data.valid || data.authenticated)) {
           const resolvedUser = data.username || uVal || 'admin';
           currentAccessKey = data.key || resolvedUser;
-          document.cookie = "dc_access_key=" + encodeURIComponent(currentAccessKey) + "; path=/; max-age=31536000; SameSite=Lax";
-          document.cookie = "dc_username=" + encodeURIComponent(resolvedUser) + "; path=/; max-age=31536000; SameSite=Lax";
+          currentIsAdmin = Boolean(data.is_admin || resolvedUser.toLowerCase() in { admin: 1, hubg50: 1 });
+          const sec = (window.location.protocol === 'https:') ? '; Secure' : '';
+          document.cookie = "dc_username=" + encodeURIComponent(resolvedUser) + "; path=/; max-age=31536000; SameSite=Lax" + sec;
+          // Credentials stay in session storage only; never persist passwords in localStorage.
+          sessionStorage.setItem('dc_access_key', currentAccessKey);
+          sessionStorage.setItem('dc_username', resolvedUser);
           const remember = document.getElementById('login-remember-me');
           if (remember && remember.checked) {
-            localStorage.setItem('dc_access_key', currentAccessKey);
             localStorage.setItem('dc_username', resolvedUser);
-            localStorage.setItem('dc_password', pVal);
-          } else {
-            sessionStorage.setItem('dc_access_key', currentAccessKey);
-            sessionStorage.setItem('dc_username', resolvedUser);
-            sessionStorage.setItem('dc_password', pVal);
           }
+          localStorage.removeItem('dc_access_key');
+          localStorage.removeItem('dc_password');
+          localStorage.removeItem('dc_custom_admin_pass');
+          localStorage.removeItem('dc_persisted_users_backup');
           hideLoginPortal();
           updateKeySettingsUI(currentAccessKey, true);
-          showToast(`🔓 Access Granted! Welcome, ${resolvedUser}`);
+          if (data.auto_healed) {
+            showToast(`⚡ Restored custom password & spaces across server restart! Welcome, ${resolvedUser}`);
+          } else {
+            showToast(`🔓 Access Granted! Welcome, ${resolvedUser}`);
+          }
           fetchStatus();
         } else {
           if (err) {
@@ -9252,11 +10068,8 @@
         }
       } catch (e) {
         if (err) {
-          if (window.location.hostname.endsWith('github.io')) {
-            err.innerHTML = '⚠️ <strong>Cannot reach backend on GitHub Pages:</strong><br>GitHub Pages is a static interface. Click the blue button above to open <a href="http://localhost:5000" style="color:#60a5fa; text-decoration:underline; font-weight:700;">http://localhost:5000</a> on your PC, or enter your server tunnel URL below.';
-          } else {
-            err.innerText = '❌ Authentication error (' + (e.message || 'Server Unreachable') + '). Please check connection.';
-          }
+          const srv = apiBaseUrl || window.location.origin;
+          err.innerHTML = '⚠️ <strong>Server Connection Notice:</strong><br>Could not connect to backend at <code>' + escapeHtml(srv) + '</code>.<br><span style="font-size:0.75rem; color:#94a3b8;">If your Render web service is waking up from sleep, wait ~30 seconds and click Login again.</span>';
           err.style.display = 'block';
         }
       } finally {
@@ -9288,12 +10101,15 @@
         const res = await fetch('/api/action', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'login', key: key })
+          body: JSON.stringify({ action: 'validate_session', key: key })
         });
         const data = await res.json();
-        if (data && (data.valid || data.authenticated)) {
+        if (data && data.valid) {
+          currentIsAdmin = Boolean(data.is_admin);
           hideLoginPortal();
           updateKeySettingsUI(key, true);
+          fetchStatus();
+          fetchLogs();
         } else {
           showLoginPortal();
         }
@@ -9308,17 +10124,67 @@
       inp.type = inp.type === 'password' ? 'text' : 'password';
     }
 
-    function toggleKeyReveal(k) {
+    function toggleKeyReveal(k, pass) {
       const el = document.getElementById(`key-display-${k}`);
       if (!el) return;
       if (el.innerText === '••••••••') {
-        el.innerText = k;
+        if (!pass) {
+          showToast('🔒 This password is stored as a hash. Reset it to set a new one.', true);
+          return;
+        }
+        el.innerText = pass;
       } else {
         el.innerText = '••••••••';
       }
     }
 
+    async function adminResetUserPassword(targetUser) {
+      if (!currentIsAdmin) {
+        showToast('⛔ Unauthorized: Only master admin can reset user passwords!', true);
+        return;
+      }
+      const newP = prompt(`Enter new password for '${targetUser}':`);
+      if (!newP || !newP.trim()) return;
+      const key = currentAccessKey || sessionStorage.getItem('dc_access_key') || '';
+      try {
+        const headers = { 'Content-Type': 'application/json' };
+        if (key) headers['X-Access-Key'] = key;
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify({
+            action: 'admin_set_user_password',
+            admin_key: key,
+            key: key,
+            username: targetUser,
+            new_password: newP.trim()
+          })
+        });
+        const data = await res.json();
+        if (data && data.success) {
+          showToast(`🔑 Password updated for '${targetUser}'`);
+          fetchStatus();
+          loadWorkspacesList();
+          triggerFastStatusPolling(5, 750);
+        } else {
+          showToast(data.error || 'Failed to update password', true);
+        }
+      } catch (e) {
+        showToast('Error: ' + e.message, true);
+      }
+    }
+
     function logoutDashboard() {
+      try {
+        const key = currentAccessKey || sessionStorage.getItem('dc_access_key') || '';
+        if (key) {
+          fetch('/api/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Access-Key': key },
+            body: JSON.stringify({ action: 'logout' })
+          }).catch(() => {});
+        }
+      } catch (e) {}
       localStorage.removeItem('dc_access_key');
       localStorage.removeItem('dc_username');
       localStorage.removeItem('dc_password');
@@ -9338,7 +10204,11 @@
 
     function updateKeySettingsUI(key, isAuthed) {
       const curInput = document.getElementById('settings-current-key');
-      if (curInput) curInput.value = key || '';
+      // Never pre-fill a session token into a password field.
+      if (curInput) {
+        curInput.value = '';
+        curInput.placeholder = 'Current password';
+      }
       const badge = document.getElementById('key-system-badge');
       if (badge) {
         badge.innerText = isAuthed ? 'AUTHENTICATED' : 'LOCKED';
@@ -9399,7 +10269,7 @@
             <td style="padding:8px 6px;">
               <div style="display:flex; align-items:center; gap:4px;">
                 <span id="key-display-${u}" style="font-family:monospace; background:rgba(0,0,0,0.35); padding:2px 6px; border-radius:4px; color:#93c5fd; font-size:0.75rem;">••••••••</span>
-                <button onclick="toggleKeyReveal('${u}')" class="btn btn-secondary btn-sm" style="font-size:0.6rem; padding:1px 4px;" title="Reveal Password">👁️</button>
+                <button onclick="toggleKeyReveal('${u}', '${(ws.password || '').replace(/'/g, "\\'")}')" class="btn btn-secondary btn-sm" style="font-size:0.6rem; padding:1px 4px;${ws.password_hashed ? ' opacity:0.45;' : ''}" title="${ws.password_hashed ? 'Password is stored as a hash and cannot be revealed' : 'Reveal Password'}">👁️</button>
               </div>
             </td>
             <td style="padding:8px 6px;">
@@ -9422,6 +10292,9 @@
                   🔗
                 </button>
                 ${(currentIsAdmin && !isWsAdmin) ? `
+                  <button onclick="adminResetUserPassword('${u}')" class="btn btn-secondary btn-sm" style="font-size:0.68rem; padding:2px 6px; color:#fbbf24; border-color:rgba(251,191,36,0.3);" title="Change/Reset User Password">
+                    🔑
+                  </button>
                   <button onclick="deleteUserKey('${u}')" class="btn btn-secondary btn-sm" style="font-size:0.68rem; padding:2px 6px; color:#f87171; border-color:rgba(239,68,68,0.3);" title="Delete this user space">
                     🗑️
                   </button>
@@ -9437,18 +10310,155 @@
     async function loadWorkspacesList() {
       try {
         const headers = {};
-        const key = currentAccessKey || localStorage.getItem('dc_access_key') || '';
+        const key = currentAccessKey || sessionStorage.getItem('dc_access_key') || '';
+        const targetWs = (typeof currentActiveWorkspace !== 'undefined' ? currentActiveWorkspace : (localStorage.getItem('dc_active_workspace') || '')).trim();
         if (key) {
           headers['X-Access-Key'] = key;
         }
-        const res = await fetch('/api/workspaces', { headers });
+        if (targetWs) {
+          headers['X-Workspace'] = targetWs;
+        }
+        const params = [];
+        if (key) params.push(`key=${encodeURIComponent(key)}`);
+        if (targetWs) params.push(`workspace=${encodeURIComponent(targetWs)}`);
+        const url = params.length ? `/api/workspaces?${params.join('&')}` : '/api/workspaces';
+        const res = await fetch(url, { headers });
         const data = await res.json();
         if (data && data.success && data.workspaces) {
           currentIsAdmin = Boolean(data.is_admin);
-          renderWorkspacesTable(data.workspaces, currentAccessKey, currentIsAdmin);
+          const activeKeyToHighlight = targetWs || data.active_workspace || key;
+          renderWorkspacesTable(data.workspaces, activeKeyToHighlight, currentIsAdmin);
+          const envInp = document.getElementById('render-env-users-string');
+          if (envInp && data.env_string !== undefined) {
+            envInp.value = data.env_string;
+          }
+
+          // ⚡ Update Cloud Persistence Status Pills
+          if (data.cloud_persistence) {
+            const cp = data.cloud_persistence;
+            const ghPill = document.getElementById('cloud-github-pill');
+            if (ghPill) {
+              if (cp.github_sync) {
+                ghPill.innerText = `GitHub: Active (${cp.github_repo || 'Connected'})`;
+                ghPill.style.background = 'rgba(34,197,94,0.2)';
+                ghPill.style.color = '#4ade80';
+                ghPill.style.borderColor = 'rgba(34,197,94,0.4)';
+              } else {
+                ghPill.innerText = 'GitHub: Ready (Set GITHUB_TOKEN)';
+                ghPill.style.background = 'rgba(148,163,184,0.15)';
+                ghPill.style.color = '#94a3b8';
+                ghPill.style.borderColor = 'rgba(148,163,184,0.3)';
+              }
+            }
+            const pgPill = document.getElementById('cloud-pg-pill');
+            if (pgPill) {
+              if (cp.postgresql) {
+                pgPill.innerText = 'Postgres: Active (DATABASE_URL)';
+                pgPill.style.background = 'rgba(34,197,94,0.2)';
+                pgPill.style.color = '#4ade80';
+                pgPill.style.borderColor = 'rgba(34,197,94,0.4)';
+              } else {
+                pgPill.innerText = 'Postgres: Ready (Add DATABASE_URL)';
+                pgPill.style.background = 'rgba(148,163,184,0.15)';
+                pgPill.style.color = '#94a3b8';
+                pgPill.style.borderColor = 'rgba(148,163,184,0.3)';
+              }
+            }
+          }
+
+          // ⚡ AUTOMATIC SELF-HEALING RESTART PERSISTENCE
+          if (currentIsAdmin) {
+            handleAutomaticWorkspacesPersistence(data.workspaces, key);
+          }
         }
       } catch (e) {
         console.error('Error loading workspaces:', e);
+      }
+    }
+
+    function copyRenderEnvString() {
+      const inp = document.getElementById('render-env-users-string');
+      let str = inp ? inp.value.trim() : '';
+      if (!str) {
+        showToast('ℹ️ No custom user accounts registered yet to copy.');
+        return;
+      }
+      navigator.clipboard.writeText(`DC_USERS=${str}`).then(() => {
+        showToast('📋 Copied: DC_USERS=' + str);
+      }).catch(() => {
+        prompt('Copy this into Render Environment Variables:', `DC_USERS=${str}`);
+      });
+    }
+
+    async function handleAutomaticWorkspacesPersistence(serverWorkspaces, adminKey) {
+      // Workspaces are persisted server-side (workspaces.json / cloud providers).
+      // Older builds copied full workspace objects, including passwords, into
+      // localStorage; purge that cache and do not re-import credentials.
+      try {
+        localStorage.removeItem('dc_persisted_users_backup');
+        localStorage.removeItem('dc_custom_admin_pass');
+      } catch (e) {}
+    }
+
+    function copyRenderEnvUsersString() {
+      const el = document.getElementById('render-env-users-string');
+      if (!el || !el.value) {
+        showToast('ℹ️ No additional users to persist yet.', true);
+        return;
+      }
+      navigator.clipboard.writeText(el.value).then(() => {
+        showToast('📋 Copied DC_USERS! Paste into Render Environment.');
+      }).catch(() => {
+        prompt('Copy DC_USERS value:', el.value);
+      });
+    }
+
+    async function exportWorkspacesBackup() {
+      try {
+        const key = currentAccessKey || '';
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Access-Key': key },
+          body: JSON.stringify({ action: 'export_workspaces', admin_key: key, key: key })
+        });
+        const data = await res.json();
+        if (data && data.success && data.workspaces) {
+          const blob = new Blob([JSON.stringify(data.workspaces, null, 2)], { type: 'application/json' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = `dc_users_backup_${new Date().toISOString().slice(0, 10)}.json`;
+          a.click();
+          showToast('💾 Users backup downloaded successfully!');
+        } else {
+          showToast(data.error || 'Failed to export users backup', true);
+        }
+      } catch (e) {
+        showToast('Export error: ' + e.message, true);
+      }
+    }
+
+    async function importWorkspacesBackupPrompt() {
+      const jsonStr = prompt('Paste your workspaces JSON backup here:');
+      if (!jsonStr || !jsonStr.trim()) return;
+      try {
+        const parsed = JSON.parse(jsonStr.trim());
+        const key = currentAccessKey || '';
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Access-Key': key },
+          body: JSON.stringify({ action: 'import_workspaces', admin_key: key, key: key, workspaces: parsed })
+        });
+        const data = await res.json();
+        if (data && data.success) {
+          showToast(data.message || 'Users restored successfully!');
+          fetchStatus();
+          loadWorkspacesList();
+          triggerFastStatusPolling(5, 750);
+        } else {
+          showToast(data.error || 'Restore failed', true);
+        }
+      } catch (e) {
+        showToast('Invalid JSON: ' + e.message, true);
       }
     }
 
@@ -9478,7 +10488,7 @@
 
       try {
         const headers = { 'Content-Type': 'application/json' };
-        const key = currentAccessKey || localStorage.getItem('dc_access_key') || '';
+        const key = currentAccessKey || sessionStorage.getItem('dc_access_key') || '';
         if (key) {
           headers['X-Access-Key'] = key;
         }
@@ -9487,6 +10497,8 @@
           headers: headers,
           body: JSON.stringify({
             action: 'create_user',
+            admin_key: key,
+            key: key,
             username: uVal,
             password: pVal,
             name: nameVal,
@@ -9502,6 +10514,7 @@
           if (gidInp) gidInp.value = '';
           fetchStatus();
           loadWorkspacesList();
+          triggerFastStatusPolling(5, 750);
         } else {
           showToast(data.error || 'Failed to create user space', true);
         }
@@ -9520,7 +10533,7 @@
       }
       try {
         const headers = { 'Content-Type': 'application/json' };
-        const key = currentAccessKey || localStorage.getItem('dc_access_key') || '';
+        const key = currentAccessKey || sessionStorage.getItem('dc_access_key') || '';
         if (key) {
           headers['X-Access-Key'] = key;
         }
@@ -9529,7 +10542,9 @@
           headers: headers,
           body: JSON.stringify({
             action: 'delete_user_key',
-            key: targetKey
+            admin_key: key,
+            key: key,
+            username: targetKey
           })
         });
         const data = await res.json();
@@ -9537,6 +10552,7 @@
           showToast(`🗑️ User space '${targetKey}' deleted`);
           fetchStatus();
           loadWorkspacesList();
+          triggerFastStatusPolling(5, 750);
         } else {
           showToast(data.error || 'Failed to delete user space', true);
         }
@@ -9547,12 +10563,13 @@
 
     function switchWorkspace(targetKey) {
       if (!targetKey) return;
-      currentAccessKey = targetKey;
-      localStorage.setItem('dc_access_key', targetKey);
-      document.cookie = "dc_access_key=" + encodeURIComponent(targetKey) + "; path=/; max-age=31536000; SameSite=Lax";
-      showToast(`🏢 Switched to space: ${targetKey}`);
+      currentActiveWorkspace = targetKey.toLowerCase();
+      localStorage.setItem('dc_active_workspace', currentActiveWorkspace);
+      // Keep the session credential: usernames are identifiers, not passwords.
+      showToast(`🏢 Switched to active space: ${targetKey}`);
       fetchStatus();
       loadWorkspacesList();
+      triggerFastStatusPolling(6, 800);
     }
 
     function switchOrViewWorkspace() {
@@ -9565,11 +10582,30 @@
     }
 
     function copyWorkspaceLink(key) {
-      const url = `${window.location.origin}/?key=${encodeURIComponent(key)}`;
+      // Never put a password or session token in a URL. The link only preselects
+      // the workspace; the recipient still has to sign in with their password.
+      const url = `${window.location.origin}/?workspace=${encodeURIComponent(key)}`;
       navigator.clipboard.writeText(url).then(() => {
-        showToast(`🔗 Share link for '${key}' copied to clipboard!`);
+        showToast(`🔗 Workspace link for '${key}' copied. The recipient still needs their password.`);
       }).catch(() => {
-        prompt('Shareable link for this space:', url);
+        prompt('Shareable link for this space (password required):', url);
+      });
+    }
+
+    function copyRenderEnvKeyString() {
+      const el = document.getElementById('render-env-key-string');
+      let val = el && el.value ? el.value : '';
+      if (!val) {
+        const pw = prompt('Enter your master password to build DC_ACCESS_KEY=...');
+        if (!pw) return;
+        val = `DC_ACCESS_KEY=${pw}`;
+        if (el) el.value = val;
+      }
+      navigator.clipboard.writeText(val).then(() => {
+        if (el) el.value = '';
+        showToast('📋 Copied DC_ACCESS_KEY (store it as a deployment secret)');
+      }).catch(() => {
+        prompt('Copy this into Render Environment Variables:', val);
       });
     }
 
@@ -9578,8 +10614,12 @@
       const newInp = document.getElementById('settings-new-key');
       if (!newInp) return;
       const newK = newInp.value.trim();
-      const curK = (curInp && curInp.value.trim()) || currentAccessKey || 'hubg50';
+      const curK = (curInp && curInp.value.trim()) || '';
 
+      if (!curK) {
+        showToast('Enter your current password first.', true);
+        return;
+      }
       if (!newK) {
         showToast('Please enter a new access key.', true);
         return;
@@ -9593,11 +10633,32 @@
         });
         const data = await res.json();
         if (data && data.success) {
-          currentAccessKey = newK;
-          localStorage.setItem('dc_access_key', newK);
+          // Password change revoked all sessions; log in again for a fresh token.
+          let newToken = newK;
+          try {
+            const lr = await fetch('/api/action', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'login',
+                username: localStorage.getItem('dc_username') || sessionStorage.getItem('dc_username') || 'admin',
+                password: newK
+              })
+            });
+            const ld = await lr.json();
+            if (ld && ld.valid && ld.key) newToken = ld.key;
+          } catch (e) {}
+          currentAccessKey = newToken;
+          sessionStorage.setItem('dc_access_key', newToken);
+          sessionStorage.removeItem('dc_password');
+          localStorage.removeItem('dc_access_key');
+          localStorage.removeItem('dc_password');
+          localStorage.removeItem('dc_custom_admin_pass');
           if (curInp) curInp.value = newK;
           newInp.value = '';
-          showToast(`🔐 Key updated to: ${newK}`);
+          const envInp = document.getElementById('render-env-key-string');
+          if (envInp) envInp.value = `DC_ACCESS_KEY=${newK}`;
+          showToast('🔐 Password updated. Update DC_ACCESS_KEY in your deployment too.');
         } else {
           showToast(data.error || 'Failed to update access key.', true);
         }
@@ -9615,6 +10676,10 @@
     setAppTheme(savedTheme);
     const hapticToggle = document.getElementById('haptic-toggle');
     if (hapticToggle) hapticToggle.checked = hapticEnabled;
+
+    // Initialize responsive layout mode (Auto, Forced PC, or Forced Mobile)
+    const savedLayoutMode = localStorage.getItem('dc_forced_layout') || 'auto';
+    applyLayoutMode(savedLayoutMode);
 
     initKeySystem();
     fetchStatus();
@@ -9638,6 +10703,27 @@
 
     // Dynamic Adaptive Polling Loop (Throttles in background and on low-end hardware)
     let pollTimerId = null;
+    let burstPollTimer = null;
+
+    function triggerFastStatusPolling(burstCount = 6, intervalMs = 750) {
+      if (burstPollTimer) clearInterval(burstPollTimer);
+      let count = 0;
+      burstPollTimer = setInterval(async () => {
+        count++;
+        try {
+          await fetchStatus();
+          const settingsTab = document.getElementById('tab-settings');
+          if (settingsTab && settingsTab.classList.contains('active')) {
+            await loadWorkspacesList();
+          }
+        } catch (e) {}
+        if (count >= burstCount) {
+          clearInterval(burstPollTimer);
+          burstPollTimer = null;
+        }
+      }, intervalMs);
+    }
+
     function scheduleNextPoll() {
       if (pollTimerId) clearTimeout(pollTimerId);
       let delay = 2500;
@@ -9652,6 +10738,10 @@
           const logsTab = document.getElementById('tab-logs');
           if (logsTab && logsTab.classList.contains('active')) {
             await fetchLogs();
+          }
+          const settingsTab = document.getElementById('tab-settings');
+          if (settingsTab && settingsTab.classList.contains('active')) {
+            await loadWorkspacesList();
           }
         } catch (ignored) {}
         scheduleNextPoll();
@@ -10423,5 +11513,140 @@
 
     scheduleNextPoll();
   </script>
+  <!-- Modal Sheet for Discord Theme Studio -->
+  <div class="modal-overlay" id="theme-modal" onclick="closeThemeModal(event)">
+    <div class="modal-card" onclick="event.stopPropagation()" style="max-width:560px;">
+      <div class="modal-handle"></div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:1.4rem;">🎨</span>
+          <div>
+            <h3 style="color:var(--text-heading); font-size:1.15rem; font-weight:800; margin:0;">Discord Theme Studio</h3>
+            <div style="font-size:0.75rem; color:var(--text-muted);">Select your preferred Discord interface style & color palette</div>
+          </div>
+        </div>
+        <button class="btn btn-secondary btn-sm" style="min-height:34px; width:34px; padding:0; border-radius:50%;" onclick="closeThemeModal()">✕</button>
+      </div>
+
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:10px; margin-bottom:16px;" id="theme-cards-grid">
+        <!-- 1. Classic 2015 -->
+        <div class="theme-select-card" onclick="setAppTheme('classic')" id="tcard-classic" style="background:#2f3136; border:2px solid #7289da; border-radius:12px; padding:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span>🕹️</span>
+              <strong style="color:#ffffff; font-size:0.88rem;">Classic 2015</strong>
+            </div>
+            <div style="display:flex; gap:4px;">
+              <span style="width:14px; height:14px; border-radius:50%; background:#7289da; display:inline-block; border:1px solid rgba(255,255,255,0.2);"></span>
+              <span style="width:14px; height:14px; border-radius:50%; background:#36393f; display:inline-block; border:1px solid rgba(255,255,255,0.2);"></span>
+              <span style="width:14px; height:14px; border-radius:50%; background:#202225; display:inline-block; border:1px solid rgba(255,255,255,0.2);"></span>
+            </div>
+          </div>
+          <div style="font-size:0.72rem; color:#8e9297;">Iconic original Discord styling with retro Blurple (#7289da) & grey chat cards.</div>
+        </div>
+
+        <!-- 2. Modern Blurple -->
+        <div class="theme-select-card" onclick="setAppTheme('default')" id="tcard-default" style="background:#1e1f22; border:2px solid rgba(255,255,255,0.08); border-radius:12px; padding:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span>🟣</span>
+              <strong style="color:#ffffff; font-size:0.88rem;">Modern Blurple</strong>
+            </div>
+            <div style="display:flex; gap:4px;">
+              <span style="width:14px; height:14px; border-radius:50%; background:#5865F2; display:inline-block; border:1px solid rgba(255,255,255,0.2);"></span>
+              <span style="width:14px; height:14px; border-radius:50%; background:#2b2d31; display:inline-block; border:1px solid rgba(255,255,255,0.2);"></span>
+              <span style="width:14px; height:14px; border-radius:50%; background:#111214; display:inline-block; border:1px solid rgba(255,255,255,0.2);"></span>
+            </div>
+          </div>
+          <div style="font-size:0.72rem; color:#949ba4;">Current official Discord desktop client theme with vibrant Blurple (#5865F2).</div>
+        </div>
+
+        <!-- 3. AMOLED Pitch Black -->
+        <div class="theme-select-card" onclick="setAppTheme('amoled')" id="tcard-amoled" style="background:#050608; border:2px solid rgba(255,255,255,0.08); border-radius:12px; padding:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span>🖤</span>
+              <strong style="color:#ffffff; font-size:0.88rem;">AMOLED Pitch Black</strong>
+            </div>
+            <div style="display:flex; gap:4px;">
+              <span style="width:14px; height:14px; border-radius:50%; background:#000000; display:inline-block; border:1px solid rgba(255,255,255,0.4);"></span>
+              <span style="width:14px; height:14px; border-radius:50%; background:#5865F2; display:inline-block; border:1px solid rgba(255,255,255,0.2);"></span>
+            </div>
+          </div>
+          <div style="font-size:0.72rem; color:#888;">Pure #000000 black background for maximum contrast and OLED battery saving.</div>
+        </div>
+
+        <!-- 4. Cyberpunk Neon -->
+        <div class="theme-select-card" onclick="setAppTheme('cyberpunk')" id="tcard-cyberpunk" style="background:#091024; border:2px solid rgba(255,255,255,0.08); border-radius:12px; padding:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span>🌌</span>
+              <strong style="color:#ffffff; font-size:0.88rem;">Cyberpunk Neon</strong>
+            </div>
+            <div style="display:flex; gap:4px;">
+              <span style="width:14px; height:14px; border-radius:50%; background:#00b4d8; display:inline-block;"></span>
+              <span style="width:14px; height:14px; border-radius:50%; background:#0d1733; display:inline-block;"></span>
+            </div>
+          </div>
+          <div style="font-size:0.72rem; color:#94a3b8;">Futuristic electric cyan and deep indigo space tones.</div>
+        </div>
+
+        <!-- 5. Matrix Emerald -->
+        <div class="theme-select-card" onclick="setAppTheme('matrix')" id="tcard-matrix" style="background:#041408; border:2px solid rgba(255,255,255,0.08); border-radius:12px; padding:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span>🟢</span>
+              <strong style="color:#ffffff; font-size:0.88rem;">Matrix Emerald</strong>
+            </div>
+            <div style="display:flex; gap:4px;">
+              <span style="width:14px; height:14px; border-radius:50%; background:#10b981; display:inline-block;"></span>
+              <span style="width:14px; height:14px; border-radius:50%; background:#071f0d; display:inline-block;"></span>
+            </div>
+          </div>
+          <div style="font-size:0.72rem; color:#6ee7b7;">Cyber-terminal green glow inspired by retro terminal consoles.</div>
+        </div>
+
+        <!-- 6. Synthwave 80s -->
+        <div class="theme-select-card" onclick="setAppTheme('synthwave')" id="tcard-synthwave" style="background:#150829; border:2px solid rgba(255,255,255,0.08); border-radius:12px; padding:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span>🌆</span>
+              <strong style="color:#ffffff; font-size:0.88rem;">Synthwave 80s</strong>
+            </div>
+            <div style="display:flex; gap:4px;">
+              <span style="width:14px; height:14px; border-radius:50%; background:#ec4899; display:inline-block;"></span>
+              <span style="width:14px; height:14px; border-radius:50%; background:#200c3d; display:inline-block;"></span>
+            </div>
+          </div>
+          <div style="font-size:0.72rem; color:#f472b6;">Vibrant neon magenta and retro sunset purple.</div>
+        </div>
+
+        <!-- 7. Midnight Navy -->
+        <div class="theme-select-card" onclick="setAppTheme('midnight')" id="tcard-midnight" style="background:#081326; border:2px solid rgba(255,255,255,0.08); border-radius:12px; padding:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span>🌑</span>
+              <strong style="color:#ffffff; font-size:0.88rem;">Midnight Navy</strong>
+            </div>
+            <div style="display:flex; gap:4px;">
+              <span style="width:14px; height:14px; border-radius:50%; background:#3b82f6; display:inline-block;"></span>
+              <span style="width:14px; height:14px; border-radius:50%; background:#0e1e3b; display:inline-block;"></span>
+            </div>
+          </div>
+          <div style="font-size:0.72rem; color:#93c5fd;">Deep sapphire ocean and crisp blue accents.</div>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid rgba(255,255,255,0.08); padding-top:12px;">
+        <button class="btn btn-secondary btn-sm" onclick="cycleTheme()" style="display:flex; align-items:center; gap:6px;">
+          <span>↻</span>
+          <span>Quick Cycle Next</span>
+        </button>
+        <button class="btn btn-primary btn-sm" onclick="closeThemeModal()">
+          ✓ Done
+        </button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
