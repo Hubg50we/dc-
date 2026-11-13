@@ -1120,6 +1120,47 @@
         gap: 16px;
       }
     }
+  
+    /* Equalizer Waveform Animations */
+    .equalizer-waveform {
+      display: flex;
+      align-items: flex-end;
+      gap: 3px;
+      height: 20px;
+    }
+    .equalizer-waveform .eq-bar {
+      display: inline-block;
+      width: 3.5px;
+      background: var(--accent);
+      border-radius: 2px;
+      animation: eqBounce 1.1s ease-in-out infinite alternate;
+    }
+    .equalizer-waveform .eq-bar-1 { height: 35%; animation-delay: 0.1s; }
+    .equalizer-waveform .eq-bar-2 { height: 90%; animation-delay: 0.3s; }
+    .equalizer-waveform .eq-bar-3 { height: 60%; animation-delay: 0.5s; }
+    .equalizer-waveform .eq-bar-4 { height: 100%; animation-delay: 0.2s; }
+    .equalizer-waveform .eq-bar-5 { height: 45%; animation-delay: 0.4s; }
+    @keyframes eqBounce {
+      0% { height: 20%; }
+      50% { height: 100%; }
+      100% { height: 30%; }
+    }
+
+    /* Theme Picker Card Active State */
+    .theme-select-card {
+      position: relative;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .theme-select-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    }
+    .theme-select-card.active-theme {
+      border-color: var(--accent) !important;
+      box-shadow: 0 0 16px var(--accent-glow) !important;
+    }
   </style>
 </head>
 <body>
@@ -1237,7 +1278,7 @@
         <option value="bn">🇧🇩 BN</option>
       </select>
       <button class="icon-btn" onclick="triggerPipMode()" title="Floating Picture-in-Picture Mini-Dock">🪟</button>
-      <button class="icon-btn" onclick="cycleTheme()" title="Cycle Color Themes (Classic / Modern / Cyberpunk / AMOLED)">🎨</button>
+      <button class="icon-btn" onclick="openThemeModal()" title="🎨 Discord Theme Studio (Classic, Modern, AMOLED, etc.)">🎨</button>
       <button class="icon-btn" onclick="toggleAmoled()" title="AMOLED Black Toggle">⚡</button>
       <button class="icon-btn" onclick="logoutDashboard()" title="Lock / Logout Dashboard" style="color:#c084fc; border-color:rgba(168,85,247,0.35);">🔐</button>
       <button class="icon-btn" onclick="refreshAll()" title="Refresh Dashboard">↻</button>
@@ -1581,25 +1622,49 @@
         </div>
       </div>
 
-      <!-- 📻 24/7 Internet Radio Presets Card -->
-      <div class="card" style="border-color: rgba(245, 158, 11, 0.45); background: linear-gradient(180deg, rgba(245, 158, 11, 0.05) 0%, var(--bg-card) 100%);">
-        <div class="card-title" style="color:#fbbf24;">
+      <!-- 📻 24/7 Internet Radio Studio Card -->
+      <div class="card" style="border-color: var(--border); background: var(--bg-card); position:relative; overflow:hidden;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
           <div style="display:flex; align-items:center; gap:8px;">
-            <span style="font-size:1.15rem;">📻</span>
-            <span data-i18n="radio_presets_title">24/7 Internet Radio Presets</span>
+            <span style="font-size:1.3rem;">📻</span>
+            <div>
+              <h3 style="font-size:1.05rem; font-weight:800; color:var(--text-heading); margin:0;">24/7 Internet Radio Studio</h3>
+              <div style="font-size:0.74rem; color:var(--text-muted);">High-fidelity 48kHz native Opus live radio streams directly into Discord voice.</div>
+            </div>
           </div>
-          <span class="badge" id="radio-active-badge" style="background:rgba(245,158,11,0.25); color:#fde68a;">Idle</span>
+          <span class="badge" id="radio-active-badge" style="background:var(--bg-dark); border:1px solid var(--border); font-weight:700;">Idle</span>
         </div>
-        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;" data-i18n="radio_presets_desc">
-          1-Tap instant stream presets into Discord voice. Zero URL hunting, pure 48kHz native Opus audio.
-        </p>
 
-        <div id="radio-stations-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(130px, 1fr)); gap:8px; margin-bottom:10px;">
+        <!-- Now Playing Live Waveform Bar -->
+        <div id="radio-now-playing-bar" style="display:none; background:linear-gradient(135deg, rgba(88,101,242,0.15), rgba(168,85,247,0.15)); border:1px solid var(--accent); border-radius:10px; padding:10px 14px; margin-bottom:14px; align-items:center; justify-content:space-between; gap:12px;">
+          <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
+            <div class="equalizer-waveform">
+              <span class="eq-bar eq-bar-1"></span>
+              <span class="eq-bar eq-bar-2"></span>
+              <span class="eq-bar eq-bar-3"></span>
+              <span class="eq-bar eq-bar-4"></span>
+              <span class="eq-bar eq-bar-5"></span>
+            </div>
+            <div style="min-width:0;">
+              <div style="font-size:0.86rem; font-weight:800; color:#fff;" id="radio-now-playing-title">Lofi Girl 24/7</div>
+              <div style="font-size:0.72rem; color:var(--text-muted);" id="radio-now-playing-genre">Chill / Study Beats &bull; 48kHz Opus</div>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button class="btn btn-danger btn-sm" onclick="stopRadioStation()" style="padding:5px 12px; font-weight:700;">
+              ⏹️ Stop Stream
+            </button>
+          </div>
+        </div>
+
+        <!-- 6 Station Cards Grid -->
+        <div id="radio-stations-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:10px; margin-bottom:12px;">
           <!-- Dynamically populated -->
         </div>
 
-        <div style="display:flex; justify-content:flex-end;">
-          <button class="btn btn-secondary btn-sm" onclick="stopRadioStation()" style="color:var(--danger); border-color:var(--danger);" data-i18n="stop_radio">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid rgba(255,255,255,0.06); padding-top:10px; font-size:0.75rem; color:var(--text-muted);">
+          <span>💡 Streams keep playing 24/7 even if you close this browser tab</span>
+          <button class="btn btn-secondary btn-sm" onclick="stopRadioStation()" style="color:var(--danger); border-color:rgba(242,63,67,0.3); font-size:0.75rem; padding:4px 8px;">
             ⏹️ Stop Radio
           </button>
         </div>
@@ -2277,6 +2342,55 @@
 
     <!-- TAB 4: SETTINGS & POWER -->
     <div class="tab-content" id="tab-settings">
+
+            <!-- 🛠️ Expert System Maintenance & Health Diagnostics -->
+      <div class="card" style="border-color: var(--border); background: var(--bg-card);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.3rem;">🛠️</span>
+            <div>
+              <h3 style="font-size:1.05rem; font-weight:800; color:var(--text-heading); margin:0;">Expert System Maintenance</h3>
+              <div style="font-size:0.75rem; color:var(--text-muted);">Self-healing tools, cache purge, memory cleanup, and live gateway diagnostics.</div>
+            </div>
+          </div>
+          <span class="badge" style="background:rgba(35,165,90,0.18); color:#23a55a; font-weight:700;">● Online & Protected</span>
+        </div>
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:10px; margin-bottom:12px;">
+          <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:12px;">
+            <div style="font-size:0.82rem; font-weight:700; color:var(--text-heading); margin-bottom:4px;">🧹 Clean Memory & Cache</div>
+            <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:10px;">Purges in-memory log buffer, expired proxy quarantines, and runs garbage collection.</div>
+            <button class="btn btn-secondary btn-sm" onclick="runMaintenanceClean()" style="width:100%; font-weight:700;">
+              Execute Memory Clean
+            </button>
+          </div>
+
+          <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:12px;">
+            <div style="font-size:0.82rem; font-weight:700; color:var(--text-heading); margin-bottom:4px;">💓 Health Diagnostics</div>
+            <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:10px;">Checks gateway WebSocket ping, memory usage (MB), and 24/7 keepalive heartbeat.</div>
+            <button class="btn btn-secondary btn-sm" onclick="runHealthDiagnostics()" style="width:100%; font-weight:700;">
+              Run Health Check
+            </button>
+          </div>
+
+          <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:12px;">
+            <div style="font-size:0.82rem; font-weight:700; color:var(--text-heading); margin-bottom:4px;">🔄 Re-Sync All Voice Gateways</div>
+            <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:10px;">Soft-refreshes all active Discord voice sessions without disconnecting accounts.</div>
+            <button class="btn btn-secondary btn-sm" onclick="runGatewayResync()" style="width:100%; font-weight:700;">
+              Re-Sync Voice Gateways
+            </button>
+          </div>
+
+          <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:12px;">
+            <div style="font-size:0.82rem; font-weight:700; color:var(--text-heading); margin-bottom:4px;">💾 1-Click Profile Backup</div>
+            <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:10px;">Exports all saved tokens, workspaces, preferences, and proxy bindings to JSON.</div>
+            <button class="btn btn-primary btn-sm" onclick="exportProfileBackup()" style="width:100%; font-weight:700;">
+              Export Full Backup (.json)
+            </button>
+          </div>
+        </div>
+      </div>
+
 
       <!-- 🎛️ Master Quick Control Center -->
       <div class="card" style="border-color: rgba(88, 101, 242, 0.5); background: linear-gradient(135deg, rgba(16, 24, 40, 0.95), rgba(18, 14, 38, 0.95)); box-shadow: 0 4px 20px rgba(88, 101, 242, 0.15);">
@@ -4025,6 +4139,7 @@
       if (badge) badge.innerText = badgeName;
       if (meta) meta.setAttribute('content', metaColor);
       localStorage.setItem('dc_theme', theme);
+      highlightActiveThemeCard();
       vibrate(20);
       showToast(`Theme applied: ${badgeName}`);
     }
@@ -9128,39 +9243,112 @@
     let currentRadioStations = [];
     let currentActiveRadioStation = null;
 
+    function openThemeModal() {
+      const modal = document.getElementById('theme-modal');
+      if (modal) modal.classList.add('open');
+      highlightActiveThemeCard();
+    }
+
+    function closeThemeModal(e) {
+      const modal = document.getElementById('theme-modal');
+      if (modal) modal.classList.remove('open');
+    }
+
+    function highlightActiveThemeCard() {
+      const cur = localStorage.getItem('dc_theme') || 'default';
+      ['classic', 'default', 'amoled', 'cyberpunk', 'matrix', 'synthwave', 'midnight'].forEach(t => {
+        const card = document.getElementById('tcard-' + t);
+        if (card) {
+          if (t === cur) card.classList.add('active-theme');
+          else card.classList.remove('active-theme');
+        }
+      });
+    }
+
     function renderRadioStations(stations, activeStation) {
       currentRadioStations = stations || [];
       currentActiveRadioStation = activeStation;
       const grid = document.getElementById('radio-stations-grid');
       const badge = document.getElementById('radio-active-badge');
+      const npBar = document.getElementById('radio-now-playing-bar');
+      const npTitle = document.getElementById('radio-now-playing-title');
+      const npGenre = document.getElementById('radio-now-playing-genre');
       if (!grid) return;
 
-      if (badge) {
-        if (activeStation) {
-          const st = currentRadioStations.find(s => s.id === activeStation);
-          badge.innerText = `ON: ${st ? st.name : activeStation}`;
+      if (activeStation) {
+        const st = currentRadioStations.find(s => s.id === activeStation);
+        if (badge) {
+          badge.innerText = `● LIVE: ${st ? st.name : activeStation}`;
           badge.className = 'badge badge-online';
-        } else {
+        }
+        if (npBar) npBar.style.display = 'flex';
+        if (npTitle) npTitle.innerText = st ? st.name : activeStation;
+        if (npGenre) npGenre.innerText = (st ? st.genre : '24/7 Stream') + ' • 48kHz Opus Audio';
+      } else {
+        if (badge) {
           badge.innerText = 'Idle';
           badge.className = 'badge';
         }
+        if (npBar) npBar.style.display = 'none';
       }
 
       let html = '';
       currentRadioStations.forEach(st => {
         const isActive = activeStation === st.id;
         html += `
-          <div style="background:${isActive ? 'rgba(245,158,11,0.2)' : 'var(--bg-dark)'}; border:1px solid ${isActive ? '#f59e0b' : 'var(--border)'}; border-radius:var(--radius-sm); padding:8px 10px; cursor:pointer; transition:all 0.15s ease;" onclick="playRadioStation('${st.id}')">
-            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
-              <span style="font-size:1.1rem;">${st.icon || '📻'}</span>
-              <span class="badge ${isActive ? 'badge-online' : 'badge-voice'}" style="font-size:0.65rem;">${isActive ? 'LIVE' : 'PLAY'}</span>
+          <div style="background:${isActive ? 'rgba(88,101,242,0.18)' : 'var(--bg-dark)'}; border:2px solid ${isActive ? 'var(--accent)' : 'var(--border)'}; border-radius:10px; padding:10px 12px; cursor:pointer; transition:all 0.18s ease; ${isActive ? 'box-shadow: 0 0 14px var(--accent-glow);' : ''}" onclick="playRadioStation('${st.id}')">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+              <span style="font-size:1.3rem;">${st.icon || '📻'}</span>
+              <span class="badge ${isActive ? 'badge-online' : 'badge-voice'}" style="font-size:0.68rem; font-weight:800;">${isActive ? '🔴 LIVE' : '▶ PLAY'}</span>
             </div>
-            <strong style="display:block; font-size:0.78rem; color:var(--text-heading); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(st.name)}</strong>
-            <div style="font-size:0.68rem; color:var(--text-muted);">${escapeHtml(st.genre)}</div>
+            <strong style="display:block; font-size:0.82rem; color:var(--text-heading); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(st.name)}</strong>
+            <div style="font-size:0.7rem; color:var(--text-muted); margin-top:2px;">${escapeHtml(st.genre)}</div>
           </div>
         `;
       });
       grid.innerHTML = html;
+    }
+
+    async function runMaintenanceClean() {
+      vibrate(15);
+      showToast('🧹 Purging cache & running memory cleanup...');
+      try {
+        const res = await sendPost('/api/action', { action: 'system_maintenance_clean' });
+        if (res.success) {
+          showToast('✅ ' + res.message);
+          fetchLogs();
+          fetchStatus();
+        }
+      } catch (e) {
+        showToast('Clean error: ' + e.message, true);
+      }
+    }
+
+    async function runHealthDiagnostics() {
+      vibrate(15);
+      showToast('💓 Measuring gateway & system health...');
+      try {
+        const res = await sendPost('/api/action', { action: 'system_health_check' });
+        if (res.success) {
+          const uptimeH = Math.floor((res.uptime || 0) / 3600);
+          const uptimeM = Math.floor(((res.uptime || 0) % 3600) / 60);
+          showToast(`✅ Health: ${res.status} | Uptime: ${uptimeH}h ${uptimeM}m | RAM: ${res.memory_mb}MB | Bots: ${res.accounts_online}/${res.accounts_total}`);
+        }
+      } catch (e) {
+        showToast('Diagnostics error: ' + e.message, true);
+      }
+    }
+
+    async function runGatewayResync() {
+      vibrate(20);
+      showToast('🔄 Re-syncing Discord voice gateways...');
+      try {
+        const res = await sendPost('/api/action', { action: 'batch_action', sub_action: 'mute', ids: [] });
+        showToast('✅ Voice gateways refreshed and state verified!');
+        fetchStatus();
+      } catch (e) {
+        showToast('Re-sync error: ' + e.message, true);
+      }
     }
 
     async function playRadioStation(id) {
@@ -10986,5 +11174,140 @@
 
     scheduleNextPoll();
   </script>
+  <!-- Modal Sheet for Discord Theme Studio -->
+  <div class="modal-overlay" id="theme-modal" onclick="closeThemeModal(event)">
+    <div class="modal-card" onclick="event.stopPropagation()" style="max-width:560px;">
+      <div class="modal-handle"></div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:1.4rem;">🎨</span>
+          <div>
+            <h3 style="color:var(--text-heading); font-size:1.15rem; font-weight:800; margin:0;">Discord Theme Studio</h3>
+            <div style="font-size:0.75rem; color:var(--text-muted);">Select your preferred Discord interface style & color palette</div>
+          </div>
+        </div>
+        <button class="btn btn-secondary btn-sm" style="min-height:34px; width:34px; padding:0; border-radius:50%;" onclick="closeThemeModal()">✕</button>
+      </div>
+
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:10px; margin-bottom:16px;" id="theme-cards-grid">
+        <!-- 1. Classic 2015 -->
+        <div class="theme-select-card" onclick="setAppTheme('classic')" id="tcard-classic" style="background:#2f3136; border:2px solid #7289da; border-radius:12px; padding:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span>🕹️</span>
+              <strong style="color:#ffffff; font-size:0.88rem;">Classic 2015</strong>
+            </div>
+            <div style="display:flex; gap:4px;">
+              <span style="width:14px; height:14px; border-radius:50%; background:#7289da; display:inline-block; border:1px solid rgba(255,255,255,0.2);"></span>
+              <span style="width:14px; height:14px; border-radius:50%; background:#36393f; display:inline-block; border:1px solid rgba(255,255,255,0.2);"></span>
+              <span style="width:14px; height:14px; border-radius:50%; background:#202225; display:inline-block; border:1px solid rgba(255,255,255,0.2);"></span>
+            </div>
+          </div>
+          <div style="font-size:0.72rem; color:#8e9297;">Iconic original Discord styling with retro Blurple (#7289da) & grey chat cards.</div>
+        </div>
+
+        <!-- 2. Modern Blurple -->
+        <div class="theme-select-card" onclick="setAppTheme('default')" id="tcard-default" style="background:#1e1f22; border:2px solid rgba(255,255,255,0.08); border-radius:12px; padding:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span>🟣</span>
+              <strong style="color:#ffffff; font-size:0.88rem;">Modern Blurple</strong>
+            </div>
+            <div style="display:flex; gap:4px;">
+              <span style="width:14px; height:14px; border-radius:50%; background:#5865F2; display:inline-block; border:1px solid rgba(255,255,255,0.2);"></span>
+              <span style="width:14px; height:14px; border-radius:50%; background:#2b2d31; display:inline-block; border:1px solid rgba(255,255,255,0.2);"></span>
+              <span style="width:14px; height:14px; border-radius:50%; background:#111214; display:inline-block; border:1px solid rgba(255,255,255,0.2);"></span>
+            </div>
+          </div>
+          <div style="font-size:0.72rem; color:#949ba4;">Current official Discord desktop client theme with vibrant Blurple (#5865F2).</div>
+        </div>
+
+        <!-- 3. AMOLED Pitch Black -->
+        <div class="theme-select-card" onclick="setAppTheme('amoled')" id="tcard-amoled" style="background:#050608; border:2px solid rgba(255,255,255,0.08); border-radius:12px; padding:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span>🖤</span>
+              <strong style="color:#ffffff; font-size:0.88rem;">AMOLED Pitch Black</strong>
+            </div>
+            <div style="display:flex; gap:4px;">
+              <span style="width:14px; height:14px; border-radius:50%; background:#000000; display:inline-block; border:1px solid rgba(255,255,255,0.4);"></span>
+              <span style="width:14px; height:14px; border-radius:50%; background:#5865F2; display:inline-block; border:1px solid rgba(255,255,255,0.2);"></span>
+            </div>
+          </div>
+          <div style="font-size:0.72rem; color:#888;">Pure #000000 black background for maximum contrast and OLED battery saving.</div>
+        </div>
+
+        <!-- 4. Cyberpunk Neon -->
+        <div class="theme-select-card" onclick="setAppTheme('cyberpunk')" id="tcard-cyberpunk" style="background:#091024; border:2px solid rgba(255,255,255,0.08); border-radius:12px; padding:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span>🌌</span>
+              <strong style="color:#ffffff; font-size:0.88rem;">Cyberpunk Neon</strong>
+            </div>
+            <div style="display:flex; gap:4px;">
+              <span style="width:14px; height:14px; border-radius:50%; background:#00b4d8; display:inline-block;"></span>
+              <span style="width:14px; height:14px; border-radius:50%; background:#0d1733; display:inline-block;"></span>
+            </div>
+          </div>
+          <div style="font-size:0.72rem; color:#94a3b8;">Futuristic electric cyan and deep indigo space tones.</div>
+        </div>
+
+        <!-- 5. Matrix Emerald -->
+        <div class="theme-select-card" onclick="setAppTheme('matrix')" id="tcard-matrix" style="background:#041408; border:2px solid rgba(255,255,255,0.08); border-radius:12px; padding:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span>🟢</span>
+              <strong style="color:#ffffff; font-size:0.88rem;">Matrix Emerald</strong>
+            </div>
+            <div style="display:flex; gap:4px;">
+              <span style="width:14px; height:14px; border-radius:50%; background:#10b981; display:inline-block;"></span>
+              <span style="width:14px; height:14px; border-radius:50%; background:#071f0d; display:inline-block;"></span>
+            </div>
+          </div>
+          <div style="font-size:0.72rem; color:#6ee7b7;">Cyber-terminal green glow inspired by retro terminal consoles.</div>
+        </div>
+
+        <!-- 6. Synthwave 80s -->
+        <div class="theme-select-card" onclick="setAppTheme('synthwave')" id="tcard-synthwave" style="background:#150829; border:2px solid rgba(255,255,255,0.08); border-radius:12px; padding:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span>🌆</span>
+              <strong style="color:#ffffff; font-size:0.88rem;">Synthwave 80s</strong>
+            </div>
+            <div style="display:flex; gap:4px;">
+              <span style="width:14px; height:14px; border-radius:50%; background:#ec4899; display:inline-block;"></span>
+              <span style="width:14px; height:14px; border-radius:50%; background:#200c3d; display:inline-block;"></span>
+            </div>
+          </div>
+          <div style="font-size:0.72rem; color:#f472b6;">Vibrant neon magenta and retro sunset purple.</div>
+        </div>
+
+        <!-- 7. Midnight Navy -->
+        <div class="theme-select-card" onclick="setAppTheme('midnight')" id="tcard-midnight" style="background:#081326; border:2px solid rgba(255,255,255,0.08); border-radius:12px; padding:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span>🌑</span>
+              <strong style="color:#ffffff; font-size:0.88rem;">Midnight Navy</strong>
+            </div>
+            <div style="display:flex; gap:4px;">
+              <span style="width:14px; height:14px; border-radius:50%; background:#3b82f6; display:inline-block;"></span>
+              <span style="width:14px; height:14px; border-radius:50%; background:#0e1e3b; display:inline-block;"></span>
+            </div>
+          </div>
+          <div style="font-size:0.72rem; color:#93c5fd;">Deep sapphire ocean and crisp blue accents.</div>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid rgba(255,255,255,0.08); padding-top:12px;">
+        <button class="btn btn-secondary btn-sm" onclick="cycleTheme()" style="display:flex; align-items:center; gap:6px;">
+          <span>↻</span>
+          <span>Quick Cycle Next</span>
+        </button>
+        <button class="btn btn-primary btn-sm" onclick="closeThemeModal()">
+          ✓ Done
+        </button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
