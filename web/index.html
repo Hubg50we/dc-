@@ -4212,7 +4212,7 @@
           targetUrl = apiBaseUrl + targetUrl;
         }
       }
-      const key = (typeof currentAccessKey !== 'undefined' && currentAccessKey) || localStorage.getItem('dc_access_key') || sessionStorage.getItem('dc_access_key') || '';
+      const key = (typeof currentAccessKey !== 'undefined' && currentAccessKey) || sessionStorage.getItem('dc_access_key') || '';
       if (key) {
         if (options.headers instanceof Headers) {
           if (!options.headers.has('X-Access-Key')) {
@@ -4779,7 +4779,7 @@
 
     async function fetchStatus() {
       try {
-        const key = currentAccessKey || localStorage.getItem('dc_access_key') || sessionStorage.getItem('dc_access_key') || '';
+        const key = currentAccessKey || sessionStorage.getItem('dc_access_key') || '';
         const targetWs = (typeof currentActiveWorkspace !== 'undefined' ? currentActiveWorkspace : (localStorage.getItem('dc_active_workspace') || '')).trim();
         const headers = {};
         if (key) {
@@ -5985,7 +5985,7 @@
       if (!token) return showToast('Please paste a token', true);
       showToast('Authenticating token...');
       try {
-        const key = currentAccessKey || localStorage.getItem('dc_access_key') || '';
+        const key = currentAccessKey || '';
         const targetWs = (typeof currentActiveWorkspace !== 'undefined' ? currentActiveWorkspace : (localStorage.getItem('dc_active_workspace') || '')).trim();
         const headers = { 'Content-Type': 'application/json' };
         if (key) headers['X-Access-Key'] = key;
@@ -6016,7 +6016,7 @@
       if (lines.length === 0) return showToast('No valid tokens entered', true);
       showToast(`Importing ${lines.length} accounts...`);
       try {
-        const key = currentAccessKey || localStorage.getItem('dc_access_key') || '';
+        const key = currentAccessKey || '';
         const targetWs = (typeof currentActiveWorkspace !== 'undefined' ? currentActiveWorkspace : (localStorage.getItem('dc_active_workspace') || '')).trim();
         const headers = { 'Content-Type': 'application/json' };
         if (key) headers['X-Access-Key'] = key;
@@ -6055,7 +6055,7 @@
       vibrate(20);
       if (!confirm(`Remove account #${aid}?`)) return;
       try {
-        const key = currentAccessKey || localStorage.getItem('dc_access_key') || '';
+        const key = currentAccessKey || '';
         const headers = { 'Content-Type': 'application/json' };
         if (key) headers['X-Access-Key'] = key;
         const res = await fetch('/api/action', {
@@ -6071,16 +6071,11 @@
         showToast('Error: ' + e.message, true);
       }
     }
-        fetchStatus();
-      } catch (err) {
-        showToast('Error: ' + err.message, true);
-      }
-    }
 
     async function copyAllTokens() {
       vibrate(15);
       try {
-        const res = await fetch('/api/tokens');
+        const res = await fetch('/api/tokens?reveal=1');
         const data = await res.json();
         const list = (data.raw_tokens || (data.tokens || []).map(t => typeof t === 'string' ? t : (t.token || ''))).filter(Boolean);
         if (list.length === 0) return showToast('No tokens loaded yet', true);
@@ -6094,7 +6089,7 @@
     async function exportTokensToFile() {
       vibrate(15);
       try {
-        const res = await fetch('/api/tokens');
+        const res = await fetch('/api/tokens?reveal=1');
         const data = await res.json();
         const list = (data.raw_tokens || (data.tokens || []).map(t => typeof t === 'string' ? t : (t.token || ''))).filter(Boolean);
         if (list.length === 0) return showToast('No tokens to export', true);
@@ -9874,12 +9869,11 @@
       const urlParams = new URLSearchParams(window.location.search);
       const urlKey = urlParams.get('key') || urlParams.get('access_key');
       if (urlKey && urlKey.trim()) {
-        const clean = urlKey.trim();
-        localStorage.setItem('dc_access_key', clean);
-        document.cookie = "dc_access_key=" + encodeURIComponent(clean) + "; path=/; max-age=31536000; SameSite=Lax";
-        return clean;
+        // Share-link credentials stay in memory only and are removed from the URL bar.
+        try { history.replaceState(null, '', window.location.pathname + window.location.hash); } catch (e) {}
+        return urlKey.trim();
       }
-      return localStorage.getItem('dc_access_key') || sessionStorage.getItem('dc_access_key') || '';
+      return sessionStorage.getItem('dc_access_key') || '';
     })();
     let currentActiveWorkspace = (function() {
       const urlParams = new URLSearchParams(window.location.search);
@@ -9897,53 +9891,25 @@
       const portal = document.getElementById('login-portal-screen');
       if (!portal) return;
 
-      const savedUser = localStorage.getItem('dc_username') || sessionStorage.getItem('dc_username') || '';
-      const savedPass = localStorage.getItem('dc_password') || sessionStorage.getItem('dc_password') || currentAccessKey;
-      const savedCustomPass = localStorage.getItem('dc_custom_admin_pass') || '';
-      let cachedUsers = {};
-      try { cachedUsers = JSON.parse(localStorage.getItem('dc_persisted_users_backup') || '{}'); } catch(e){}
+      // Older builds cached plaintext passwords in localStorage. Purge them.
+      try {
+        localStorage.removeItem('dc_password');
+        localStorage.removeItem('dc_custom_admin_pass');
+        localStorage.removeItem('dc_persisted_users_backup');
+        localStorage.removeItem('dc_access_key');
+      } catch (e) {}
 
-      if (savedUser || savedPass || savedCustomPass) {
-        const uToTry = savedUser || 'admin';
-        const pToTry = savedPass || savedCustomPass;
-        try {
-          const res = await fetch('/api/action', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: 'auto_heal_auth',
-              username: uToTry,
-              password: pToTry,
-              client_custom_pass: savedCustomPass || (uToTry.toLowerCase() in { admin: 1, hubg50: 1, '': 1 } ? pToTry : ''),
-              users_backup: cachedUsers
-            })
-          });
-          const data = await res.json();
-          if (data && (data.valid || data.authenticated)) {
-            const resolvedUser = data.username || uToTry;
-            currentAccessKey = data.key || resolvedUser;
-            currentIsAdmin = Boolean(data.is_admin || resolvedUser.toLowerCase() in { admin: 1, hubg50: 1 });
-            hideLoginPortal();
-            updateKeySettingsUI(currentAccessKey, true);
-            if (data.auto_healed) {
-              console.log('⚡ [Auto-Heal] Successfully restored credentials & workspaces after server reboot');
-              showToast('⚡ Restored your custom password & spaces across server restart!');
-            }
-            fetchStatus();
-            return;
-          }
-        } catch(e) {
-          console.warn('[Auto-Heal] Handshake notice:', e);
-        }
+      const sessionKey = sessionStorage.getItem('dc_access_key') || '';
+      if (sessionKey) {
+        verifyStoredKey(sessionKey);
+        return;
       }
-
-      if (savedUser && savedPass) {
-        verifyStoredCredentials(savedUser, savedPass);
-      } else if (currentAccessKey) {
+      if (currentAccessKey) {
+        // Credential supplied through a share link (?key=...).
         verifyStoredKey(currentAccessKey);
-      } else {
-        showLoginPortal();
+        return;
       }
+      showLoginPortal();
     }
 
     function showLoginPortal() {
@@ -10031,11 +9997,6 @@
       if (btn) btn.innerHTML = '<span>⏳</span><span>Verifying...</span>';
       if (err) err.style.display = 'none';
 
-      let cachedUsers = {};
-      try { cachedUsers = JSON.parse(localStorage.getItem('dc_persisted_users_backup') || '{}'); } catch(e){}
-      const savedCustomPass = localStorage.getItem('dc_custom_admin_pass') || '';
-      const isAdmU = (uVal.toLowerCase() in { admin: 1, hubg50: 1, '': 1 });
-
       try {
         const res = await fetch('/api/action', {
           method: 'POST',
@@ -10043,9 +10004,7 @@
           body: JSON.stringify({
             action: 'login',
             username: uVal,
-            password: pVal,
-            client_custom_pass: isAdmU ? (savedCustomPass || pVal) : '',
-            users_backup: cachedUsers
+            password: pVal
           })
         });
         if (!res.ok) {
@@ -10058,21 +10017,18 @@
           currentAccessKey = data.key || resolvedUser;
           currentIsAdmin = Boolean(data.is_admin || resolvedUser.toLowerCase() in { admin: 1, hubg50: 1 });
           const sec = (window.location.protocol === 'https:') ? '; Secure' : '';
-          document.cookie = "dc_access_key=" + encodeURIComponent(currentAccessKey) + "; path=/; max-age=31536000; SameSite=Lax" + sec;
           document.cookie = "dc_username=" + encodeURIComponent(resolvedUser) + "; path=/; max-age=31536000; SameSite=Lax" + sec;
+          // Credentials stay in session storage only; never persist passwords in localStorage.
+          sessionStorage.setItem('dc_access_key', currentAccessKey);
+          sessionStorage.setItem('dc_username', resolvedUser);
           const remember = document.getElementById('login-remember-me');
           if (remember && remember.checked) {
-            localStorage.setItem('dc_access_key', currentAccessKey);
             localStorage.setItem('dc_username', resolvedUser);
-            localStorage.setItem('dc_password', pVal);
-            if (currentIsAdmin) {
-              localStorage.setItem('dc_custom_admin_pass', pVal);
-            }
-          } else {
-            sessionStorage.setItem('dc_access_key', currentAccessKey);
-            sessionStorage.setItem('dc_username', resolvedUser);
-            sessionStorage.setItem('dc_password', pVal);
           }
+          localStorage.removeItem('dc_access_key');
+          localStorage.removeItem('dc_password');
+          localStorage.removeItem('dc_custom_admin_pass');
+          localStorage.removeItem('dc_persisted_users_backup');
           hideLoginPortal();
           updateKeySettingsUI(currentAccessKey, true);
           if (data.auto_healed) {
@@ -10122,12 +10078,15 @@
         const res = await fetch('/api/action', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'login', key: key })
+          body: JSON.stringify({ action: 'validate_session', key: key })
         });
         const data = await res.json();
-        if (data && (data.valid || data.authenticated)) {
+        if (data && data.valid) {
+          currentIsAdmin = Boolean(data.is_admin);
           hideLoginPortal();
           updateKeySettingsUI(key, true);
+          fetchStatus();
+          fetchLogs();
         } else {
           showLoginPortal();
         }
@@ -10146,7 +10105,11 @@
       const el = document.getElementById(`key-display-${k}`);
       if (!el) return;
       if (el.innerText === '••••••••') {
-        el.innerText = pass || k;
+        if (!pass) {
+          showToast('🔒 This password is stored as a hash. Reset it to set a new one.', true);
+          return;
+        }
+        el.innerText = pass;
       } else {
         el.innerText = '••••••••';
       }
@@ -10159,7 +10122,7 @@
       }
       const newP = prompt(`Enter new password for '${targetUser}':`);
       if (!newP || !newP.trim()) return;
-      const key = currentAccessKey || localStorage.getItem('dc_access_key') || sessionStorage.getItem('dc_access_key') || '';
+      const key = currentAccessKey || sessionStorage.getItem('dc_access_key') || '';
       try {
         const headers = { 'Content-Type': 'application/json' };
         if (key) headers['X-Access-Key'] = key;
@@ -10176,13 +10139,6 @@
         });
         const data = await res.json();
         if (data && data.success) {
-          try {
-            const cached = JSON.parse(localStorage.getItem('dc_persisted_users_backup') || '{}');
-            if (cached[targetUser.toLowerCase()]) {
-              cached[targetUser.toLowerCase()].password = newP.trim();
-              localStorage.setItem('dc_persisted_users_backup', JSON.stringify(cached));
-            }
-          } catch (e) {}
           showToast(`🔑 Password updated for '${targetUser}'`);
           fetchStatus();
           loadWorkspacesList();
@@ -10196,6 +10152,16 @@
     }
 
     function logoutDashboard() {
+      try {
+        const key = currentAccessKey || sessionStorage.getItem('dc_access_key') || '';
+        if (key) {
+          fetch('/api/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Access-Key': key },
+            body: JSON.stringify({ action: 'logout' })
+          }).catch(() => {});
+        }
+      } catch (e) {}
       localStorage.removeItem('dc_access_key');
       localStorage.removeItem('dc_username');
       localStorage.removeItem('dc_password');
@@ -10215,10 +10181,10 @@
 
     function updateKeySettingsUI(key, isAuthed) {
       const curInput = document.getElementById('settings-current-key');
-      if (curInput) curInput.value = key || '';
-      const envKeyInput = document.getElementById('render-env-key-string');
-      if (envKeyInput && key) {
-        envKeyInput.value = `DC_ACCESS_KEY=${key}`;
+      // Never pre-fill a session token into a password field.
+      if (curInput) {
+        curInput.value = '';
+        curInput.placeholder = 'Current password';
       }
       const badge = document.getElementById('key-system-badge');
       if (badge) {
@@ -10280,7 +10246,7 @@
             <td style="padding:8px 6px;">
               <div style="display:flex; align-items:center; gap:4px;">
                 <span id="key-display-${u}" style="font-family:monospace; background:rgba(0,0,0,0.35); padding:2px 6px; border-radius:4px; color:#93c5fd; font-size:0.75rem;">••••••••</span>
-                <button onclick="toggleKeyReveal('${u}', '${(ws.password || '').replace(/'/g, "\\'")}')" class="btn btn-secondary btn-sm" style="font-size:0.6rem; padding:1px 4px;" title="Reveal Password">👁️</button>
+                <button onclick="toggleKeyReveal('${u}', '${(ws.password || '').replace(/'/g, "\\'")}')" class="btn btn-secondary btn-sm" style="font-size:0.6rem; padding:1px 4px;${ws.password_hashed ? ' opacity:0.45;' : ''}" title="${ws.password_hashed ? 'Password is stored as a hash and cannot be revealed' : 'Reveal Password'}">👁️</button>
               </div>
             </td>
             <td style="padding:8px 6px;">
@@ -10321,7 +10287,7 @@
     async function loadWorkspacesList() {
       try {
         const headers = {};
-        const key = currentAccessKey || localStorage.getItem('dc_access_key') || sessionStorage.getItem('dc_access_key') || '';
+        const key = currentAccessKey || sessionStorage.getItem('dc_access_key') || '';
         const targetWs = (typeof currentActiveWorkspace !== 'undefined' ? currentActiveWorkspace : (localStorage.getItem('dc_active_workspace') || '')).trim();
         if (key) {
           headers['X-Access-Key'] = key;
@@ -10402,77 +10368,13 @@
     }
 
     async function handleAutomaticWorkspacesPersistence(serverWorkspaces, adminKey) {
+      // Workspaces are persisted server-side (workspaces.json / cloud providers).
+      // Older builds copied full workspace objects, including passwords, into
+      // localStorage; purge that cache and do not re-import credentials.
       try {
-        const STORAGE_KEY = 'dc_persisted_users_backup';
-        let cached = {};
-        try {
-          cached = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-        } catch (e) {
-          cached = {};
-        }
-
-        const serverMap = {};
-        (serverWorkspaces || []).forEach(ws => {
-          const u = (ws.username || ws.key || '').trim().toLowerCase();
-          if (u) serverMap[u] = ws;
-        });
-
-        // 1. Detect if server restarted and lost users from previous sessions
-        const missingOnServer = {};
-        let missingCount = 0;
-        for (const [k, ws] of Object.entries(cached)) {
-          if (!serverMap[k] && k !== 'admin' && k !== 'hubg50') {
-            missingOnServer[k] = ws;
-            missingCount++;
-          }
-        }
-
-        if (missingCount > 0) {
-          console.log(`[Auto-Sync] Server restart detected! Restoring ${missingCount} user(s) automatically...`);
-          const res = await fetch('/api/action', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Access-Key': adminKey },
-            body: JSON.stringify({
-              action: 'import_workspaces',
-              admin_key: adminKey,
-              key: adminKey,
-              workspaces: missingOnServer
-            })
-          });
-          const resData = await res.json();
-          if (resData && resData.success) {
-            showToast(`⚡ [Auto-Sync] Restored ${missingCount} user(s) automatically after restart!`);
-            const ref = await fetch(`/api/workspaces?key=${encodeURIComponent(adminKey)}`, {
-              headers: { 'X-Access-Key': adminKey }
-            });
-            const refData = await ref.json();
-            if (refData && refData.workspaces) {
-              renderWorkspacesTable(refData.workspaces, adminKey, true);
-              if (refData.env_string && document.getElementById('render-env-users-string')) {
-                document.getElementById('render-env-users-string').value = refData.env_string;
-              }
-            }
-          }
-          return;
-        }
-
-        // 2. Otherwise update local cache with all valid non-admin users from server
-        let updatedCache = false;
-        (serverWorkspaces || []).forEach(ws => {
-          const u = (ws.username || ws.key || '').trim().toLowerCase();
-          if (u && u !== 'admin' && u !== 'hubg50') {
-            if (!cached[u] || cached[u].password !== ws.password) {
-              cached[u] = ws;
-              updatedCache = true;
-            }
-          }
-        });
-        if (updatedCache) {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(cached));
-        }
-      } catch (err) {
-        console.warn('[Auto-Sync Error]:', err);
-      }
+        localStorage.removeItem('dc_persisted_users_backup');
+        localStorage.removeItem('dc_custom_admin_pass');
+      } catch (e) {}
     }
 
     function copyRenderEnvUsersString() {
@@ -10490,7 +10392,7 @@
 
     async function exportWorkspacesBackup() {
       try {
-        const key = currentAccessKey || localStorage.getItem('dc_access_key') || '';
+        const key = currentAccessKey || '';
         const res = await fetch('/api/action', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Access-Key': key },
@@ -10517,7 +10419,7 @@
       if (!jsonStr || !jsonStr.trim()) return;
       try {
         const parsed = JSON.parse(jsonStr.trim());
-        const key = currentAccessKey || localStorage.getItem('dc_access_key') || '';
+        const key = currentAccessKey || '';
         const res = await fetch('/api/action', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Access-Key': key },
@@ -10563,7 +10465,7 @@
 
       try {
         const headers = { 'Content-Type': 'application/json' };
-        const key = currentAccessKey || localStorage.getItem('dc_access_key') || sessionStorage.getItem('dc_access_key') || '';
+        const key = currentAccessKey || sessionStorage.getItem('dc_access_key') || '';
         if (key) {
           headers['X-Access-Key'] = key;
         }
@@ -10582,21 +10484,7 @@
         });
         const data = await res.json();
         if (data && data.success) {
-          // Immediately update local persistent cache
-          try {
-            const cached = JSON.parse(localStorage.getItem('dc_persisted_users_backup') || '{}');
-            cached[uVal.toLowerCase()] = {
-              username: uVal,
-              password: pVal,
-              key: uVal,
-              name: nameVal,
-              guild_id: gidVal,
-              is_admin: false,
-              created_at: Math.floor(Date.now() / 1000)
-            };
-            localStorage.setItem('dc_persisted_users_backup', JSON.stringify(cached));
-          } catch (e) {}
-          showToast(`🏢 User '${uVal}' created successfully! (Auto-saved)`);
+          showToast(`🏢 User '${uVal}' created successfully!`);
           if (uInp) uInp.value = '';
           if (pInp) pInp.value = '';
           if (nameInp) nameInp.value = '';
@@ -10622,7 +10510,7 @@
       }
       try {
         const headers = { 'Content-Type': 'application/json' };
-        const key = currentAccessKey || localStorage.getItem('dc_access_key') || sessionStorage.getItem('dc_access_key') || '';
+        const key = currentAccessKey || sessionStorage.getItem('dc_access_key') || '';
         if (key) {
           headers['X-Access-Key'] = key;
         }
@@ -10638,14 +10526,6 @@
         });
         const data = await res.json();
         if (data && data.success) {
-          // Remove from local persistent cache immediately
-          try {
-            const cached = JSON.parse(localStorage.getItem('dc_persisted_users_backup') || '{}');
-            if (cached[targetKey.toLowerCase()]) {
-              delete cached[targetKey.toLowerCase()];
-              localStorage.setItem('dc_persisted_users_backup', JSON.stringify(cached));
-            }
-          } catch (e) {}
           showToast(`🗑️ User space '${targetKey}' deleted`);
           fetchStatus();
           loadWorkspacesList();
@@ -10662,11 +10542,7 @@
       if (!targetKey) return;
       currentActiveWorkspace = targetKey.toLowerCase();
       localStorage.setItem('dc_active_workspace', currentActiveWorkspace);
-      if (!currentIsAdmin) {
-        currentAccessKey = targetKey;
-        localStorage.setItem('dc_access_key', targetKey);
-        document.cookie = "dc_access_key=" + encodeURIComponent(targetKey) + "; path=/; max-age=31536000; SameSite=Lax";
-      }
+      // Keep the session credential: usernames are identifiers, not passwords.
       showToast(`🏢 Switched to active space: ${targetKey}`);
       fetchStatus();
       loadWorkspacesList();
@@ -10683,20 +10559,28 @@
     }
 
     function copyWorkspaceLink(key) {
-      const url = `${window.location.origin}/?key=${encodeURIComponent(key)}`;
+      // Never put a password or session token in a URL. The link only preselects
+      // the workspace; the recipient still has to sign in with their password.
+      const url = `${window.location.origin}/?workspace=${encodeURIComponent(key)}`;
       navigator.clipboard.writeText(url).then(() => {
-        showToast(`🔗 Share link for '${key}' copied to clipboard!`);
+        showToast(`🔗 Workspace link for '${key}' copied. The recipient still needs their password.`);
       }).catch(() => {
-        prompt('Shareable link for this space:', url);
+        prompt('Shareable link for this space (password required):', url);
       });
     }
 
     function copyRenderEnvKeyString() {
       const el = document.getElementById('render-env-key-string');
-      const curKey = currentAccessKey || localStorage.getItem('dc_custom_admin_pass') || localStorage.getItem('dc_access_key') || 'hubg50';
-      const val = (el && el.value) || `DC_ACCESS_KEY=${curKey}`;
+      let val = el && el.value ? el.value : '';
+      if (!val) {
+        const pw = prompt('Enter your master password to build DC_ACCESS_KEY=...');
+        if (!pw) return;
+        val = `DC_ACCESS_KEY=${pw}`;
+        if (el) el.value = val;
+      }
       navigator.clipboard.writeText(val).then(() => {
-        showToast('📋 Copied: ' + val + ' (Paste into Render Environment)');
+        if (el) el.value = '';
+        showToast('📋 Copied DC_ACCESS_KEY (store it as a deployment secret)');
       }).catch(() => {
         prompt('Copy this into Render Environment Variables:', val);
       });
@@ -10707,8 +10591,12 @@
       const newInp = document.getElementById('settings-new-key');
       if (!newInp) return;
       const newK = newInp.value.trim();
-      const curK = (curInp && curInp.value.trim()) || currentAccessKey || 'hubg50';
+      const curK = (curInp && curInp.value.trim()) || '';
 
+      if (!curK) {
+        showToast('Enter your current password first.', true);
+        return;
+      }
       if (!newK) {
         showToast('Please enter a new access key.', true);
         return;
@@ -10722,17 +10610,32 @@
         });
         const data = await res.json();
         if (data && data.success) {
-          currentAccessKey = newK;
-          localStorage.setItem('dc_custom_admin_pass', newK);
-          localStorage.setItem('dc_access_key', newK);
-          localStorage.setItem('dc_password', newK);
-          sessionStorage.setItem('dc_access_key', newK);
-          sessionStorage.setItem('dc_password', newK);
+          // Password change revoked all sessions; log in again for a fresh token.
+          let newToken = newK;
+          try {
+            const lr = await fetch('/api/action', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'login',
+                username: localStorage.getItem('dc_username') || sessionStorage.getItem('dc_username') || 'admin',
+                password: newK
+              })
+            });
+            const ld = await lr.json();
+            if (ld && ld.valid && ld.key) newToken = ld.key;
+          } catch (e) {}
+          currentAccessKey = newToken;
+          sessionStorage.setItem('dc_access_key', newToken);
+          sessionStorage.removeItem('dc_password');
+          localStorage.removeItem('dc_access_key');
+          localStorage.removeItem('dc_password');
+          localStorage.removeItem('dc_custom_admin_pass');
           if (curInp) curInp.value = newK;
           newInp.value = '';
           const envInp = document.getElementById('render-env-key-string');
           if (envInp) envInp.value = `DC_ACCESS_KEY=${newK}`;
-          showToast(`🔐 Key updated to: ${newK} (Auto-heal active)`);
+          showToast('🔐 Password updated. Update DC_ACCESS_KEY in your deployment too.');
         } else {
           showToast(data.error || 'Failed to update access key.', true);
         }

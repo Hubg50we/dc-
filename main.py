@@ -15,7 +15,10 @@ import threading
 import time
 import urllib.request
 import urllib.error
+import hashlib
+import secrets
 import websockets
+import secure_store
 from media_streamer import DiscordMediaConnection
 
 # Log buffer for live console streaming
@@ -206,11 +209,13 @@ def load_workspaces():
                 data = json.load(f)
                 if isinstance(data, dict) and data:
                     USER_WORKSPACES = data
-                    # If custom admin password was saved and not hardcoded by env, adopt it
+                    # If custom admin password was saved in plaintext and not hardcoded by env, adopt it.
+                    # Hashed entries are verified at login time instead (never recoverable).
                     if "DC_ACCESS_KEY" not in os.environ:
                         adm_entry = USER_WORKSPACES.get("admin") or USER_WORKSPACES.get(ADMIN_USERNAME.lower())
-                        if adm_entry and adm_entry.get("password") and adm_entry["password"] != ADMIN_PASSWORD:
-                            ADMIN_PASSWORD = adm_entry["password"]
+                        saved_pw = (adm_entry or {}).get("password", "")
+                        if saved_pw and not secure_store.is_password_hash(saved_pw) and saved_pw != ADMIN_PASSWORD:
+                            ADMIN_PASSWORD = saved_pw
                             ACCESS_KEY = ADMIN_PASSWORD
                 else:
                     USER_WORKSPACES = default_ws
@@ -350,13 +355,46 @@ def generate_dc_users_env_string():
             continue
         u = ws.get("username", k)
         p = ws.get("password", "")
-        if u and p:
+        # Hashed passwords cannot be exported. Reset the user's password to get a fresh value.
+        if u and p and not secure_store.is_password_hash(p):
             entries.append(f"{u}:{p}")
     return ",".join(entries)
+
+
+_PASSWORD_HASH_CACHE = {}
+
+
+def _hash_for_storage(password):
+    """Hash a plaintext password, cached so repeated saves stay cheap."""
+    if secure_store.is_password_hash(password):
+        return password
+    cache_key = hashlib.sha256(str(password).encode("utf-8")).hexdigest()
+    cached = _PASSWORD_HASH_CACHE.get(cache_key)
+    if cached:
+        return cached
+    hashed = secure_store.hash_password(str(password))
+    if len(_PASSWORD_HASH_CACHE) > 512:
+        _PASSWORD_HASH_CACHE.clear()
+    _PASSWORD_HASH_CACHE[cache_key] = hashed
+    return hashed
+
+
+def _workspaces_for_storage():
+    """Return a JSON-safe snapshot with every plaintext password hashed."""
+    import copy
+    snapshot = copy.deepcopy(USER_WORKSPACES)
+    for ws in snapshot.values():
+        if isinstance(ws, dict):
+            pwd = ws.get("password")
+            if pwd:
+                ws["password"] = _hash_for_storage(pwd)
+    return snapshot
 
 def sync_workspaces_to_cloud():
     """Asynchronously sync USER_WORKSPACES to external cloud persistence."""
     def _worker():
+        # Hash plaintext passwords before anything leaves this process.
+        storage = _workspaces_for_storage()
         # Provider A: GitHub API Auto-Commit
         gh_token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
         gh_repo = os.environ.get("GITHUB_REPO", "Hubg50we/dc-").strip()
@@ -378,7 +416,7 @@ def sync_workspaces_to_cloud():
                     if he.code != 404:
                         print(f"[!] GitHub API GET error: {he}")
 
-                content_bytes = json.dumps(USER_WORKSPACES, indent=2).encode("utf-8")
+                content_bytes = json.dumps(storage, indent=2).encode("utf-8")
                 b64_content = base64.b64encode(content_bytes).decode("utf-8")
                 payload = {
                     "message": f"chore(workspaces): cloud auto-sync ({len(USER_WORKSPACES)} users) [skip ci]",
@@ -407,7 +445,7 @@ def sync_workspaces_to_cloud():
                 set_url = f"{upstash_url}/set/dc_workspaces"
                 req = urllib.request.Request(
                     set_url,
-                    data=json.dumps(USER_WORKSPACES).encode("utf-8"),
+                    data=json.dumps(storage).encode("utf-8"),
                     headers={
                         "Authorization": f"Bearer {upstash_token}",
                         "Content-Type": "application/json",
@@ -438,7 +476,7 @@ def sync_workspaces_to_cloud():
                         INSERT INTO dc_cloud_kv (key, val, updated_at)
                         VALUES ('workspaces', %s, %s)
                         ON CONFLICT (key) DO UPDATE SET val = EXCLUDED.val, updated_at = EXCLUDED.updated_at;
-                    """, (json.dumps(USER_WORKSPACES), int(time.time())))
+                    """, (json.dumps(storage), int(time.time())))
                     conn.commit()
                 conn.close()
                 print("[☁️ Cloud] Synced workspaces to PostgreSQL DATABASE_URL!")
@@ -464,32 +502,140 @@ def get_cloud_persistence_status():
     }
 
 def save_workspaces():
+    storage = _workspaces_for_storage()
+    payload = json.dumps(storage, indent=2)
     for fpath in [WORKSPACES_FILE, ".workspaces_backup.json"]:
         try:
-            with open(fpath, "w", encoding="utf-8") as f:
-                json.dump(USER_WORKSPACES, f, indent=2)
+            secure_store.atomic_write_text(fpath, payload)
         except Exception as e:
-            pass
+            print(f"[!] Could not save workspaces to {fpath}: {e}")
     try:
         if os.name != "nt" and os.path.exists("/tmp"):
-            with open("/tmp/workspaces.json", "w", encoding="utf-8") as f:
-                json.dump(USER_WORKSPACES, f, indent=2)
+            secure_store.atomic_write_text("/tmp/workspaces.json", payload)
     except Exception:
         pass
     sync_workspaces_to_cloud()
 
 load_workspaces()
 
+_MASTER_HASH_CACHE = {}
+
+
+def _master_password_ok(password):
+    """Validate a master password against the env key or a stored PBKDF2 hash."""
+    if not password:
+        return False
+    cache_key = hashlib.sha256(password.encode("utf-8")).hexdigest()
+    if _MASTER_HASH_CACHE.get(cache_key):
+        return True
+
+    # An explicit deployment key always wins.
+    if "DC_ACCESS_KEY" in os.environ:
+        return secure_store.verify_password(password, ADMIN_PASSWORD)
+
+    # Otherwise accept a stored admin hash. Once a hash exists, the built-in
+    # default password must stop working after the admin changes it.
+    hashed_admin = False
+    for k in (ADMIN_USERNAME.lower(), "admin", "hubg50"):
+        ws = USER_WORKSPACES.get(k)
+        if not isinstance(ws, dict) or not ws.get("is_admin"):
+            continue
+        stored = ws.get("password", "")
+        if stored and secure_store.is_password_hash(stored):
+            hashed_admin = True
+            if secure_store.verify_password(password, stored):
+                if len(_MASTER_HASH_CACHE) > 64:
+                    _MASTER_HASH_CACHE.clear()
+                _MASTER_HASH_CACHE[cache_key] = True
+                return True
+
+    # Fresh install or legacy plaintext storage.
+    if not hashed_admin and secure_store.verify_password(password, ADMIN_PASSWORD):
+        return True
+    return False
+
+
+_SESSIONS = {}
+_SESSIONS_LOCK = threading.Lock()
+SESSION_TTL_SECONDS = max(300, int(os.environ.get("DC_SESSION_TTL_SECONDS", str(12 * 3600))))
+
+
+def create_session(workspace_key, is_admin, username=None):
+    """Issue an opaque session token; passwords never become session keys."""
+    token = secrets.token_urlsafe(32)
+    now = time.time()
+    with _SESSIONS_LOCK:
+        if len(_SESSIONS) > 1024:
+            for k, v in list(_SESSIONS.items()):
+                if v.get("expires", 0) <= now:
+                    _SESSIONS.pop(k, None)
+        _SESSIONS[token] = {
+            "workspace": (workspace_key or "").strip().lower(),
+            "is_admin": bool(is_admin),
+            "username": username or workspace_key,
+            "expires": now + SESSION_TTL_SECONDS,
+        }
+    return token
+
+
+def get_session(key):
+    token = (key or "").strip()
+    if not token:
+        return None
+    now = time.time()
+    with _SESSIONS_LOCK:
+        sess = _SESSIONS.get(token)
+        if not sess:
+            return None
+        if sess.get("expires", 0) <= now:
+            _SESSIONS.pop(token, None)
+            return None
+        return dict(sess)
+
+
+def revoke_session(key):
+    token = (key or "").strip()
+    if not token:
+        return False
+    with _SESSIONS_LOCK:
+        return _SESSIONS.pop(token, None) is not None
+
+
+def resolve_workspace_key(key):
+    """Map a session token or credential to the owning workspace key."""
+    sess = get_session(key)
+    if sess:
+        return sess.get("workspace", "")
+    k = (key or "").strip()
+    if not k:
+        return ""
+    # Master password -> admin workspace. Bare usernames are identifiers only.
+    if _master_password_ok(k):
+        return ADMIN_USERNAME.strip().lower()
+    # A user's password identifies their workspace.
+    for ws in USER_WORKSPACES.values():
+        if not isinstance(ws, dict) or ws.get("is_admin"):
+            continue
+        if secure_store.verify_password(k, ws.get("password", "")):
+            return (ws.get("username") or ws.get("key") or "").strip().lower()
+    # Legacy workspaces with no stored password still need a usable key.
+    ws = _find_workspace(k)
+    if ws and not ws.get("is_admin") and not (ws.get("password") or "").strip():
+        return (ws.get("username") or ws.get("key") or "").strip().lower()
+    return ""
+
+
 def authenticate_user(username=None, password=None):
     u = (username or "").strip().lower()
     p = (password or "").strip()
 
     # 1. Master admin match
-    if (u in (ADMIN_USERNAME.lower(), "admin", "hubg50", "") and p == ADMIN_PASSWORD) or (p == ADMIN_PASSWORD and not u):
+    if u in (ADMIN_USERNAME.lower(), "admin", "hubg50", "") and _master_password_ok(p):
         return {
             "valid": True,
             "username": ADMIN_USERNAME,
-            "key": ADMIN_USERNAME,
+            # Return the credential actually used; usernames are not credentials.
+            "key": p,
             "name": "Master Workspace",
             "is_admin": True,
             "guild_id": GUILD_ID,
@@ -502,7 +648,7 @@ def authenticate_user(username=None, password=None):
         ws_user = (ws.get("username") or ws.get("key") or ws_k).strip().lower()
         ws_pass = (ws.get("password") or ws.get("key") or "").strip()
         # Direct username and password match
-        if u and u == ws_user and p and p == ws_pass:
+        if u and u == ws_user and p and secure_store.verify_password(p, ws_pass):
             return {
                 "valid": True,
                 "username": ws.get("username", ws_k),
@@ -513,8 +659,8 @@ def authenticate_user(username=None, password=None):
                 "channel_id": ws.get("channel_id", ""),
                 "presets": ws.get("presets", [])
             }
-        # Fallback if user passed key as password or single credential
-        if not u and p and (ws_pass == p or ws_k == p.lower()):
+        # Fallback for callers that supply a single credential (share links / cookies).
+        if not u and p and not ws.get("is_admin") and secure_store.verify_password(p, ws_pass):
             return {
                 "valid": True,
                 "username": ws.get("username", ws_k),
@@ -528,39 +674,88 @@ def authenticate_user(username=None, password=None):
 
     return None
 
-def get_workspace_info(key):
-    k = (key or ADMIN_USERNAME).strip().lower()
-    if k in USER_WORKSPACES:
-        return USER_WORKSPACES[k]
-    for ws_k, ws in USER_WORKSPACES.items():
-        if (ws.get("username", "").strip().lower() == k) or (ws.get("key", "").strip().lower() == k):
-            return ws
-    if k in (ADMIN_USERNAME.lower(), ACCESS_KEY.lower(), "admin", "hubg50"):
-        return {
-            "username": ADMIN_USERNAME,
-            "key": ADMIN_USERNAME,
-            "name": "Master Workspace",
-            "is_admin": True,
-            "guild_id": GUILD_ID,
-            "channel_id": CHANNEL_ID,
-            "presets": []
-        }
-    return None
-
-def is_admin_key(key):
+def _find_workspace(key):
+    """Look up a workspace by its key or username (never by password)."""
     k = (key or "").strip().lower()
     if not k:
-        return False
-    if k in (ADMIN_USERNAME.lower(), ACCESS_KEY.lower(), "admin", "hubg50"):
+        return None
+    if k in USER_WORKSPACES:
+        return USER_WORKSPACES[k]
+    for ws in USER_WORKSPACES.values():
+        if not isinstance(ws, dict):
+            continue
+        if (ws.get("username", "").strip().lower() == k) or (ws.get("key", "").strip().lower() == k):
+            return ws
+    return None
+
+
+def _master_workspace_info():
+    ws = _find_workspace(ADMIN_USERNAME) or USER_WORKSPACES.get("admin") or USER_WORKSPACES.get("hubg50") or {}
+    return {
+        "username": ws.get("username", ADMIN_USERNAME),
+        "key": ws.get("key", ADMIN_USERNAME),
+        "name": ws.get("name", "Master Workspace"),
+        "is_admin": True,
+        "guild_id": ws.get("guild_id") or GUILD_ID,
+        "channel_id": ws.get("channel_id") or CHANNEL_ID,
+        "presets": ws.get("presets", [])
+    }
+
+
+def get_workspace_info(key):
+    k = (key or "").strip()
+    ws = _find_workspace(k)
+    if ws:
+        return ws
+    if _master_password_ok(k):
+        return _master_workspace_info()
+    return None
+
+
+def is_admin_key(key):
+    """Master password or an admin session token; never a bare username."""
+    k = (key or "").strip()
+    sess = get_session(k)
+    if sess is not None:
+        return bool(sess.get("is_admin"))
+    return _master_password_ok(k)
+
+
+def is_admin_workspace(key):
+    """Whether the named workspace is an admin space (not a credential check)."""
+    ws = _find_workspace(key)
+    if ws:
+        return bool(ws.get("is_admin"))
+    return (key or "").strip().lower() in (ADMIN_USERNAME.lower(), "admin", "hubg50")
+
+
+def is_valid_key(key):
+    """True when the supplied value proves access to a workspace or the master admin."""
+    k = (key or "").strip()
+    if not k:
+        return not KEY_SYSTEM_ENABLED
+    if is_admin_key(k):
         return True
-    ws = get_workspace_info(k)
-    return bool(ws and ws.get("is_admin"))
+    if get_session(k):
+        return True
+    ws = _find_workspace(k)
+    if ws and not ws.get("is_admin"):
+        stored = ws.get("password", "")
+        return (not stored) or secure_store.verify_password(k, stored)
+    return False
+
 
 def get_workspace_accounts(key):
     k = (key or ADMIN_USERNAME).strip().lower()
+    # `key` may already be a workspace identifier (used by internal callers).
+    # Otherwise resolve session tokens / credentials to their workspace.
+    if k and k not in USER_WORKSPACES and k not in ("admin", "hubg50", (ADMIN_USERNAME or "").lower(), (ACCESS_KEY or "").lower()):
+        resolved = resolve_workspace_key(key)
+        if resolved:
+            k = resolved
     if k == "all":
         return ACCOUNTS
-    if is_admin_key(k):
+    if is_admin_key(key) or is_admin_workspace(k):
         return {
             aid: a for aid, a in ACCOUNTS.items()
             if a.get("owner_key", ADMIN_USERNAME).lower() in (ADMIN_USERNAME.lower(), ACCESS_KEY.lower(), "admin", "hubg50")
@@ -574,11 +769,24 @@ def list_all_workspaces_summary():
     res = []
     for k, ws in USER_WORKSPACES.items():
         user_id = ws.get("username", ws.get("key", k))
-        accs = get_workspace_accounts(user_id)
+        owner_keys = {(user_id or "").strip().lower(), (ws.get("key") or "").strip().lower()}
+        if ws.get("is_admin") or (user_id or "").strip().lower() in (ADMIN_USERNAME.lower(), "admin", "hubg50"):
+            # Admin-owned accounts may be tagged with any of the master aliases.
+            owner_keys = {ADMIN_USERNAME.lower(), ACCESS_KEY.lower(), "admin", "hubg50"}
+        owner_keys.discard("")
+        accs = {
+            aid: a for aid, a in ACCOUNTS.items()
+            if (a.get("owner_key") or ACCESS_KEY).strip().lower() in owner_keys
+        }
+        stored_pw = ws.get("password", ws.get("key", user_id))
+        pw_hashed = secure_store.is_password_hash(stored_pw)
         res.append({
             "username": ws.get("username", user_id),
             "key": ws.get("key", user_id),
-            "password": ws.get("password", ws.get("key", user_id)),
+            # Never send hashed passwords; plaintext is only available in the session that set it.
+            "password": "" if pw_hashed else stored_pw,
+            "has_password": bool(stored_pw),
+            "password_hashed": pw_hashed,
             "name": ws.get("name", f"Space ({user_id})"),
             "is_admin": bool(ws.get("is_admin") or user_id.lower() in (ADMIN_USERNAME.lower(), "admin", "hubg50")),
             "created_at": ws.get("created_at", 0),
@@ -880,7 +1088,7 @@ def distribute_free_proxies_to_bots(refresh_pool=False, dedicated_unique=True):
 
     assigned = 0
     pool_len = len(online)
-    acc_list = sorted(ACCOUNTS.items())
+    acc_list = sorted(ACCOUNTS.items(), key=lambda kv: kv[1].get("id", 0) if isinstance(kv[1], dict) else 0)
 
     if dedicated_unique:
         for idx, (aid, acc) in enumerate(acc_list):
@@ -1022,7 +1230,7 @@ AI_COHOST_ENABLED = False
 AI_COHOST_PERSONA = "friendly"  # "friendly", "dj", "gamer", "sarcastic"
 AI_COHOST_API_KEY = ""
 OFM_PROXY_URL = os.environ.get("OFM_PROXY_URL", "http://127.0.0.1:18900/v1/chat/completions")
-OFM_PROXY_KEY = os.environ.get("OFM_PROXY_KEY", "ofm-rQgtEVfESNZN1ES0V5r9WQCGK4TWYMbV")
+OFM_PROXY_KEY = os.environ.get("OFM_PROXY_KEY", "").strip()
 OFM_MODEL = os.environ.get("OFM_MODEL", "kilo-auto/free")
 OFM_PROCESS = None
 
@@ -1793,7 +2001,7 @@ def extract_media_info(url):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            timeout=12
+            timeout=5
         )
         if res.returncode == 0 and res.stdout.strip():
             info = json.loads(res.stdout)
@@ -1956,14 +2164,13 @@ def sync_streambot_config():
         active_token = os.environ.get("DISCORD_TOKEN", "")
         if not active_token and os.path.exists("tokens.txt"):
             try:
-                with open("tokens.txt", "r", encoding="utf-8") as f:
-                    for line in f:
-                        tok = clean_token(line)
-                        if tok and not tok.startswith("#") and not is_placeholder_token(tok):
-                            active_token = tok
-                            break
-            except Exception:
-                pass
+                for line in secure_store.read_token_lines("tokens.txt"):
+                    tok = clean_token(line)
+                    if tok and not tok.startswith("#") and not is_placeholder_token(tok):
+                        active_token = tok
+                        break
+            except Exception as e:
+                print(f"[!] Could not read tokens.txt: {e}")
     target_guild = GUILD_ID or "1273592244473172001"
     target_vc = CHANNEL_ID or "1535504524121473145"
 
@@ -2201,22 +2408,23 @@ def is_placeholder_token(token):
 
 
 def sync_tokens_file():
-    """Keep tokens.txt synchronized when accounts are added or removed."""
+    """Keep tokens.txt synchronized (encrypted at rest) when accounts are added or removed."""
     try:
         seen = set()
         # Safety guard: Never wipe tokens.txt completely if accounts are temporarily unloaded
         if not ACCOUNTS and os.path.exists("tokens.txt") and os.path.getsize("tokens.txt") > 0:
             return
-        with open("tokens.txt", "w", encoding="utf-8") as f:
-            for a in ACCOUNTS.values():
-                tok = a.get("token", "").strip()
-                prx = a.get("proxy")
-                if tok and not is_placeholder_token(tok) and tok not in seen:
-                    if prx:
-                        f.write(f"{tok}|{prx}\n")
-                    else:
-                        f.write(tok + "\n")
-                    seen.add(tok)
+        lines = []
+        for a in ACCOUNTS.values():
+            tok = a.get("token", "").strip()
+            prx = a.get("proxy")
+            if tok and not is_placeholder_token(tok) and tok not in seen:
+                if prx:
+                    lines.append(f"{tok}|{prx}")
+                else:
+                    lines.append(tok)
+                seen.add(tok)
+        secure_store.write_token_lines("tokens.txt", lines)
     except Exception as e:
         print(f"[!] Could not sync tokens.txt: {e}")
 
@@ -2378,7 +2586,7 @@ async def _validate_token(token, proxy=None):
                 opener = urllib.request.build_opener()
                 if proxy and isinstance(proxy, str) and (proxy.startswith("http://") or proxy.startswith("https://")):
                     opener.add_handler(urllib.request.ProxyHandler({"http": proxy, "https": proxy}))
-                with opener.open(req, timeout=10) as resp:
+                with opener.open(req, timeout=5) as resp:
                     if resp.status == 200:
                         data = json.loads(resp.read().decode("utf-8"))
                         data["auth_token"] = auth_val
@@ -2951,30 +3159,36 @@ async def load_tokens_from_file(path):
         print(f"File not found: {path}")
         return 0
     count = 0
-    with open(path, "r", encoding="utf-8") as f:
-        for line in f:
-            line_str = line.strip()
-            if not line_str or line_str.startswith("#"):
-                continue
-            tok, prx = parse_token_and_proxy(line_str)
-            if not tok or is_placeholder_token(tok):
-                continue
-            await add_account(tok, proxy=prx)
-            count += 1
+    try:
+        lines = secure_store.read_token_lines(path)
+    except secure_store.TokenStoreError as e:
+        print(f"[!] {e}")
+        return 0
+    for line_str in lines:
+        line_str = line_str.strip()
+        if not line_str or line_str.startswith("#"):
+            continue
+        tok, prx = parse_token_and_proxy(line_str)
+        if not tok or is_placeholder_token(tok):
+            continue
+        await add_account(tok, proxy=prx)
+        count += 1
     print(f"Loaded {count} token(s) from {path}.")
     return count
 
 
 async def save_tokens_to_file(path):
-    with open(path, "w", encoding="utf-8") as f:
-        for acc in ACCOUNTS.values():
-            tok = acc.get("token", "")
-            prx = acc.get("proxy")
-            if tok:
-                if prx:
-                    f.write(f"{tok}|{prx}\n")
-                else:
-                    f.write(tok + "\n")
+    lines = []
+    for acc in ACCOUNTS.values():
+        tok = acc.get("token", "")
+        prx = acc.get("proxy")
+        if tok:
+            lines.append(f"{tok}|{prx}" if prx else tok)
+    try:
+        secure_store.write_token_lines(path, lines)
+    except Exception as e:
+        print(f"[!] Could not save tokens to {path}: {e}")
+        return
     print(f"Saved {len(ACCOUNTS)} token(s) to {path}.")
 
 
@@ -2991,7 +3205,7 @@ def token_status():
         print("No accounts/tokens loaded.")
         return
     print(f"Total Accounts: {len(ACCOUNTS)}")
-    for aid in sorted(ACCOUNTS):
+    for aid in sorted(ACCOUNTS, key=lambda k: ACCOUNTS[k].get("id", 0) if isinstance(ACCOUNTS.get(k), dict) else 0):
         acc = ACCOUNTS[aid]
         state = "online" if acc.get("online") else "offline"
         voice = acc.get("voice_channel") or "not in voice"
@@ -3008,7 +3222,7 @@ def show_status():
     if not ACCOUNTS:
         print("No accounts connected yet.")
         return
-    for aid in sorted(ACCOUNTS):
+    for aid in sorted(ACCOUNTS, key=lambda k: ACCOUNTS[k].get("id", 0) if isinstance(ACCOUNTS.get(k), dict) else 0):
         acc = ACCOUNTS[aid]
         state = "online" if acc.get("online") else "offline"
         voice = acc.get("voice_channel") or "not in voice"
@@ -3545,10 +3759,78 @@ def check_github_update():
         }
 
 
+_LOGIN_STATE = {}
+_LOGIN_LOCK = threading.Lock()
+LOGIN_MAX_FAILURES = max(1, int(os.environ.get("DC_LOGIN_MAX_FAILS", "8")))
+LOGIN_LOCKOUT_SECONDS = max(10, int(os.environ.get("DC_LOGIN_LOCKOUT_SECONDS", "300")))
+
+
+def _client_ip(handler):
+    forwarded = (handler.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
+    if forwarded:
+        return forwarded
+    return handler.client_address[0] if handler.client_address else "unknown"
+
+
+def _login_attempt_key(handler, username):
+    return f"{_client_ip(handler)}|{(username or '').strip().lower()}"
+
+
+def login_lockout_remaining(attempt_key):
+    now = time.time()
+    with _LOGIN_LOCK:
+        entry = _LOGIN_STATE.get(attempt_key)
+        if not entry:
+            return 0
+        fails, first_ts = entry
+        elapsed = now - first_ts
+        if elapsed > LOGIN_LOCKOUT_SECONDS:
+            _LOGIN_STATE.pop(attempt_key, None)
+            return 0
+        if fails >= LOGIN_MAX_FAILURES:
+            return max(1, int(LOGIN_LOCKOUT_SECONDS - elapsed))
+    return 0
+
+
+def record_login_failure(attempt_key):
+    now = time.time()
+    with _LOGIN_LOCK:
+        fails, first_ts = _LOGIN_STATE.get(attempt_key, (0, now))
+        if now - first_ts > LOGIN_LOCKOUT_SECONDS:
+            fails, first_ts = 0, now
+        _LOGIN_STATE[attempt_key] = (fails + 1, first_ts)
+        if len(_LOGIN_STATE) > 4096:
+            cutoff = now - LOGIN_LOCKOUT_SECONDS
+            for k in [k for k, v in _LOGIN_STATE.items() if v[1] < cutoff]:
+                _LOGIN_STATE.pop(k, None)
+
+
+def clear_login_failures(attempt_key):
+    with _LOGIN_LOCK:
+        _LOGIN_STATE.pop(attempt_key, None)
+
+
 class DashboardHandler(http.server.BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         # Suppress periodic polling logs to keep terminal output clean
         return
+
+    def end_headers(self):
+        # Baseline hardening headers for every response.
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "SAMEORIGIN")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("Permissions-Policy", "geolocation=(), camera=(), microphone=()")
+        super().end_headers()
+
+    def send_unauthorized(self, message="Unauthorized: a valid access key is required"):
+        resp = json.dumps({"success": False, "error": message}).encode("utf-8")
+        self.send_response(401)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(resp)))
+        self.end_headers()
+        self.wfile.write(resp)
 
     def get_request_key(self, payload=None):
         # 1. Header X-Access-Key or Authorization
@@ -3607,10 +3889,31 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         elif self.path == "/api/update":
             self.serve_update()
         elif self.path == "/api/tokens" or self.path.startswith("/api/tokens?"):
+            from urllib.parse import urlparse, parse_qs
+            qs = parse_qs(urlparse(self.path).query)
             req_key = self.get_request_key()
+            if KEY_SYSTEM_ENABLED and not is_valid_key(req_key):
+                resp = json.dumps({"success": False, "error": "Unauthorized: a valid access key is required"}).encode("utf-8")
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Content-Length", str(len(resp)))
+                self.end_headers()
+                self.wfile.write(resp)
+                return
             user_accs = get_workspace_accounts(req_key)
             tokens = [a.get("token") for a in user_accs.values() if a.get("token") and not is_placeholder_token(a.get("token"))]
-            resp = json.dumps({"tokens": tokens, "count": len(tokens), "workspace": req_key}).encode("utf-8")
+            want_raw = qs.get("reveal", ["0"])[0].lower() in ("1", "true", "yes")
+            payload = {
+                "tokens": [secure_store.mask_token(t) for t in tokens],
+                "count": len(tokens),
+                "workspace": req_key,
+            }
+            # Full tokens are only returned to the master admin on explicit request.
+            if want_raw and is_admin_key(req_key):
+                payload["raw_tokens"] = tokens
+                payload["tokens"] = tokens
+            resp = json.dumps(payload).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Access-Control-Allow-Origin", "*")
@@ -3631,19 +3934,31 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             if not target_ws:
                 target_ws = self.headers.get("X-Workspace")
             is_adm = is_admin_key(req_key)
+            if KEY_SYSTEM_ENABLED and not is_valid_key(req_key):
+                resp = json.dumps({"success": False, "error": "Unauthorized: a valid access key is required"}).encode("utf-8")
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Content-Length", str(len(resp)))
+                self.end_headers()
+                self.wfile.write(resp)
+                return
             if is_adm:
                 ws_list = list_all_workspaces_summary()
             else:
-                user_ws = get_workspace_info(req_key)
+                user_ws = get_workspace_info(resolve_workspace_key(req_key))
                 ws_list = [user_ws] if user_ws else []
-            resp = json.dumps({
+            payload = {
                 "success": True,
                 "workspaces": ws_list,
                 "is_admin": is_adm,
                 "active_workspace": (target_ws or req_key).lower(),
-                "env_string": generate_dc_users_env_string(),
                 "cloud_persistence": get_cloud_persistence_status()
-            }).encode("utf-8")
+            }
+            # env_string contains user passwords and is admin-only.
+            if is_adm:
+                payload["env_string"] = generate_dc_users_env_string()
+            resp = json.dumps(payload).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Access-Control-Allow-Origin", "*")
@@ -3694,6 +4009,10 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
 
     def serve_status(self):
         global ACTIVE_VISITING_DEVICE
+        req_key = self.get_request_key()
+        if KEY_SYSTEM_ENABLED and not is_valid_key(req_key):
+            self.send_unauthorized()
+            return
         ua = (self.headers.get("User-Agent") or "").lower()
         client_hdr = self.headers.get("X-Client-Device")
         if client_hdr:
@@ -3705,7 +4024,6 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         if DEVICE_TYPE == "auto":
             update_gateway_properties()
 
-        req_key = self.get_request_key()
         target_ws = None
         if "?" in self.path:
             try:
@@ -3718,7 +4036,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         if not target_ws:
             target_ws = self.headers.get("X-Workspace")
 
-        effective_key = req_key
+        effective_key = resolve_workspace_key(req_key)
         if is_admin_key(req_key) and target_ws:
             effective_key = target_ws.strip().lower()
 
@@ -3923,6 +4241,9 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(resp)
 
     def serve_logs(self):
+        if KEY_SYSTEM_ENABLED and not is_valid_key(self.get_request_key()):
+            self.send_unauthorized()
+            return
         resp = json.dumps({"logs": list(LOG_BUFFER)}).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
@@ -3982,7 +4303,22 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         action = payload.get("action", "")
         req_key = self.get_request_key(payload)
         target_ws = payload.get("workspace") or self.headers.get("X-Workspace")
-        effective_owner = (target_ws.strip().lower() if (is_admin_key(req_key) and target_ws) else req_key)
+        effective_owner = (target_ws.strip().lower() if (is_admin_key(req_key) and target_ws) else resolve_workspace_key(req_key))
+
+        # Allow password changes when the caller proves the current password in the payload.
+        if action in ("set_access_key", "change_password", "set_password"):
+            candidate = str(payload.get("current_key", payload.get("current_password", ""))).strip()
+            if candidate and _master_password_ok(candidate):
+                req_key = ACCESS_KEY
+
+        # Global authorization gate. Only credential handshakes are public.
+        public_actions = {"verify_key", "validate_key", "login", "check_login", "auto_heal_auth", "validate_session"}
+        if KEY_SYSTEM_ENABLED and action not in public_actions and not is_valid_key(req_key):
+            return {"success": False, "error": "Unauthorized: a valid access key is required"}
+
+        admin_actions = {"restart_all", "shutdown", "export_state", "import_state", "toggle_key_system"}
+        if action in admin_actions and not is_admin_key(req_key):
+            return {"success": False, "error": "Unauthorized: only the master admin can do that"}
 
         if action == "set_desktop_screen_capture":
             DESKTOP_SCREEN_CAPTURE = bool(payload.get("enabled", True))
@@ -4062,11 +4398,29 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 "message": f"Audio DSP updated ({AUDIO_EQ_PRESET.upper()})"
             }
 
+        if action == "logout":
+            revoked = revoke_session(req_key)
+            return {"success": True, "message": "Logged out." if revoked else "Session already expired."}
+
+        if action == "validate_session":
+            sess = get_session(req_key)
+            if not sess:
+                return {"success": False, "valid": False, "authenticated": False, "error": "Session expired. Please log in again."}
+            ws_info = get_workspace_info(sess.get("workspace")) or {}
+            return {
+                "success": True, "valid": True, "authenticated": True,
+                "username": sess.get("username"),
+                "key": req_key,
+                "is_admin": bool(sess.get("is_admin")),
+                "workspace": ws_info,
+                "expires_in": max(0, int(sess.get("expires", 0) - time.time())),
+                "key_system_enabled": KEY_SYSTEM_ENABLED,
+            }
+
         if action in ("verify_key", "validate_key", "login", "check_login", "auto_heal_auth"):
             username = str(payload.get("username", payload.get("user", ""))).strip()
             password = str(payload.get("password", payload.get("pass", payload.get("key", "")))).strip()
             client_custom_pass = str(payload.get("client_custom_pass", "")).strip()
-            users_backup = payload.get("users_backup")
             if not KEY_SYSTEM_ENABLED:
                 return {
                     "success": True, "valid": True, "authenticated": True,
@@ -4075,21 +4429,34 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                     "key_system_enabled": False
                 }
 
+            attempt_key = _login_attempt_key(self, username)
+            locked_for = login_lockout_remaining(attempt_key)
+            if locked_for:
+                return {
+                    "success": False, "valid": False, "authenticated": False,
+                    "error": f"Too many failed attempts. Try again in {locked_for} second(s).",
+                    "retry_after": locked_for,
+                    "key_system_enabled": True
+                }
+
             # 1. Standard authentication
             auth_res = authenticate_user(username=username, password=password)
             was_auto_healed = False
 
-            # 2. Ephemeral server restart auto-heal logic
-            if not auth_res:
+            # 2. Opt-in credential recovery. Disabled by default: it lets an
+            # unauthenticated caller replace the admin password, so it must be
+            # explicitly enabled and never imports client-supplied user data.
+            auto_heal_enabled = os.environ.get("DC_ALLOW_AUTH_AUTOHEAL", "false").lower() in ("true", "1", "yes")
+            if not auth_res and auto_heal_enabled:
                 candidate_pass = password or client_custom_pass
                 u_norm = username.lower()
                 is_admin_candidate = u_norm in (ADMIN_USERNAME.lower(), "admin", "hubg50", "")
-                server_is_default = (ADMIN_PASSWORD == "hubg50" and "DC_ACCESS_KEY" not in os.environ)
                 has_client_proof = bool(client_custom_pass and (client_custom_pass == candidate_pass or not password))
 
-                if is_admin_candidate and candidate_pass and has_client_proof and (server_is_default or action == "auto_heal_auth"):
+                if is_admin_candidate and candidate_pass and has_client_proof:
                     ADMIN_PASSWORD = candidate_pass
                     ACCESS_KEY = candidate_pass
+                    _MASTER_HASH_CACHE.clear()
                     if ADMIN_USERNAME.lower() in USER_WORKSPACES:
                         USER_WORKSPACES[ADMIN_USERNAME.lower()]["password"] = candidate_pass
                     if "admin" in USER_WORKSPACES:
@@ -4097,39 +4464,32 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                     if "hubg50" in USER_WORKSPACES:
                         USER_WORKSPACES["hubg50"]["password"] = candidate_pass
 
-                    restored_cnt = 0
-                    if isinstance(users_backup, dict) and users_backup:
-                        for uk, uv in users_backup.items():
-                            if isinstance(uv, dict) and uk.lower() not in ("admin", "hubg50") and uk.lower() not in USER_WORKSPACES:
-                                USER_WORKSPACES[uk.lower()] = uv
-                                restored_cnt += 1
-
                     save_workspaces()
                     save_env_config()
                     was_auto_healed = True
-                    log(f"⚡ [Auto-Heal] Restored custom admin password & {restored_cnt} space(s) across server restart!")
+                    log("⚡ [Auto-Heal] Custom admin password restored (DC_ALLOW_AUTH_AUTOHEAL enabled).")
                     auth_res = authenticate_user(username=username, password=candidate_pass)
 
-                elif not is_admin_candidate and isinstance(users_backup, dict) and u_norm in users_backup:
-                    user_entry = users_backup[u_norm]
-                    if isinstance(user_entry, dict) and user_entry.get("password") == password:
-                        USER_WORKSPACES[u_norm] = user_entry
-                        save_workspaces()
-                        was_auto_healed = True
-                        log(f"⚡ [Auto-Heal] Restored user space '{u_norm}' across server restart!")
-                        auth_res = authenticate_user(username=username, password=password)
-
             if auth_res:
+                clear_login_failures(attempt_key)
+                ws_key = auth_res.get("username") if auth_res.get("is_admin") else auth_res.get("key")
+                session_token = create_session(
+                    ws_key or auth_res.get("username"),
+                    bool(auth_res.get("is_admin")),
+                    auth_res.get("username"),
+                )
                 return {
                     "success": True, "valid": True, "authenticated": True,
                     "username": auth_res.get("username"),
-                    "key": auth_res.get("key"),
+                    "key": session_token,
+                    "workspace_key": auth_res.get("key"),
                     "is_admin": auth_res.get("is_admin"),
                     "workspace": auth_res,
                     "auto_healed": was_auto_healed,
                     "message": f"Welcome {auth_res.get('username')}! Logged into {auth_res.get('name')}.",
                     "key_system_enabled": True
                 }
+            record_login_failure(attempt_key)
             return {
                 "success": False, "valid": False, "authenticated": False,
                 "error": "Invalid username or password! Please check your credentials.",
@@ -4140,7 +4500,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             if not is_admin_key(req_key):
                 return {"success": False, "error": "Unauthorized: Only master admin can create new user accounts and passwords"}
             new_u = str(payload.get("username", payload.get("key", payload.get("new_key", "")))).strip()
-            new_p = str(payload.get("password", payload.get("pass", payload.get("key", "")))).strip()
+            new_p = str(payload.get("password", payload.get("pass", ""))).strip()
             name = str(payload.get("name", payload.get("workspace_name", ""))).strip()
             if not new_u:
                 return {"success": False, "error": "Username cannot be empty"}
@@ -4178,6 +4538,10 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             deleted_name = USER_WORKSPACES[target_key].get("name", target_key)
             del USER_WORKSPACES[target_key]
             save_workspaces()
+            with _SESSIONS_LOCK:
+                for tok, sess in list(_SESSIONS.items()):
+                    if sess.get("workspace") == target_key:
+                        _SESSIONS.pop(tok, None)
             log(f"🗑️ [Multi-User] Deleted user account '{target_key}' ({deleted_name}) and stopped {len(to_remove)} associated bot(s)")
             return {"success": True, "key": target_key, "removed_bots": len(to_remove), "message": f"Deleted user '{target_key}'", "env_string": generate_dc_users_env_string()}
 
@@ -4194,15 +4558,20 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 return {"success": False, "error": f"User '{target_u}' does not exist"}
             USER_WORKSPACES[target_u]["password"] = new_p
             save_workspaces()
+            with _SESSIONS_LOCK:
+                for tok, sess in list(_SESSIONS.items()):
+                    if sess.get("workspace") == target_u:
+                        _SESSIONS.pop(tok, None)
             log(f"🔑 [Multi-User] Admin updated password for user: '{target_u}'")
             return {"success": True, "username": target_u, "message": f"Password updated for user '{target_u}'", "env_string": generate_dc_users_env_string()}
 
         if action in ("export_workspaces", "export_users"):
             if not is_admin_key(req_key):
                 return {"success": False, "error": "Unauthorized: Only master admin can export user data"}
+            # Export only what can safely be persisted: passwords as PBKDF2 hashes.
             return {
                 "success": True,
-                "workspaces": USER_WORKSPACES,
+                "workspaces": _workspaces_for_storage(),
                 "env_string": generate_dc_users_env_string()
             }
 
@@ -4241,7 +4610,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             if is_adm:
                 ws_list = list_all_workspaces_summary()
             else:
-                user_ws = get_workspace_info(req_key)
+                user_ws = get_workspace_info(resolve_workspace_key(req_key))
                 ws_list = [user_ws] if user_ws else []
             return {
                 "success": True,
@@ -4252,12 +4621,16 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         if action in ("set_access_key", "change_password", "set_password"):
             cur = str(payload.get("current_key", payload.get("current_password", ""))).strip()
             new_k = str(payload.get("new_key", payload.get("new_password", ""))).strip()
-            if cur.lower() != ACCESS_KEY.lower() and cur.lower() != "hubg50":
+            if not _master_password_ok(cur):
                 return {"success": False, "error": "Current password is incorrect."}
             if not new_k:
                 return {"success": False, "error": "New password cannot be empty."}
             ADMIN_PASSWORD = new_k
             ACCESS_KEY = new_k
+            _MASTER_HASH_CACHE.clear()
+            # Credential rotation invalidates every existing session.
+            with _SESSIONS_LOCK:
+                _SESSIONS.clear()
             if ADMIN_USERNAME.lower() in USER_WORKSPACES:
                 USER_WORKSPACES[ADMIN_USERNAME.lower()]["password"] = new_k
             if "admin" in USER_WORKSPACES:
@@ -4275,9 +4648,8 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             }
 
         if action == "toggle_key_system":
-            k = str(payload.get("key", "")).strip()
-            if k.lower() != ACCESS_KEY.lower():
-                return {"success": False, "error": "Unauthorized: Invalid access key."}
+            if not is_admin_key(req_key):
+                return {"success": False, "error": "Unauthorized: only the master admin can change the key system"}
             KEY_SYSTEM_ENABLED = bool(payload.get("enabled", not KEY_SYSTEM_ENABLED))
             save_env_config()
             log(f"🔐 Key System: {'ENABLED' if KEY_SYSTEM_ENABLED else 'DISABLED'}")
@@ -6061,11 +6433,21 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             return {"success": False, "error": "Bot engine not running"}
 
         if action == "exec_command":
+            if not is_admin_key(req_key):
+                return {"success": False, "error": "Unauthorized: only the master admin can run commands"}
             raw_cmd = payload.get("command", "").strip()
             if not raw_cmd:
                 return {"success": False, "error": "Command empty"}
             if raw_cmd.lower().startswith("shell ") or raw_cmd.lower().startswith("bash ") or raw_cmd.lower().startswith("sh "):
+                allow_shell = os.environ.get("DC_ALLOW_SHELL", "false").lower() in ("true", "1", "yes")
+                if not allow_shell:
+                    return {
+                        "success": False,
+                        "error": "Shell execution is disabled. Set DC_ALLOW_SHELL=true to enable it (admin only)."
+                    }
                 sub_cmd = raw_cmd.split(" ", 1)[1]
+                if not sub_cmd.strip():
+                    return {"success": False, "error": "Command empty"}
                 try:
                     import subprocess
                     proc = subprocess.run(sub_cmd, shell=True, capture_output=True, text=True, timeout=30)
@@ -6491,9 +6873,9 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             elif sub == "unvideo":
                 coro = apply(targets, video=False, guild=target_gid)
             elif sub == "screenshare":
-                coro = self._run_screenshare(100, True, key=req_key)
+                coro = self._run_screenshare(100, True, key=resolve_workspace_key(req_key))
             elif sub == "unscreenshare":
-                coro = self._run_screenshare(100, False, key=req_key)
+                coro = self._run_screenshare(100, False, key=resolve_workspace_key(req_key))
             else:
                 return {"success": False, "error": f"Unknown batch sub_action: {sub}"}
         elif action == "token_remove":
@@ -6512,10 +6894,10 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
 
         fut = asyncio.run_coroutine_threadsafe(coro, MAIN_LOOP)
         try:
-            res = fut.result(timeout=10)
+            res = fut.result(timeout=15)
             return {"success": True, "message": f"Action '{action}' executed.", "result": str(res)}
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": str(e) or type(e).__name__}
 
     async def _run_bulk_add(self, tokens, owner_key=None):
         count = 0
@@ -6755,10 +7137,32 @@ def start_web_server():
         print(f"[!] Warning: Could not start Web UI thread: {e}")
 
 
+def security_self_check():
+    """Print actionable security warnings at startup."""
+    warnings = []
+    if not KEY_SYSTEM_ENABLED:
+        warnings.append("the key system is DISABLED - anyone who can reach the dashboard has full control")
+    if ADMIN_PASSWORD == "hubg50" and "DC_ACCESS_KEY" not in os.environ:
+        warnings.append("the default master password 'hubg50' is in use - set DC_ACCESS_KEY")
+    if os.environ.get("DC_ALLOW_SHELL", "false").lower() in ("true", "1", "yes"):
+        warnings.append("shell execution via /api/action is ENABLED (DC_ALLOW_SHELL=true)")
+    if os.environ.get("DC_ALLOW_AUTH_AUTOHEAL", "false").lower() in ("true", "1", "yes"):
+        warnings.append("unauthenticated auth auto-heal is ENABLED (DC_ALLOW_AUTH_AUTOHEAL=true)")
+    if not secure_store.crypto_available():
+        warnings.append("cryptography is missing - tokens.txt stays unencrypted (pip install cryptography)")
+    if not USER_WORKSPACES:
+        warnings.append("no workspaces loaded - check workspaces.json permissions")
+    for message in warnings:
+        print(f"🔐 [Security] WARNING: {message}")
+    if not warnings:
+        print("🔐 [Security] Baseline checks passed.")
+
+
 async def main():
     global START_TIME, MAIN_LOOP
     START_TIME = time.time()
     MAIN_LOOP = asyncio.get_running_loop()
+    security_self_check()
 
     # Start built-in Web UI dashboard
     start_web_server()

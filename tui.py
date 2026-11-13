@@ -47,6 +47,35 @@ ENV_FILE = os.path.join(PROJECT_DIR, ".env")
 TOKENS_FILE = os.path.join(PROJECT_DIR, "tokens.txt")
 LOG_FILE = os.path.join(PROJECT_DIR, "bot.log")
 
+try:
+    import secure_store
+except Exception:  # offline fallback: keep the TUI usable without cryptography
+    secure_store = None
+
+
+def read_token_file_lines():
+    """Read tokens.txt, decrypting it when secure_store is available."""
+    if secure_store:
+        try:
+            return secure_store.read_token_lines(TOKENS_FILE)
+        except Exception as exc:
+            print(f"{RED}[!] {exc}{RESET}")
+            return []
+    lines = []
+    if os.path.exists(TOKENS_FILE):
+        with open(TOKENS_FILE, "r", encoding="utf-8") as f:
+            lines = f.read().splitlines()
+    return lines
+
+
+def write_token_file_lines(lines):
+    if secure_store:
+        secure_store.write_token_lines(TOKENS_FILE, lines)
+        return
+    with open(TOKENS_FILE, "w", encoding="utf-8") as f:
+        for line in lines:
+            f.write(line + "\n")
+
 
 def clear():
     os.system("cls" if os.name == "nt" else "clear")
@@ -458,26 +487,24 @@ def menu_token_manager():
         print_header("Token Manager")
         tokens_info = api_get("/api/tokens")
         
-        # Fallback reading tokens directly from file if offline
-        raw_tokens = []
-        if os.path.exists(TOKENS_FILE):
-            with open(TOKENS_FILE, "r", encoding="utf-8") as f:
-                for line in f:
-                    t = line.strip()
-                    if t and not t.startswith("#"):
-                        raw_tokens.append(t)
+        # Fallback reading tokens directly from the (encrypted) file if offline
+        raw_tokens = [t for t in (line.strip() for line in read_token_file_lines()) if t and not t.startswith("#")]
 
         tokens_list = (tokens_info.get("tokens", []) if tokens_info else [])
         count = len(tokens_list) if tokens_list else len(raw_tokens)
 
         print(f"{BOLD}Loaded Tokens ({count} total):{RESET}")
         if tokens_list:
-            for t in tokens_list:
-                aid = t.get("id")
-                name = t.get("name") or "Connecting..."
-                mask = t.get("token_masked")
-                st = f"{GREEN}● Active{RESET}" if t.get("online") else f"{GRAY}○ Idle{RESET}"
-                print(f"  [{aid}] {BOLD}{name:<14}{RESET} {st}  {GRAY}{mask}{RESET}")
+            for idx, t in enumerate(tokens_list, 1):
+                if isinstance(t, dict):
+                    aid = t.get("id", idx)
+                    name = t.get("name") or "Connecting..."
+                    mask = t.get("token_masked") or "******"
+                    st = f"{GREEN}● Active{RESET}" if t.get("online") else f"{GRAY}○ Idle{RESET}"
+                    print(f"  [{aid}] {BOLD}{name:<14}{RESET} {st}  {GRAY}{mask}{RESET}")
+                else:
+                    # /api/tokens returns masked strings unless raw access was requested
+                    print(f"  [{idx}] {GRAY}{t}{RESET}")
         elif raw_tokens:
             for idx, tok in enumerate(raw_tokens, 1):
                 masked = tok[:6] + "..." + tok[-4:] if len(tok) > 12 else "******"
@@ -503,9 +530,10 @@ def menu_token_manager():
                     res = api_post("/api/action", {"action": "add_token", "token": new_tok})
                     print(f"{GREEN}[✓]{RESET} {res.get('message', 'Token added')}")
                 else:
-                    with open(TOKENS_FILE, "a", encoding="utf-8") as f:
-                        f.write(new_tok + "\n")
-                    print(f"{GREEN}[✓] Token appended to tokens.txt!{RESET}")
+                    existing = read_token_file_lines()
+                    existing.append(new_tok)
+                    write_token_file_lines(existing)
+                    print(f"{GREEN}[✓] Token appended to tokens.txt (encrypted)!{RESET}")
                 pause()
         elif c == "2":
             print(f"\n{CYAN}Paste your tokens below (one per line).{RESET}")
@@ -522,10 +550,10 @@ def menu_token_manager():
                     res = api_post("/api/tokens", {"tokens": lines})
                     print(f"{GREEN}[✓] {res.get('message', 'Bulk tokens added')}{RESET}")
                 else:
-                    with open(TOKENS_FILE, "a", encoding="utf-8") as f:
-                        for tok in lines:
-                            f.write(tok + "\n")
-                    print(f"{GREEN}[✓] Saved {len(lines)} tokens to tokens.txt!{RESET}")
+                    existing = read_token_file_lines()
+                    existing.extend(lines)
+                    write_token_file_lines(existing)
+                    print(f"{GREEN}[✓] Saved {len(lines)} tokens to tokens.txt (encrypted)!{RESET}")
             pause()
         elif c == "3":
             del_id = input(f"\nEnter Token ID to delete (or 'all'): ").strip()
@@ -536,23 +564,24 @@ def menu_token_manager():
                 else:
                     # Offline file delete
                     if del_id.lower() == "all":
-                        open(TOKENS_FILE, "w").close()
+                        write_token_file_lines([])
                         print(f"{GREEN}[✓] Cleared all tokens from tokens.txt.{RESET}")
                     elif del_id.isdigit():
                         idx = int(del_id) - 1
                         if 0 <= idx < len(raw_tokens):
-                            removed = raw_tokens.pop(idx)
-                            with open(TOKENS_FILE, "w", encoding="utf-8") as f:
-                                for t in raw_tokens:
-                                    f.write(t + "\n")
+                            raw_tokens.pop(idx)
+                            write_token_file_lines(raw_tokens)
                             print(f"{GREEN}[✓] Removed token #{del_id} from tokens.txt.{RESET}")
                 pause()
         elif c == "4":
             backup_path = os.path.expanduser("~/tokens_backup.txt")
             if os.path.exists(TOKENS_FILE):
-                with open(TOKENS_FILE, "r", encoding="utf-8") as src, open(backup_path, "w", encoding="utf-8") as dst:
-                    dst.write(src.read())
+                lines = read_token_file_lines()
+                with open(backup_path, "w", encoding="utf-8") as dst:
+                    for line in lines:
+                        dst.write(line + "\n")
                 print(f"{GREEN}[✓] Backup saved to {backup_path}!{RESET}")
+                print(f"{YELLOW}[!] The backup is unencrypted - delete it when you are done.{RESET}")
             else:
                 print(f"{RED}[!] tokens.txt not found.{RESET}")
             pause()
@@ -621,9 +650,10 @@ def menu_config():
                 if ch:
                     tok = None
                     if os.path.exists(TOKENS_FILE):
-                        with open(TOKENS_FILE) as f:
-                            for l in f:
-                                if l.strip(): tok = l.strip(); break
+                        for l in read_token_file_lines():
+                            if l.strip():
+                                tok = l.strip()
+                                break
                     if tok:
                         try:
                             req = urllib.request.Request(f"https://discord.com/api/v9/channels/{ch}", headers={"Authorization": tok})

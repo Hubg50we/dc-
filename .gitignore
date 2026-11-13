@@ -10,6 +10,7 @@ commands.txt
 channels.json
 state_backup.json
 .workspaces_backup.json
+.dc_secret
 
 # Virtual environments
 venv/

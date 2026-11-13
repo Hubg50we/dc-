@@ -17,11 +17,22 @@ TEST_VC = "1535504524121473145"
 
 BASE_URL = ""
 
-def http_get(path, headers=None):
-    url = f"{BASE_URL}{path}"
-    h = {"User-Agent": "Mozilla/5.0"}
+def _auth_headers(base, headers):
+    h = dict(base)
     if headers:
         h.update(headers)
+    if "X-Access-Key" not in h:
+        key = getattr(main, "ACCESS_KEY", "")
+        if key:
+            h["X-Access-Key"] = key
+    elif h["X-Access-Key"] is None:
+        h.pop("X-Access-Key", None)
+    return h
+
+
+def http_get(path, headers=None):
+    url = f"{BASE_URL}{path}"
+    h = _auth_headers({"User-Agent": "Mozilla/5.0"}, headers)
     req = urllib.request.Request(url, headers=h)
     with urllib.request.urlopen(req, timeout=5) as resp:
         return resp.status, json.loads(resp.read().decode("utf-8"))
@@ -29,11 +40,9 @@ def http_get(path, headers=None):
 def http_post(path, data, headers=None):
     url = f"{BASE_URL}{path}"
     body = json.dumps(data).encode("utf-8")
-    h = {"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
-    if headers:
-        h.update(headers)
+    h = _auth_headers({"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}, headers)
     req = urllib.request.Request(url, data=body, headers=h)
-    with urllib.request.urlopen(req, timeout=10) as resp:
+    with urllib.request.urlopen(req, timeout=20) as resp:
         return resp.status, json.loads(resp.read().decode("utf-8"))
 
 is_remote = False
@@ -1007,6 +1016,12 @@ def run_tests():
               (is_remote or (mock_vc.sfx_played == ["airhorn"] and mock_vc.stopped is True)))
     except Exception as e:
         check("Audio / SFX Soundboard RFC 6716 Dispatch to Voice Connection", False, str(e))
+    finally:
+        # Never leak the mock string-keyed account into later tests.
+        try:
+            main.ACCOUNTS.pop("test_token", None)
+        except Exception:
+            pass
 
     # 92. Test Custom Audio & Remote Stream Dispatch to Voice Connection
     try:
@@ -1447,7 +1462,7 @@ def run_tests():
             "action": "create_user",
             "username": "test_user_anon",
             "password": "anon_password"
-        })
+        }, headers={"X-Access-Key": None})
         anon_blocked = (st_anon == 200 and d_anon.get("success") is False and "Unauthorized" in d_anon.get("error", ""))
 
         # 2c. Non-admin cannot delete other users
@@ -1472,6 +1487,7 @@ def run_tests():
             "password": "alpha_secure_pass_123"
         })
         login_alpha_ok = (st_l == 200 and d_l.get("valid") is True and d_l.get("is_admin") is False)
+        alpha_key = d_l.get("key") if login_alpha_ok else "test_user_alpha"
 
         # 4. User alpha with wrong password is rejected
         st_l_bad, d_l_bad = http_post("/api/action", {
@@ -1485,11 +1501,11 @@ def run_tests():
         st_add, d_add = http_post("/api/action", {
             "action": "token_add",
             "token": "alpha_isolated_token_secret_123"
-        }, headers={"X-Access-Key": "test_user_alpha"})
+        }, headers={"X-Access-Key": alpha_key})
         add_ok = (st_add == 200 and d_add.get("success") is True)
 
         # 6. Verify isolation: alpha's status shows their bot, admin workspace does not show alpha's bot
-        st_alpha_s, d_alpha_s = http_get("/api/status", headers={"X-Access-Key": "test_user_alpha"})
+        st_alpha_s, d_alpha_s = http_get("/api/status", headers={"X-Access-Key": alpha_key})
         alpha_bots = d_alpha_s.get("accounts", [])
         alpha_sees_bot = any(a.get("owner_key") == "test_user_alpha" for a in alpha_bots)
 
@@ -1502,7 +1518,7 @@ def run_tests():
         st_rem_bad, d_rem_bad = http_post("/api/action", {
             "action": "token_remove",
             "id": master_aid
-        }, headers={"X-Access-Key": "test_user_alpha"})
+        }, headers={"X-Access-Key": alpha_key})
         hijack_prevented = (st_rem_bad == 200 and d_rem_bad.get("success") is False)
 
         # 8. Workspaces listing
@@ -1517,6 +1533,7 @@ def run_tests():
         }, headers={"X-Access-Key": "hubg50"})
         del_ok = (st_del == 200 and d_del.get("success") is True)
 
+        pass
         mu_ok = (created_ok and unauth_blocked and anon_blocked and del_bad_blocked and reset_bad_blocked and
                  login_alpha_ok and user_bad_rejected and add_ok and alpha_sees_bot and master_isolated and
                  hijack_prevented and ws_found and del_ok)
