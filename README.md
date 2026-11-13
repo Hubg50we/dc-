@@ -9,7 +9,7 @@ A lightweight, asynchronous Python tool designed to manage and control multiple 
 - **GitHub Pages Web Portal**: [**https://hubg50we.github.io/dc-/**](https://hubg50we.github.io/dc-/)
 - **24/7 Cloudflare Live Runner**: Check the [**Actions > Run dc- Server on GitHub**](https://github.com/Hubg50we/dc-/actions/workflows/run-server.yml) tab or `LIVE_SERVER.md` for the active live HTTPS URL!
 - **Local PC / Wi-Fi Network**: `http://localhost:5000` (or `http://<LAN_IP>:5000`)
-- **Master Admin Login**: Username: `admin` | Password: `hubg50`
+
 
 ---
 
