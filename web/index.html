@@ -4378,6 +4378,9 @@
       if (tabId === 'logs') {
         fetchLogs();
       }
+      if (tabId === 'settings') {
+        loadWorkspacesList();
+      }
       if (tabId === 'proxies') {
         renderProxiesTab();
       }
@@ -4777,11 +4780,18 @@
     async function fetchStatus() {
       try {
         const key = currentAccessKey || localStorage.getItem('dc_access_key') || sessionStorage.getItem('dc_access_key') || '';
+        const targetWs = (typeof currentActiveWorkspace !== 'undefined' ? currentActiveWorkspace : (localStorage.getItem('dc_active_workspace') || '')).trim();
         const headers = {};
         if (key) {
           headers['X-Access-Key'] = key;
         }
-        const url = key ? `/api/status?key=${encodeURIComponent(key)}` : '/api/status';
+        if (targetWs) {
+          headers['X-Workspace'] = targetWs;
+        }
+        const params = [];
+        if (key) params.push(`key=${encodeURIComponent(key)}`);
+        if (targetWs) params.push(`workspace=${encodeURIComponent(targetWs)}`);
+        const url = params.length ? `/api/status?${params.join('&')}` : '/api/status';
         const res = await fetch(url, { headers });
         if (!res.ok) throw new Error('Status ' + res.status);
         const data = await res.json();
@@ -5374,8 +5384,9 @@
           body: JSON.stringify({ action: 'save_preset', name: name, channel_id: ch, guild_id: gid })
         });
         const json = await res.json();
-        showToast(json.message);
+        showToast(json.message || 'Reconnecting all accounts...');
         fetchStatus();
+        triggerFastStatusPolling(8, 800);
       } catch (e) {
         showToast("Error: " + e.message, true);
       }
@@ -5390,8 +5401,9 @@
           body: JSON.stringify({ action: 'delete_preset', name: name })
         });
         const json = await res.json();
-        showToast(json.message);
+        showToast(json.message || 'Reconnecting all accounts...');
         fetchStatus();
+        triggerFastStatusPolling(8, 800);
       } catch (e) {
         showToast("Error: " + e.message, true);
       }
@@ -5973,16 +5985,22 @@
       if (!token) return showToast('Please paste a token', true);
       showToast('Authenticating token...');
       try {
+        const key = currentAccessKey || localStorage.getItem('dc_access_key') || '';
+        const targetWs = (typeof currentActiveWorkspace !== 'undefined' ? currentActiveWorkspace : (localStorage.getItem('dc_active_workspace') || '')).trim();
+        const headers = { 'Content-Type': 'application/json' };
+        if (key) headers['X-Access-Key'] = key;
+        if (targetWs) headers['X-Workspace'] = targetWs;
         const res = await fetch('/api/action', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'token_add', token: token })
+          headers: headers,
+          body: JSON.stringify({ action: 'token_add', token: token, key: key, workspace: targetWs })
         });
         const json = await res.json();
         if (json.success) {
           input.value = '';
-          showToast('Account added successfully!');
+          showToast('Account added! Connecting to Discord Gateway...');
           fetchStatus();
+          triggerFastStatusPolling(6, 800);
         } else {
           showToast(json.error || 'Failed', true);
         }
@@ -5998,16 +6016,22 @@
       if (lines.length === 0) return showToast('No valid tokens entered', true);
       showToast(`Importing ${lines.length} accounts...`);
       try {
+        const key = currentAccessKey || localStorage.getItem('dc_access_key') || '';
+        const targetWs = (typeof currentActiveWorkspace !== 'undefined' ? currentActiveWorkspace : (localStorage.getItem('dc_active_workspace') || '')).trim();
+        const headers = { 'Content-Type': 'application/json' };
+        if (key) headers['X-Access-Key'] = key;
+        if (targetWs) headers['X-Workspace'] = targetWs;
         const res = await fetch('/api/action', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'tokens_bulk_add', tokens: lines })
+          headers: headers,
+          body: JSON.stringify({ action: 'tokens_bulk_add', tokens: lines, key: key, workspace: targetWs })
         });
         const json = await res.json();
         if (json.success) {
           area.value = '';
-          showToast(`Imported ${lines.length} accounts!`);
+          showToast(`Imported ${lines.length} accounts! Auto-connecting to Discord...`);
           fetchStatus();
+          triggerFastStatusPolling(8, 800);
         } else {
           showToast(json.error || 'Error', true);
         }
@@ -6031,13 +6055,22 @@
       vibrate(20);
       if (!confirm(`Remove account #${aid}?`)) return;
       try {
+        const key = currentAccessKey || localStorage.getItem('dc_access_key') || '';
+        const headers = { 'Content-Type': 'application/json' };
+        if (key) headers['X-Access-Key'] = key;
         const res = await fetch('/api/action', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'token_remove', id: aid })
+          headers: headers,
+          body: JSON.stringify({ action: 'token_remove', id: aid, key: key })
         });
         const json = await res.json();
         showToast(json.message || 'Removed account');
+        fetchStatus();
+        triggerFastStatusPolling(3, 600);
+      } catch (e) {
+        showToast('Error: ' + e.message, true);
+      }
+    }
         fetchStatus();
       } catch (err) {
         showToast('Error: ' + err.message, true);
@@ -6156,8 +6189,9 @@
           })
         });
         const json = await res.json();
-        showToast(json.message);
+        showToast(json.message || 'Reconnecting all accounts...');
         fetchStatus();
+        triggerFastStatusPolling(8, 800);
       } catch (e) {
         showToast("Error: " + e.message, true);
       }
@@ -6173,8 +6207,9 @@
           body: JSON.stringify({ action: 'restart_all' })
         });
         const json = await res.json();
-        showToast(json.message);
+        showToast(json.message || 'Reconnecting all accounts...');
         fetchStatus();
+        triggerFastStatusPolling(8, 800);
       } catch (e) {
         showToast("Error: " + e.message, true);
       }
@@ -9846,6 +9881,16 @@
       }
       return localStorage.getItem('dc_access_key') || sessionStorage.getItem('dc_access_key') || '';
     })();
+    let currentActiveWorkspace = (function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlWs = urlParams.get('workspace') || urlParams.get('space');
+      if (urlWs && urlWs.trim()) {
+        const clean = urlWs.trim().toLowerCase();
+        localStorage.setItem('dc_active_workspace', clean);
+        return clean;
+      }
+      return localStorage.getItem('dc_active_workspace') || '';
+    })();
     let isKeySystemAuthenticated = false;
 
     async function initKeySystem() {
@@ -10141,6 +10186,7 @@
           showToast(`🔑 Password updated for '${targetUser}'`);
           fetchStatus();
           loadWorkspacesList();
+          triggerFastStatusPolling(5, 750);
         } else {
           showToast(data.error || 'Failed to update password', true);
         }
@@ -10276,15 +10322,23 @@
       try {
         const headers = {};
         const key = currentAccessKey || localStorage.getItem('dc_access_key') || sessionStorage.getItem('dc_access_key') || '';
+        const targetWs = (typeof currentActiveWorkspace !== 'undefined' ? currentActiveWorkspace : (localStorage.getItem('dc_active_workspace') || '')).trim();
         if (key) {
           headers['X-Access-Key'] = key;
         }
-        const url = key ? `/api/workspaces?key=${encodeURIComponent(key)}` : '/api/workspaces';
+        if (targetWs) {
+          headers['X-Workspace'] = targetWs;
+        }
+        const params = [];
+        if (key) params.push(`key=${encodeURIComponent(key)}`);
+        if (targetWs) params.push(`workspace=${encodeURIComponent(targetWs)}`);
+        const url = params.length ? `/api/workspaces?${params.join('&')}` : '/api/workspaces';
         const res = await fetch(url, { headers });
         const data = await res.json();
         if (data && data.success && data.workspaces) {
           currentIsAdmin = Boolean(data.is_admin);
-          renderWorkspacesTable(data.workspaces, key, currentIsAdmin);
+          const activeKeyToHighlight = targetWs || data.active_workspace || key;
+          renderWorkspacesTable(data.workspaces, activeKeyToHighlight, currentIsAdmin);
           const envInp = document.getElementById('render-env-users-string');
           if (envInp && data.env_string !== undefined) {
             envInp.value = data.env_string;
@@ -10474,6 +10528,7 @@
           showToast(data.message || 'Users restored successfully!');
           fetchStatus();
           loadWorkspacesList();
+          triggerFastStatusPolling(5, 750);
         } else {
           showToast(data.error || 'Restore failed', true);
         }
@@ -10548,6 +10603,7 @@
           if (gidInp) gidInp.value = '';
           fetchStatus();
           loadWorkspacesList();
+          triggerFastStatusPolling(5, 750);
         } else {
           showToast(data.error || 'Failed to create user space', true);
         }
@@ -10593,6 +10649,7 @@
           showToast(`🗑️ User space '${targetKey}' deleted`);
           fetchStatus();
           loadWorkspacesList();
+          triggerFastStatusPolling(5, 750);
         } else {
           showToast(data.error || 'Failed to delete user space', true);
         }
@@ -10603,12 +10660,17 @@
 
     function switchWorkspace(targetKey) {
       if (!targetKey) return;
-      currentAccessKey = targetKey;
-      localStorage.setItem('dc_access_key', targetKey);
-      document.cookie = "dc_access_key=" + encodeURIComponent(targetKey) + "; path=/; max-age=31536000; SameSite=Lax";
-      showToast(`🏢 Switched to space: ${targetKey}`);
+      currentActiveWorkspace = targetKey.toLowerCase();
+      localStorage.setItem('dc_active_workspace', currentActiveWorkspace);
+      if (!currentIsAdmin) {
+        currentAccessKey = targetKey;
+        localStorage.setItem('dc_access_key', targetKey);
+        document.cookie = "dc_access_key=" + encodeURIComponent(targetKey) + "; path=/; max-age=31536000; SameSite=Lax";
+      }
+      showToast(`🏢 Switched to active space: ${targetKey}`);
       fetchStatus();
       loadWorkspacesList();
+      triggerFastStatusPolling(6, 800);
     }
 
     function switchOrViewWorkspace() {
@@ -10715,6 +10777,27 @@
 
     // Dynamic Adaptive Polling Loop (Throttles in background and on low-end hardware)
     let pollTimerId = null;
+    let burstPollTimer = null;
+
+    function triggerFastStatusPolling(burstCount = 6, intervalMs = 750) {
+      if (burstPollTimer) clearInterval(burstPollTimer);
+      let count = 0;
+      burstPollTimer = setInterval(async () => {
+        count++;
+        try {
+          await fetchStatus();
+          const settingsTab = document.getElementById('tab-settings');
+          if (settingsTab && settingsTab.classList.contains('active')) {
+            await loadWorkspacesList();
+          }
+        } catch (e) {}
+        if (count >= burstCount) {
+          clearInterval(burstPollTimer);
+          burstPollTimer = null;
+        }
+      }, intervalMs);
+    }
+
     function scheduleNextPoll() {
       if (pollTimerId) clearTimeout(pollTimerId);
       let delay = 2500;
@@ -10729,6 +10812,10 @@
           const logsTab = document.getElementById('tab-logs');
           if (logsTab && logsTab.classList.contains('active')) {
             await fetchLogs();
+          }
+          const settingsTab = document.getElementById('tab-settings');
+          if (settingsTab && settingsTab.classList.contains('active')) {
+            await loadWorkspacesList();
           }
         } catch (ignored) {}
         scheduleNextPoll();

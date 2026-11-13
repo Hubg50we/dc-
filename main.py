@@ -3619,6 +3619,17 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(resp)
         elif self.path == "/api/workspaces" or self.path.startswith("/api/workspaces?"):
             req_key = self.get_request_key()
+            target_ws = None
+            if "?" in self.path:
+                try:
+                    from urllib.parse import urlparse, parse_qs
+                    qs = parse_qs(urlparse(self.path).query)
+                    if "workspace" in qs:
+                        target_ws = qs["workspace"][0].strip()
+                except Exception:
+                    pass
+            if not target_ws:
+                target_ws = self.headers.get("X-Workspace")
             is_adm = is_admin_key(req_key)
             if is_adm:
                 ws_list = list_all_workspaces_summary()
@@ -3629,6 +3640,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 "success": True,
                 "workspaces": ws_list,
                 "is_admin": is_adm,
+                "active_workspace": (target_ws or req_key).lower(),
                 "env_string": generate_dc_users_env_string(),
                 "cloud_persistence": get_cloud_persistence_status()
             }).encode("utf-8")
@@ -3694,15 +3706,31 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             update_gateway_properties()
 
         req_key = self.get_request_key()
-        ws_info = get_workspace_info(req_key) or {
-            "key": req_key,
-            "name": f"Space ({req_key})",
-            "is_admin": is_admin_key(req_key),
+        target_ws = None
+        if "?" in self.path:
+            try:
+                from urllib.parse import urlparse, parse_qs
+                qs = parse_qs(urlparse(self.path).query)
+                if "workspace" in qs:
+                    target_ws = qs["workspace"][0].strip()
+            except Exception:
+                pass
+        if not target_ws:
+            target_ws = self.headers.get("X-Workspace")
+
+        effective_key = req_key
+        if is_admin_key(req_key) and target_ws:
+            effective_key = target_ws.strip().lower()
+
+        ws_info = get_workspace_info(effective_key) or {
+            "key": effective_key,
+            "name": f"Space ({effective_key})",
+            "is_admin": is_admin_key(effective_key),
             "guild_id": GUILD_ID,
             "channel_id": CHANNEL_ID,
             "presets": []
         }
-        user_accs = get_workspace_accounts(req_key)
+        user_accs = get_workspace_accounts(effective_key)
         online_list = [a for a in user_accs.values() if a.get("online")]
         voice_list = [a for a in online_list if a.get("voice_channel")]
 
@@ -3726,10 +3754,11 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 "required": True
             },
             "workspace": {
-                "key": ws_info.get("key", req_key),
-                "name": ws_info.get("name", f"Space ({req_key})"),
+                "key": effective_key,
+                "name": ws_info.get("name", f"Space ({effective_key})"),
                 "is_admin": is_admin_key(req_key),
-                "all_workspaces": list_all_workspaces_summary() if is_admin_key(req_key) else [{"key": ws_info.get("key", req_key), "name": ws_info.get("name")}]
+                "active_workspace": effective_key,
+                "all_workspaces": list_all_workspaces_summary() if is_admin_key(req_key) else [{"key": effective_key, "name": ws_info.get("name")}]
             },
             "rotator_enabled": ROTATOR_ENABLED,
             "rotator_interval": ROTATOR_INTERVAL,
@@ -3952,6 +3981,8 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
         global CHANNEL_ID, GUILD_ID, DEVICE_TYPE, ACTIVE_VISITING_DEVICE, GATEWAY_PROPERTIES, SPEAKING_SIM, VOICE_FLAGS, ACTIVE_SFX, VOICE_STATUS, HUMAN_CHATTER_ENABLED, HUMAN_CHATTER_TASK, REAL_VIDEO_ACTIVE, REAL_VIDEO_MODE, REAL_VIDEO_TITLE, WEB_SHARE_URL, VIDEO_SIM, SCREEN_SHARE_SIM, MUSIC_TITLE, MUSIC_ARTIST, STREAM_TITLE, STREAM_URL, YOUTUBE_URL, YOUTUBE_TITLE, YOUTUBE_AUTHOR, YOUTUBE_MODE, STREAMBOT_QUEUE, STREAMBOT_CURRENT, STREAMBOT_STATUS, STREAMBOT_LOOP_MODE, STREAMBOT_VOLUME, STREAMBOT_RESOLUTION, STREAMBOT_FPS, STREAMBOT_BITRATE, STREAM_PROFILE, SPOTIFY_SONG, SPOTIFY_ARTIST, SPOTIFY_ALBUM, SPOTIFY_DURATION, VISUALIZER_MODE, STREAM_OVERLAY_ENABLED, STREAM_OVERLAY_TITLE, STREAM_OVERLAY_TICKER, CHAT_AUTO_RESPONDER_ENABLED, CHAT_AUTO_RESPONDER_RULES, DESKTOP_SCREEN_CAPTURE, AUDIO_BASS_BOOST, AUDIO_PITCH_SHIFT, AUDIO_NORMALIZER, AUDIO_EQ_PRESET, AUTO_REJOIN, CUSTOM_ACTIVITY_NAME, CUSTOM_ACTIVITY_TYPE, STEALTH_DELAY, ONE_BOT_PER_VC, ACCESS_KEY, ADMIN_PASSWORD, KEY_SYSTEM_ENABLED, RECORDING_ACTIVE, RECORDING_START_TIME, RECORDING_FILENAME, STADIUM_ECHO_ENABLED, STADIUM_ECHO_DELAY_MS, PTT_ACTIVE, PTT_TOTAL_CHUNKS, TOKEN_HEALTH_INDEX, RATE_LIMIT_COOLDOWN, RATE_LIMIT_HITS, ACTIVE_RADIO_STATION, AI_COHOST_ENABLED, AI_COHOST_PERSONA, AI_COHOST_API_KEY, FREE_PROXY_POOL, PROXY_AUTO_ROTATE, PROXY_LAST_FETCH, PROXY_AUTO_FAILOVER, PROXY_AUTO_ROTATE_INTERVAL, PROXY_LAST_AUTO_ROTATE, SOUNDBOARD_PADS
         action = payload.get("action", "")
         req_key = self.get_request_key(payload)
+        target_ws = payload.get("workspace") or self.headers.get("X-Workspace")
+        effective_owner = (target_ws.strip().lower() if (is_admin_key(req_key) and target_ws) else req_key)
 
         if action == "set_desktop_screen_capture":
             DESKTOP_SCREEN_CAPTURE = bool(payload.get("enabled", True))
@@ -6346,12 +6377,12 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             prx = payload.get("proxy", "").strip() or None
             if not tok:
                 return {"success": False, "error": "Token is empty"}
-            coro = add_account(tok, proxy=prx, owner_key=req_key)
+            coro = add_account(tok, proxy=prx, owner_key=effective_owner)
         elif action == "tokens_bulk_add":
             token_list = payload.get("tokens", [])
             if not token_list:
                 return {"success": False, "error": "No tokens provided"}
-            coro = self._run_bulk_add(token_list, owner_key=req_key)
+            coro = self._run_bulk_add(token_list, owner_key=effective_owner)
         elif action == "set_account_proxy":
             aid = payload.get("id")
             prx = payload.get("proxy", "")
