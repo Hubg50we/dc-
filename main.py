@@ -5013,13 +5013,10 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             RECORDING_FILENAME = os.path.join(RECORDINGS_DIR, f"rec_{int(time.time())}.wav")
             RECORDING_ACTIVE = True
             RECORDING_START_TIME = time.time()
+            # Create empty placeholder file; audio frames are appended as recording proceeds
             try:
-                import wave
-                with wave.open(RECORDING_FILENAME, "wb") as wf:
-                    wf.setnchannels(2)
-                    wf.setsampwidth(2)
-                    wf.setframerate(48000)
-                    wf.writeframes(b"")
+                with open(RECORDING_FILENAME, "wb") as f:
+                    pass  # empty placeholder - filled during recording
             except Exception:
                 pass
             log(f"🔴 Started voice channel call recording -> {os.path.basename(RECORDING_FILENAME)}")
@@ -5839,7 +5836,6 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 sb_res = send_to_streambot("/api/play", {"url": fpath, "title": fname})
                 log(f"🎬 [Local Media] Streaming uploaded video '{fname}' to Discord Go Live!")
                 return {"success": True, "message": f"Streaming local media '{fname}'", "filename": fname, "path": fpath, "streambot": sb_res}
-        action = payload.get("action", "")
 
         if action == "clear_logs":
             LOG_BUFFER.clear()
@@ -6064,7 +6060,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                             headers={"Authorization": auth, "Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
                         )
                         with urllib.request.urlopen(req, timeout=5) as r:
-                            break
+                            pass  # TTS message sent to this account
                     except Exception:
                         pass
             log(f"🗣️ TTS Voice Announcer: \"{text}\" on channel {ch}")
