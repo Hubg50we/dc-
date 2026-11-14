@@ -1196,17 +1196,8 @@
         gap: 16px;
       }
 
-      /* 2-Column Balanced Proxy Fleet Studio */
-      #tab-proxies.active {
-        display: grid !important;
-        grid-template-columns: 460px 1fr !important;
-        gap: 20px !important;
-        align-items: start !important;
-      }
-      .proxy-column-ops, .proxy-column-pool {
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
+      #tab-proxies, [data-tab="proxies"] {
+        display: none !important;
       }
     }
   
@@ -1249,6 +1240,29 @@
     .theme-select-card.active-theme {
       border-color: var(--accent) !important;
       box-shadow: 0 0 16px var(--accent-glow) !important;
+    }
+
+    /* Accessibility & interaction polish */
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      border-radius: var(--radius-sm);
+    }
+    button, .btn, [role="button"] {
+      min-height: 44px;
+      min-width: 44px;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+    @media (max-width: 640px) {
+      .card { padding: var(--space-md); }
+      .btn { font-size: 0.9rem; }
     }
   </style>
 </head>
@@ -1403,10 +1417,6 @@
       <button class="desktop-tab-btn" data-tab="tokens" onclick="switchTab('tokens', this)">
         <span class="desktop-tab-icon">🔑</span>
         <span>Token Vault</span>
-      </button>
-      <button class="desktop-tab-btn" data-tab="proxies" onclick="switchTab('proxies', this)">
-        <span class="desktop-tab-icon">🌐</span>
-        <span>Proxy Fleet</span>
       </button>
       <button class="desktop-tab-btn" data-tab="settings" onclick="switchTab('settings', this)">
         <span class="desktop-tab-icon">⚙️</span>
@@ -2423,7 +2433,7 @@
         <div id="token-health-summary" style="display:none; margin-bottom:12px; padding:10px 14px; border-radius:var(--radius-sm); font-size:0.82rem; background:rgba(88,101,242,0.12); border:1px solid rgba(88,101,242,0.3);"></div>
 
         <div class="field-group">
-          <label class="field-label">Single Token Add (Supports optional Proxy: <code>TOKEN|socks5://...</code> or <code>TOKEN|http://...</code>)</label>
+          <label class="field-label">Single Token Add</label>
           <div class="input-row">
             <input type="password" id="single-token-input" placeholder="Token or TOKEN|socks5://user:pass@ip:port">
             <button class="btn btn-success" onclick="addSingleToken()">+ Add</button>
@@ -2431,13 +2441,13 @@
         </div>
 
         <div class="field-group" style="margin-top:8px;">
-          <label class="field-label">📁 Upload tokens.txt File (Supports TOKEN|PROXY format)</label>
+          <label class="field-label">📁 Upload tokens.txt File</label>
           <input type="file" id="token-file-input" accept=".txt" onchange="handleFileUpload(event)" style="padding:8px;">
         </div>
 
         <div class="field-group" style="margin-top:8px;">
-          <label class="field-label">📋 Bulk Multi-Token & Proxy Importer</label>
-          <textarea id="bulk-token-area" rows="4" placeholder="Paste tokens (one per line, e.g. TOKEN or TOKEN|socks5://ip:1080)..."></textarea>
+          <label class="field-label">📋 Bulk Multi-Token Importer</label>
+          <textarea id="bulk-token-area" rows="4" placeholder="Paste tokens (one per line)..."></textarea>
           <button class="btn btn-success" style="width:100%; margin-top:4px;" onclick="importBulkTokens()">📥 Import All Pasted Tokens</button>
         </div>
       </div>
@@ -2463,7 +2473,7 @@
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:10px; margin-bottom:12px;">
           <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:12px;">
             <div style="font-size:0.82rem; font-weight:700; color:var(--text-heading); margin-bottom:4px;">🧹 Clean Memory & Cache</div>
-            <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:10px;">Purges in-memory log buffer, expired proxy quarantines, and runs garbage collection.</div>
+            <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:10px;">Purges in-memory log buffer and runs garbage collection.</div>
             <button class="btn btn-secondary btn-sm" onclick="runMaintenanceClean()" style="width:100%; font-weight:700;">
               Execute Memory Clean
             </button>
@@ -2487,7 +2497,7 @@
 
           <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:12px;">
             <div style="font-size:0.82rem; font-weight:700; color:var(--text-heading); margin-bottom:4px;">💾 1-Click Profile Backup</div>
-            <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:10px;">Exports all saved tokens, workspaces, preferences, and proxy bindings to JSON.</div>
+            <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:10px;">Exports all saved tokens, workspaces, and preferences to JSON.</div>
             <button class="btn btn-primary btn-sm" onclick="exportProfileBackup()" style="width:100%; font-weight:700;">
               Export Full Backup (.json)
             </button>
@@ -2517,22 +2527,6 @@
               <div style="font-size:0.68rem; color:var(--text-muted);">Re-connect on kick</div>
             </div>
             <input type="checkbox" id="master-auto-rejoin" checked onchange="toggleAutoRejoin(this.checked)" style="width:18px; height:18px; accent-color:var(--success);">
-          </div>
-
-          <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center;">
-            <div>
-              <div style="font-size:0.8rem; font-weight:700; color:#fff;">🛡️ Proxy Failover</div>
-              <div style="font-size:0.68rem; color:var(--text-muted);">Switch dead proxies</div>
-            </div>
-            <input type="checkbox" id="master-proxy-failover" checked onchange="toggleAutoFailover()" style="width:18px; height:18px; accent-color:#00b4d8;">
-          </div>
-
-          <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center;">
-            <div>
-              <div style="font-size:0.8rem; font-weight:700; color:#fff;">🔄 Proxy Rotate</div>
-              <div style="font-size:0.68rem; color:var(--text-muted);">Auto-rotate timer</div>
-            </div>
-            <input type="checkbox" id="master-proxy-rotate" onchange="toggleAutoRotate()" style="width:18px; height:18px; accent-color:#00b4d8;">
           </div>
 
           <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center;">
@@ -3890,147 +3884,6 @@
 
     </div>
 
-    <!-- TAB: PROXIES & FREE PROXY POOL -->
-    <div class="tab-content" id="tab-proxies">
-
-      <!-- LEFT COLUMN: Operations & Custom Proxies -->
-      <div class="proxy-column-ops">
-
-        <!-- Proxy Fleet & Anti-Ban Hub Card -->
-        <div class="card" style="border-color: var(--border); background: var(--bg-card);">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px;">
-            <div>
-              <div style="display:flex; align-items:center; gap:8px;">
-                <span style="font-size:1.4rem;">🌐</span>
-                <h2 style="font-size:1.15rem; font-weight:800; color:var(--text-heading); margin:0;">Proxy Fleet & Anti-Ban</h2>
-              </div>
-              <div style="font-size:0.75rem; color:var(--text-muted); margin-top:3px;">
-                Protect bots from Discord IP rate limits (HTTP 429) & Cloudflare verification blocks.
-              </div>
-            </div>
-            <span class="badge" style="background:rgba(35, 165, 90, 0.15); color:#23a55a; border:1px solid rgba(35, 165, 90, 0.35); font-weight:700;">
-              ● Shield Active
-            </span>
-          </div>
-
-          <!-- 4 Stat Counters Grid -->
-          <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; margin-bottom:14px;">
-            <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:12px;">
-              <div style="font-size:0.72rem; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Pool Proxies</div>
-              <div style="font-size:1.35rem; font-weight:800; color:var(--text-heading);" id="proxy-stat-total">0</div>
-            </div>
-            <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:12px;">
-              <div style="font-size:0.72rem; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Verified Online</div>
-              <div style="font-size:1.35rem; font-weight:800; color:#23a55a;" id="proxy-stat-online">0</div>
-            </div>
-            <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:12px;">
-              <div style="font-size:0.72rem; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Bots Protected</div>
-              <div style="font-size:1.35rem; font-weight:800; color:var(--accent);" id="proxy-stat-assigned">0 Bots</div>
-            </div>
-            <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:12px;">
-              <div style="font-size:0.72rem; color:var(--text-muted); font-weight:600; text-transform:uppercase;">Avg Latency</div>
-              <div style="font-size:1.35rem; font-weight:800; color:#faa61a;" id="proxy-stat-ping">-- ms</div>
-            </div>
-          </div>
-
-          <!-- Automation & Protection Toggles -->
-          <div style="background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin-bottom:14px; display:flex; flex-direction:column; gap:10px;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.82rem; font-weight:700; color:var(--text-heading);">
-                <input type="checkbox" id="chk-proxy-failover" onchange="toggleAutoFailover()" checked style="width:16px; height:16px; accent-color:var(--accent);">
-                <span>🛡️ Auto-Failover Watchdog</span>
-              </label>
-              <span style="font-size:0.7rem; color:var(--text-muted);">Re-binds on dead proxy</span>
-            </div>
-            <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid rgba(255,255,255,0.06); padding-top:10px;">
-              <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.82rem; font-weight:700; color:var(--text-heading);">
-                <input type="checkbox" id="chk-proxy-auto-rotate" onchange="toggleAutoRotate()" style="width:16px; height:16px; accent-color:var(--accent);">
-                <span>🔄 Scheduled Auto-Rotate</span>
-              </label>
-              <select id="sel-proxy-rotate-interval" onchange="updateProxyRotateInterval()" style="background:var(--bg-card); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:3px 8px; font-size:0.72rem;">
-                <option value="300">Every 5 min</option>
-                <option value="900">Every 15 min</option>
-                <option value="1800" selected>Every 30 min</option>
-                <option value="3600">Every 1 hr</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- 1-Click Operations Grid -->
-          <div style="display:flex; flex-direction:column; gap:8px;">
-            <div style="display:flex; gap:8px;">
-              <button class="btn btn-primary" onclick="fetchFreeProxies('socks5')" id="btn-fetch-socks5" style="flex:1; font-weight:700;">
-                ⚡ Fetch Free SOCKS5
-              </button>
-              <button class="btn btn-secondary" onclick="fetchFreeProxies('http')" id="btn-fetch-http" style="flex:1;">
-                🌐 Fetch Free HTTP
-              </button>
-            </div>
-            <button class="btn btn-success" onclick="distributeDedicatedProxies()" id="btn-distribute-dedicated" style="width:100%; background:linear-gradient(135deg, #10b981, #059669); border:none; font-weight:700; padding:10px;">
-              🛡️ 1 IP Per Bot (Dedicated Unique)
-            </button>
-            <div style="display:flex; gap:8px;">
-              <button class="btn btn-secondary" onclick="distributeProxiesToBots()" id="btn-distribute-proxies" style="flex:1;">
-                🎯 Distribute Shared
-              </button>
-              <button class="btn btn-secondary" onclick="clearAllBotProxies()" style="flex:1; color:var(--danger); border-color:rgba(242,63,67,0.3);">
-                🧹 Clear (Direct IP)
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Custom / Private Proxy Adder Card -->
-        <div class="card">
-          <div class="card-title">
-            <span>➕ Add Private / Custom Proxy</span>
-          </div>
-          <div class="field-group" style="margin-bottom:0;">
-            <label class="field-label">Supports SOCKS5, HTTP, HTTPS with optional auth</label>
-            <div class="input-row">
-              <input type="text" id="custom-proxy-input" placeholder="socks5://user:pass@1.2.3.4:1080 or http://1.2.3.4:8080" onkeydown="if(event.key==='Enter') addCustomProxy()">
-              <button class="btn btn-primary" onclick="addCustomProxy()">+ Add</button>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- RIGHT COLUMN: Live Proxy Pool & Real-Time Filter -->
-      <div class="proxy-column-pool">
-        <div class="card" style="min-height:540px;">
-          <div class="card-title" style="flex-wrap:wrap; gap:8px;">
-            <div style="display:flex; align-items:center; gap:8px;">
-              <span>📋 Active Proxy Pool</span>
-              <span class="badge" style="background:var(--bg-dark); border:1px solid var(--border);" id="proxy-pool-count-badge">0</span>
-            </div>
-            <div style="display:flex; gap:6px; flex-wrap:wrap;">
-              <button class="btn btn-secondary btn-sm active" id="pfilter-all" onclick="filterProxyList('all')">All</button>
-              <button class="btn btn-secondary btn-sm" id="pfilter-online" onclick="filterProxyList('online')">🟢 Online</button>
-              <button class="btn btn-secondary btn-sm" id="pfilter-socks5" onclick="filterProxyList('socks5')">SOCKS5</button>
-              <button class="btn btn-secondary btn-sm" id="pfilter-http" onclick="filterProxyList('http')">HTTP</button>
-              <button class="btn btn-secondary btn-sm" onclick="fetchStatus()" title="Refresh Proxy Pool">↻</button>
-            </div>
-          </div>
-
-          <!-- Real-Time Search Input -->
-          <div style="margin-bottom:12px;">
-            <input type="text" id="proxy-search-input" placeholder="🔍 Search IP, port, country (e.g. US, 1080, socks5)..." oninput="searchProxyPool(this.value)" style="width:100%; padding:9px 14px; background:var(--bg-dark); border:1px solid var(--border); border-radius:10px; color:var(--text); font-size:0.85rem; outline:none; transition:border 0.2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
-          </div>
-
-          <!-- Proxy List Container -->
-          <div id="proxy-list-container" style="display:flex; flex-direction:column; gap:8px; max-height:560px; overflow-y:auto; padding-right:4px;">
-            <div style="text-align:center; padding:32px 16px; color:var(--text-muted); font-size:0.85rem;">
-              <div style="font-size:2rem; margin-bottom:8px;">🌐</div>
-              <div style="font-weight:700; color:var(--text-heading); margin-bottom:4px;">No Proxies in Pool Yet</div>
-              <div style="margin-bottom:14px; font-size:0.78rem;">Click below to automatically scan 40+ free fast proxies.</div>
-              <button class="btn btn-primary btn-sm" onclick="fetchFreeProxies('socks5')" style="display:inline-flex; align-items:center; gap:6px;">
-                ⚡ Auto-Scan Free SOCKS5 Now
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
 
     </div>
 
@@ -4212,7 +4065,7 @@
           targetUrl = apiBaseUrl + targetUrl;
         }
       }
-      const key = (typeof currentAccessKey !== 'undefined' && currentAccessKey) || localStorage.getItem('dc_access_key') || sessionStorage.getItem('dc_access_key') || '';
+      const key = (typeof currentAccessKey !== 'undefined' && currentAccessKey) || sessionStorage.getItem('dc_access_key') || '';
       if (key) {
         if (options.headers instanceof Headers) {
           if (!options.headers.has('X-Access-Key')) {
@@ -4386,317 +4239,6 @@
       }
     }
 
-    let currentProxyList = [];
-    let currentProxyFilter = 'all';
-
-    function renderProxiesTab() {
-      if (window.lastStatusData && window.lastStatusData.proxy_summary) {
-        updateProxyUI(window.lastStatusData.proxy_summary);
-      } else {
-        fetchStatus();
-      }
-    }
-
-    let proxySearchQuery = '';
-
-    function searchProxyPool(query) {
-      proxySearchQuery = (query || '').toLowerCase().trim();
-      renderProxyCards();
-    }
-
-    function updateProxyUI(summary) {
-      if (!summary) return;
-      currentProxyList = summary.proxies || [];
-
-      const elTotal = document.getElementById('proxy-stat-total');
-      const elOnline = document.getElementById('proxy-stat-online');
-      const elAssigned = document.getElementById('proxy-stat-assigned');
-      const elPing = document.getElementById('proxy-stat-ping');
-      const elBadge = document.getElementById('proxy-pool-count-badge');
-      const chkFailover = document.getElementById('chk-proxy-failover');
-      const chkRotate = document.getElementById('chk-proxy-auto-rotate');
-      const selInterval = document.getElementById('sel-proxy-rotate-interval');
-
-      if (elTotal) elTotal.innerText = summary.total || 0;
-      if (elBadge) elBadge.innerText = summary.total || 0;
-      if (elOnline) elOnline.innerText = summary.online || 0;
-      if (elAssigned) elAssigned.innerText = (summary.assigned_to_bots || 0) + ' Bots';
-      if (elPing) elPing.innerText = summary.avg_ping ? (summary.avg_ping + ' ms') : '-- ms';
-      if (chkFailover && summary.auto_failover !== undefined) chkFailover.checked = !!summary.auto_failover;
-      if (chkRotate && summary.auto_rotate !== undefined) chkRotate.checked = !!summary.auto_rotate;
-      if (selInterval && summary.auto_rotate_interval) selInterval.value = summary.auto_rotate_interval;
-
-      renderProxyCards();
-    }
-
-    function filterProxyList(filter) {
-      currentProxyFilter = filter;
-      ['all', 'online', 'socks5', 'http'].forEach(f => {
-        const btn = document.getElementById('pfilter-' + f);
-        if (btn) {
-          if (f === filter) btn.classList.add('active');
-          else btn.classList.remove('active');
-        }
-      });
-      renderProxyCards();
-    }
-
-    function renderProxyCards() {
-      const container = document.getElementById('proxy-list-container');
-      if (!container) return;
-
-      let list = currentProxyList;
-      if (currentProxyFilter === 'online') {
-        list = list.filter(p => p.status === 'online');
-      } else if (currentProxyFilter === 'socks5') {
-        list = list.filter(p => p.protocol === 'SOCKS5');
-      } else if (currentProxyFilter === 'http') {
-        list = list.filter(p => p.protocol === 'HTTP');
-      }
-
-      if (proxySearchQuery) {
-        list = list.filter(p => {
-          const u = (p.url || '').toLowerCase();
-          const c = (p.country || '').toLowerCase();
-          const proto = (p.protocol || '').toLowerCase();
-          return u.includes(proxySearchQuery) || c.includes(proxySearchQuery) || proto.includes(proxySearchQuery);
-        });
-      }
-
-      if (list.length === 0) {
-        container.innerHTML = `
-          <div style="text-align:center; padding:32px 16px; color:var(--text-muted); font-size:0.85rem;">
-            <div style="font-size:1.8rem; margin-bottom:6px;">🔍</div>
-            <div style="font-weight:700; color:var(--text-heading); margin-bottom:4px;">No Matching Proxies</div>
-            <div style="margin-bottom:12px; font-size:0.78rem;">No proxies found for current filter or search.</div>
-            <button class="btn btn-primary btn-sm" onclick="fetchFreeProxies('socks5')">
-              ⚡ Scan 40+ SOCKS5
-            </button>
-          </div>`;
-        return;
-      }
-
-      let html = '';
-      list.forEach((p, idx) => {
-        const isOnline = p.status === 'online';
-        const hasBots = p.assigned_to && p.assigned_to.length > 0;
-        const protoColor = p.protocol === 'SOCKS5' ? 'var(--accent)' : '#a855f7';
-        const protoBg = p.protocol === 'SOCKS5' ? 'rgba(88,101,242,0.18)' : 'rgba(168,85,247,0.18)';
-        const pingColor = (!p.ping || p.ping < 180) ? '#23a55a' : (p.ping < 450 ? '#faa61a' : '#f23f43');
-
-        html += `
-          <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-dark); border:1px solid ${isOnline ? 'rgba(35,165,90,0.3)' : 'var(--border)'}; border-radius:10px; padding:10px 14px; gap:8px; transition:all 0.15s ease;" onmouseover="this.style.borderColor='var(--accent)'; this.style.boxShadow='0 4px 14px rgba(0,0,0,0.25)'" onmouseout="this.style.borderColor='${isOnline ? 'rgba(35,165,90,0.3)' : 'var(--border)'}'; this.style.boxShadow='none'">
-            <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
-              <span style="font-size:0.75rem; font-weight:800; color:${protoColor}; background:${protoBg}; padding:3px 7px; border-radius:6px;">
-                ${p.protocol}
-              </span>
-              <div style="min-width:0; overflow:hidden;">
-                <div style="display:flex; align-items:center; gap:6px;">
-                  <span style="font-size:0.86rem; font-weight:700; color:var(--text-heading); font-family:monospace; word-break:break-all;">
-                    ${escapeHtml(p.url)}
-                  </span>
-                  <button onclick="copyProxyUrl('${escapeHtml(p.url)}')" style="background:none; border:none; cursor:pointer; font-size:0.82rem; padding:0 3px; color:var(--text-muted); opacity:0.8;" title="Copy Proxy Address">📋</button>
-                </div>
-                <div style="display:flex; gap:8px; align-items:center; font-size:0.74rem; color:var(--text-muted); margin-top:3px; flex-wrap:wrap;">
-                  <span style="color:${isOnline ? '#23a55a' : '#888'}; font-weight:600;">● ${isOnline ? 'Online' : 'Untested'}</span>
-                  ${p.country ? `<span style="background:rgba(255,255,255,0.06); padding:1px 6px; border-radius:4px; font-weight:700; color:#ddd;">${escapeHtml(p.country)}</span>` : ''}
-                  ${p.ping ? `<span style="color:${pingColor}; font-weight:600;">⚡ ${p.ping}ms</span>` : ''}
-                  ${hasBots ? `<span style="color:var(--accent); font-weight:700;">🤖 Bot #${p.assigned_to.join(', #')}</span>` : '<span style="color:#666;">Available</span>'}
-                </div>
-              </div>
-            </div>
-
-            <div style="display:flex; gap:6px; align-items:center;">
-              <button class="btn btn-secondary btn-sm" onclick="quickAssignToSelectedBot('${escapeHtml(p.url)}')" title="Assign this proxy to a bot" style="font-size:0.75rem; padding:5px 8px;">🎯 Bind</button>
-              <button class="btn btn-secondary btn-sm" onclick="testSingleProxyPing('${escapeHtml(p.url)}')" title="Test Ping" style="font-size:0.75rem; padding:5px 8px;">⚡ Ping</button>
-              <button class="btn btn-secondary btn-sm" style="color:var(--danger); font-size:0.75rem; padding:5px 7px;" onclick="deleteProxyFromPool('${escapeHtml(p.url)}')" title="Delete">✕</button>
-            </div>
-          </div>
-        `;
-      });
-      container.innerHTML = html;
-    }
-
-    function copyProxyUrl(url) {
-      copyTextToClipboard(url).then(() => {
-        showToast('📋 Copied: ' + url);
-      });
-    }
-
-    async function quickAssignToSelectedBot(proxyUrl) {
-      vibrate(15);
-      const accs = window.lastStatusData && window.lastStatusData.accounts ? window.lastStatusData.accounts : [];
-      if (accs.length === 0) {
-        return showToast('No bots connected to assign proxy', true);
-      }
-      let targetId = null;
-      if (selectedAccountIds && selectedAccountIds.size > 0) {
-        targetId = Array.from(selectedAccountIds)[0];
-      } else {
-        const unassigned = accs.find(a => !a.proxy);
-        targetId = unassigned ? unassigned.id : accs[0].id;
-      }
-      showToast(`Binding proxy to Bot #${targetId}...`);
-      try {
-        const res = await sendPost('/api/action', { action: 'set_account_proxy', id: targetId, proxy: proxyUrl });
-        if (res.success) {
-          showToast(`✅ Proxy assigned to Bot #${targetId}!`);
-          fetchStatus();
-        } else {
-          showToast(res.error || 'Failed to bind proxy', true);
-        }
-      } catch (e) {
-        showToast('Error: ' + e.message, true);
-      }
-    }
-
-    async function fetchFreeProxies(protocol) {
-      vibrate(20);
-      const btn = document.getElementById('btn-fetch-' + protocol);
-      const origText = btn ? btn.innerHTML : '';
-      if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = `⏳ Scanning ${protocol.toUpperCase()}...`;
-      }
-      showToast(`Scanning live free ${protocol.toUpperCase()} proxies...`);
-      try {
-        const res = await sendPost('/api/action', { action: 'fetch_free_proxies', protocol: protocol, limit: 40 });
-        if (res.success) {
-          showToast(`✅ ${res.message}`);
-          updateProxyUI(res.summary);
-          fetchStatus();
-        } else {
-          showToast(res.error || 'Failed to fetch proxies', true);
-        }
-      } catch (e) {
-        showToast('Error: ' + e.message, true);
-      } finally {
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML = origText;
-        }
-      }
-    }
-
-    async function distributeDedicatedProxies() {
-      vibrate(25);
-      const btn = document.getElementById('btn-distribute-dedicated');
-      const origText = btn ? btn.innerHTML : '';
-      if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '⏳ Binding 1 IP Per Bot...';
-      }
-      showToast('Binding 1 dedicated unique IP per bot...');
-      try {
-        const res = await sendPost('/api/action', { action: 'distribute_proxies', dedicated: true, refresh: true });
-        if (res.success) {
-          showToast(`✅ Assigned ${res.assigned} unique dedicated IPs to bots!`);
-          fetchStatus();
-        } else {
-          showToast(res.error || 'Failed to bind dedicated IPs', true);
-        }
-      } catch (e) {
-        showToast('Error: ' + e.message, true);
-      } finally {
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML = origText;
-        }
-      }
-    }
-
-    async function distributeProxiesToBots() {
-      vibrate(25);
-      const btn = document.getElementById('btn-distribute-proxies');
-      const origText = btn ? btn.innerHTML : '';
-      if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '⏳ Distributing...';
-      }
-      showToast('Distributing proxies to all bots...');
-      try {
-        const res = await sendPost('/api/action', { action: 'distribute_proxies' });
-        if (res.success) {
-          showToast(`✅ Assigned proxies to ${res.assigned} bots!`);
-          fetchStatus();
-        } else {
-          showToast(res.error || 'Failed to distribute', true);
-        }
-      } catch (e) {
-        showToast('Error: ' + e.message, true);
-      } finally {
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML = origText;
-        }
-      }
-    }
-
-    async function clearAllBotProxies() {
-      vibrate(20);
-      if (!confirm('Revert all bots to Direct IP connection?')) return;
-      try {
-        const res = await sendPost('/api/action', { action: 'clear_bot_proxies' });
-        if (res.success) {
-          showToast(`✅ Reverted ${res.cleared} bots to Direct IP.`);
-          fetchStatus();
-        }
-      } catch (e) {
-        showToast('Error: ' + e.message, true);
-      }
-    }
-
-    async function addCustomProxy() {
-      const input = document.getElementById('custom-proxy-input');
-      const val = (input ? input.value : '').trim();
-      if (!val) return showToast('Please enter a proxy URL', true);
-      showToast('Adding proxy to pool...');
-      try {
-        const res = await sendPost('/api/action', { action: 'add_custom_proxy', url: val });
-        if (res.success) {
-          input.value = '';
-          showToast('✅ Custom proxy added to pool!');
-          if (res.summary) updateProxyUI(res.summary);
-          fetchStatus();
-        } else {
-          showToast(res.error || 'Failed to add proxy', true);
-        }
-      } catch (e) {
-        showToast('Error: ' + e.message, true);
-      }
-    }
-
-    async function deleteProxyFromPool(url) {
-      if (!confirm('Remove proxy ' + url + ' from pool?')) return;
-      try {
-        const res = await sendPost('/api/action', { action: 'delete_proxy', url: url });
-        if (res.success) {
-          showToast('Proxy removed from pool');
-          if (res.summary) updateProxyUI(res.summary);
-          fetchStatus();
-        }
-      } catch (e) {
-        showToast('Error removing proxy: ' + e.message, true);
-      }
-    }
-
-    async function testSingleProxyPing(url) {
-      showToast('Testing ping...');
-      try {
-        const res = await sendPost('/api/action', { action: 'test_proxy_ping', url: url });
-        if (res.success) {
-          if (res.online) {
-            showToast(`🟢 Online! Ping: ${res.ping}ms`);
-          } else {
-            showToast('🔴 Offline / Connection timed out', true);
-          }
-          fetchStatus();
-        }
-      } catch (e) {
-        showToast('Ping failed: ' + e.message, true);
-      }
-    }
-
     function showToast(msg, isErr = false) {
       const toast = document.getElementById('toast-pill');
       const txt = document.getElementById('toast-text');
@@ -4779,7 +4321,7 @@
 
     async function fetchStatus() {
       try {
-        const key = currentAccessKey || localStorage.getItem('dc_access_key') || sessionStorage.getItem('dc_access_key') || '';
+        const key = currentAccessKey || sessionStorage.getItem('dc_access_key') || '';
         const targetWs = (typeof currentActiveWorkspace !== 'undefined' ? currentActiveWorkspace : (localStorage.getItem('dc_active_workspace') || '')).trim();
         const headers = {};
         if (key) {
@@ -4804,7 +4346,7 @@
 
     function renderStatus(data) {
       window.lastStatusData = data;
-      if (data.proxy_summary) updateProxyUI(data.proxy_summary);
+
       document.getElementById('status-bulb').style.backgroundColor = 'var(--success)';
       const devType = (data.device_type || 'mobile').toLowerCase();
       let devLabel = '📱 Mobile';
@@ -4967,12 +4509,6 @@
       // Master Quick Toggles Synchronization
       const mAr = document.getElementById('master-auto-rejoin');
       if (mAr && document.activeElement !== mAr && data.auto_rejoin !== undefined) mAr.checked = !!data.auto_rejoin;
-
-      const mPf = document.getElementById('master-proxy-failover');
-      if (mPf && document.activeElement !== mPf && data.proxy_summary && data.proxy_summary.auto_failover !== undefined) mPf.checked = !!data.proxy_summary.auto_failover;
-
-      const mPr = document.getElementById('master-proxy-rotate');
-      if (mPr && document.activeElement !== mPr && data.proxy_summary && data.proxy_summary.auto_rotate !== undefined) mPr.checked = !!data.proxy_summary.auto_rotate;
 
       const mDev = document.getElementById('master-device-type');
       if (mDev && document.activeElement !== mDev && data.device_type !== undefined) mDev.checked = data.device_type === 'mobile';
@@ -5535,7 +5071,6 @@
 
             <div class="acc-pills">
               ${inVoice ? `<span class="badge badge-voice">🔊 ${escapeHtml(acc.voice_channel)}${acc.guild_id ? ' <span style="font-size:0.72rem; opacity:0.8;">(Svr: ' + escapeHtml(acc.guild_id) + ')</span>' : ''}</span>` : `<span class="badge" style="background:#202225; color:#888;">Idle</span>`}
-              ${acc.proxy ? `<span class="badge" style="background:rgba(0,180,216,0.22); color:#00b4d8; font-weight:600;" title="${escapeHtml(acc.proxy)}">🌐 ${acc.country && acc.country !== 'Direct IP' ? escapeHtml(acc.country) + ' ' : ''}${escapeHtml(acc.proxy)}</span>` : ''}
               ${acc.device_model ? `<span class="badge" style="background:rgba(255,255,255,0.06); color:#aaa; font-size:0.72rem;">📱 ${escapeHtml(acc.device_model)}</span>` : ''}
               ${acc.ping ? `<span class="badge" style="background:rgba(88,101,242,0.18); color:var(--accent); font-weight:600;">⚡ ${acc.ping}ms</span>` : ''}
               ${acc.speaking ? `<span class="badge badge-online">🎙️ Speaking</span>` : ''}
@@ -5580,20 +5115,8 @@
           <div><strong>User ID:</strong> ${acc.user_id || 'Connecting...'}</div>
           <div><strong>Token:</strong> <code>${acc.token_masked || 'Hidden'}</code></div>
           <div><strong>Status:</strong> ${acc.online ? '🟢 Online' : '🔴 Offline'}</div>
-          <div><strong>Proxy:</strong> ${acc.proxy ? '🌐 <code>' + escapeHtml(acc.proxy) + '</code>' : '<span style="color:var(--text-muted);">None (Direct IP)</span>'}</div>
           <div><strong>Current Voice:</strong> ${acc.voice_channel ? '🔊 ' + escapeHtml(acc.voice_channel) : 'Not connected'}</div>
           ${acc.guild_id ? `<div><strong>Current Server:</strong> 🏛️ ${escapeHtml(acc.guild_id)}</div>` : ''}
-        </div>
-
-        <!-- Per-Bot Dedicated Proxy Configuration -->
-        <div style="background:rgba(0, 180, 216, 0.08); border:1px solid rgba(0, 180, 216, 0.35); border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:8px;">
-          <div style="font-weight:700; color:#00b4d8; font-size:0.9rem;">🌐 Dedicated Proxy Server</div>
-          <div style="font-size:0.75rem; color:var(--text-muted);">Assign dedicated SOCKS5 or HTTP proxy to isolate this account from rate limits.</div>
-          <div class="input-row">
-            <input type="text" id="modal-bot-proxy-input" placeholder="socks5://user:pass@ip:port or http://ip:port" value="${acc.proxy || ''}">
-            <button class="btn btn-primary btn-sm" onclick="saveBotProxy(${acc.id})">Save</button>
-            ${acc.proxy ? `<button class="btn btn-secondary btn-sm" style="color:var(--danger);" onclick="clearBotProxy(${acc.id})">Clear</button>` : ''}
-          </div>
         </div>
 
         <!-- Per-Bot Specific Server & Channel Routing -->
@@ -5659,30 +5182,6 @@
 
     function closeModal(e) {
       document.getElementById('account-modal').classList.remove('open');
-    }
-
-    function saveBotProxy(aid) {
-      const inputEl = document.getElementById('modal-bot-proxy-input');
-      const prx = inputEl ? inputEl.value.trim() : '';
-      sendPost('/api/action', { action: 'set_account_proxy', id: aid, proxy: prx }).then(r => {
-        if (r.success) {
-          showToast('Proxy updated: ' + (prx || 'Direct IP'));
-          closeModal();
-          fetchStatus();
-        } else {
-          showToast('Error: ' + (r.error || 'Failed to update proxy'), 'error');
-        }
-      });
-    }
-
-    function clearBotProxy(aid) {
-      sendPost('/api/action', { action: 'set_account_proxy', id: aid, proxy: '' }).then(r => {
-        if (r.success) {
-          showToast('Proxy removed (Direct IP)');
-          closeModal();
-          fetchStatus();
-        }
-      });
     }
 
     function filterAccounts(query) {
@@ -5985,7 +5484,7 @@
       if (!token) return showToast('Please paste a token', true);
       showToast('Authenticating token...');
       try {
-        const key = currentAccessKey || localStorage.getItem('dc_access_key') || '';
+        const key = currentAccessKey || '';
         const targetWs = (typeof currentActiveWorkspace !== 'undefined' ? currentActiveWorkspace : (localStorage.getItem('dc_active_workspace') || '')).trim();
         const headers = { 'Content-Type': 'application/json' };
         if (key) headers['X-Access-Key'] = key;
@@ -6016,7 +5515,7 @@
       if (lines.length === 0) return showToast('No valid tokens entered', true);
       showToast(`Importing ${lines.length} accounts...`);
       try {
-        const key = currentAccessKey || localStorage.getItem('dc_access_key') || '';
+        const key = currentAccessKey || '';
         const targetWs = (typeof currentActiveWorkspace !== 'undefined' ? currentActiveWorkspace : (localStorage.getItem('dc_active_workspace') || '')).trim();
         const headers = { 'Content-Type': 'application/json' };
         if (key) headers['X-Access-Key'] = key;
@@ -6055,7 +5554,7 @@
       vibrate(20);
       if (!confirm(`Remove account #${aid}?`)) return;
       try {
-        const key = currentAccessKey || localStorage.getItem('dc_access_key') || '';
+        const key = currentAccessKey || '';
         const headers = { 'Content-Type': 'application/json' };
         if (key) headers['X-Access-Key'] = key;
         const res = await fetch('/api/action', {
@@ -6071,16 +5570,11 @@
         showToast('Error: ' + e.message, true);
       }
     }
-        fetchStatus();
-      } catch (err) {
-        showToast('Error: ' + err.message, true);
-      }
-    }
 
     async function copyAllTokens() {
       vibrate(15);
       try {
-        const res = await fetch('/api/tokens');
+        const res = await fetch('/api/tokens?reveal=1');
         const data = await res.json();
         const list = (data.raw_tokens || (data.tokens || []).map(t => typeof t === 'string' ? t : (t.token || ''))).filter(Boolean);
         if (list.length === 0) return showToast('No tokens loaded yet', true);
@@ -6094,7 +5588,7 @@
     async function exportTokensToFile() {
       vibrate(15);
       try {
-        const res = await fetch('/api/tokens');
+        const res = await fetch('/api/tokens?reveal=1');
         const data = await res.json();
         const list = (data.raw_tokens || (data.tokens || []).map(t => typeof t === 'string' ? t : (t.token || ''))).filter(Boolean);
         if (list.length === 0) return showToast('No tokens to export', true);
@@ -9874,12 +9368,11 @@
       const urlParams = new URLSearchParams(window.location.search);
       const urlKey = urlParams.get('key') || urlParams.get('access_key');
       if (urlKey && urlKey.trim()) {
-        const clean = urlKey.trim();
-        localStorage.setItem('dc_access_key', clean);
-        document.cookie = "dc_access_key=" + encodeURIComponent(clean) + "; path=/; max-age=31536000; SameSite=Lax";
-        return clean;
+        // Share-link credentials stay in memory only and are removed from the URL bar.
+        try { history.replaceState(null, '', window.location.pathname + window.location.hash); } catch (e) {}
+        return urlKey.trim();
       }
-      return localStorage.getItem('dc_access_key') || sessionStorage.getItem('dc_access_key') || '';
+      return sessionStorage.getItem('dc_access_key') || '';
     })();
     let currentActiveWorkspace = (function() {
       const urlParams = new URLSearchParams(window.location.search);
@@ -9897,53 +9390,25 @@
       const portal = document.getElementById('login-portal-screen');
       if (!portal) return;
 
-      const savedUser = localStorage.getItem('dc_username') || sessionStorage.getItem('dc_username') || '';
-      const savedPass = localStorage.getItem('dc_password') || sessionStorage.getItem('dc_password') || currentAccessKey;
-      const savedCustomPass = localStorage.getItem('dc_custom_admin_pass') || '';
-      let cachedUsers = {};
-      try { cachedUsers = JSON.parse(localStorage.getItem('dc_persisted_users_backup') || '{}'); } catch(e){}
+      // Older builds cached plaintext passwords in localStorage. Purge them.
+      try {
+        localStorage.removeItem('dc_password');
+        localStorage.removeItem('dc_custom_admin_pass');
+        localStorage.removeItem('dc_persisted_users_backup');
+        localStorage.removeItem('dc_access_key');
+      } catch (e) {}
 
-      if (savedUser || savedPass || savedCustomPass) {
-        const uToTry = savedUser || 'admin';
-        const pToTry = savedPass || savedCustomPass;
-        try {
-          const res = await fetch('/api/action', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: 'auto_heal_auth',
-              username: uToTry,
-              password: pToTry,
-              client_custom_pass: savedCustomPass || (uToTry.toLowerCase() in { admin: 1, hubg50: 1, '': 1 } ? pToTry : ''),
-              users_backup: cachedUsers
-            })
-          });
-          const data = await res.json();
-          if (data && (data.valid || data.authenticated)) {
-            const resolvedUser = data.username || uToTry;
-            currentAccessKey = data.key || resolvedUser;
-            currentIsAdmin = Boolean(data.is_admin || resolvedUser.toLowerCase() in { admin: 1, hubg50: 1 });
-            hideLoginPortal();
-            updateKeySettingsUI(currentAccessKey, true);
-            if (data.auto_healed) {
-              console.log('⚡ [Auto-Heal] Successfully restored credentials & workspaces after server reboot');
-              showToast('⚡ Restored your custom password & spaces across server restart!');
-            }
-            fetchStatus();
-            return;
-          }
-        } catch(e) {
-          console.warn('[Auto-Heal] Handshake notice:', e);
-        }
+      const sessionKey = sessionStorage.getItem('dc_access_key') || '';
+      if (sessionKey) {
+        verifyStoredKey(sessionKey);
+        return;
       }
-
-      if (savedUser && savedPass) {
-        verifyStoredCredentials(savedUser, savedPass);
-      } else if (currentAccessKey) {
+      if (currentAccessKey) {
+        // Credential supplied through a share link (?key=...).
         verifyStoredKey(currentAccessKey);
-      } else {
-        showLoginPortal();
+        return;
       }
+      showLoginPortal();
     }
 
     function showLoginPortal() {
@@ -10031,11 +9496,6 @@
       if (btn) btn.innerHTML = '<span>⏳</span><span>Verifying...</span>';
       if (err) err.style.display = 'none';
 
-      let cachedUsers = {};
-      try { cachedUsers = JSON.parse(localStorage.getItem('dc_persisted_users_backup') || '{}'); } catch(e){}
-      const savedCustomPass = localStorage.getItem('dc_custom_admin_pass') || '';
-      const isAdmU = (uVal.toLowerCase() in { admin: 1, hubg50: 1, '': 1 });
-
       try {
         const res = await fetch('/api/action', {
           method: 'POST',
@@ -10043,9 +9503,7 @@
           body: JSON.stringify({
             action: 'login',
             username: uVal,
-            password: pVal,
-            client_custom_pass: isAdmU ? (savedCustomPass || pVal) : '',
-            users_backup: cachedUsers
+            password: pVal
           })
         });
         if (!res.ok) {
@@ -10058,21 +9516,18 @@
           currentAccessKey = data.key || resolvedUser;
           currentIsAdmin = Boolean(data.is_admin || resolvedUser.toLowerCase() in { admin: 1, hubg50: 1 });
           const sec = (window.location.protocol === 'https:') ? '; Secure' : '';
-          document.cookie = "dc_access_key=" + encodeURIComponent(currentAccessKey) + "; path=/; max-age=31536000; SameSite=Lax" + sec;
           document.cookie = "dc_username=" + encodeURIComponent(resolvedUser) + "; path=/; max-age=31536000; SameSite=Lax" + sec;
+          // Credentials stay in session storage only; never persist passwords in localStorage.
+          sessionStorage.setItem('dc_access_key', currentAccessKey);
+          sessionStorage.setItem('dc_username', resolvedUser);
           const remember = document.getElementById('login-remember-me');
           if (remember && remember.checked) {
-            localStorage.setItem('dc_access_key', currentAccessKey);
             localStorage.setItem('dc_username', resolvedUser);
-            localStorage.setItem('dc_password', pVal);
-            if (currentIsAdmin) {
-              localStorage.setItem('dc_custom_admin_pass', pVal);
-            }
-          } else {
-            sessionStorage.setItem('dc_access_key', currentAccessKey);
-            sessionStorage.setItem('dc_username', resolvedUser);
-            sessionStorage.setItem('dc_password', pVal);
           }
+          localStorage.removeItem('dc_access_key');
+          localStorage.removeItem('dc_password');
+          localStorage.removeItem('dc_custom_admin_pass');
+          localStorage.removeItem('dc_persisted_users_backup');
           hideLoginPortal();
           updateKeySettingsUI(currentAccessKey, true);
           if (data.auto_healed) {
@@ -10122,12 +9577,15 @@
         const res = await fetch('/api/action', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'login', key: key })
+          body: JSON.stringify({ action: 'validate_session', key: key })
         });
         const data = await res.json();
-        if (data && (data.valid || data.authenticated)) {
+        if (data && data.valid) {
+          currentIsAdmin = Boolean(data.is_admin);
           hideLoginPortal();
           updateKeySettingsUI(key, true);
+          fetchStatus();
+          fetchLogs();
         } else {
           showLoginPortal();
         }
@@ -10146,7 +9604,11 @@
       const el = document.getElementById(`key-display-${k}`);
       if (!el) return;
       if (el.innerText === '••••••••') {
-        el.innerText = pass || k;
+        if (!pass) {
+          showToast('🔒 This password is stored as a hash. Reset it to set a new one.', true);
+          return;
+        }
+        el.innerText = pass;
       } else {
         el.innerText = '••••••••';
       }
@@ -10159,7 +9621,7 @@
       }
       const newP = prompt(`Enter new password for '${targetUser}':`);
       if (!newP || !newP.trim()) return;
-      const key = currentAccessKey || localStorage.getItem('dc_access_key') || sessionStorage.getItem('dc_access_key') || '';
+      const key = currentAccessKey || sessionStorage.getItem('dc_access_key') || '';
       try {
         const headers = { 'Content-Type': 'application/json' };
         if (key) headers['X-Access-Key'] = key;
@@ -10176,13 +9638,6 @@
         });
         const data = await res.json();
         if (data && data.success) {
-          try {
-            const cached = JSON.parse(localStorage.getItem('dc_persisted_users_backup') || '{}');
-            if (cached[targetUser.toLowerCase()]) {
-              cached[targetUser.toLowerCase()].password = newP.trim();
-              localStorage.setItem('dc_persisted_users_backup', JSON.stringify(cached));
-            }
-          } catch (e) {}
           showToast(`🔑 Password updated for '${targetUser}'`);
           fetchStatus();
           loadWorkspacesList();
@@ -10196,6 +9651,16 @@
     }
 
     function logoutDashboard() {
+      try {
+        const key = currentAccessKey || sessionStorage.getItem('dc_access_key') || '';
+        if (key) {
+          fetch('/api/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Access-Key': key },
+            body: JSON.stringify({ action: 'logout' })
+          }).catch(() => {});
+        }
+      } catch (e) {}
       localStorage.removeItem('dc_access_key');
       localStorage.removeItem('dc_username');
       localStorage.removeItem('dc_password');
@@ -10215,10 +9680,10 @@
 
     function updateKeySettingsUI(key, isAuthed) {
       const curInput = document.getElementById('settings-current-key');
-      if (curInput) curInput.value = key || '';
-      const envKeyInput = document.getElementById('render-env-key-string');
-      if (envKeyInput && key) {
-        envKeyInput.value = `DC_ACCESS_KEY=${key}`;
+      // Never pre-fill a session token into a password field.
+      if (curInput) {
+        curInput.value = '';
+        curInput.placeholder = 'Current password';
       }
       const badge = document.getElementById('key-system-badge');
       if (badge) {
@@ -10280,7 +9745,7 @@
             <td style="padding:8px 6px;">
               <div style="display:flex; align-items:center; gap:4px;">
                 <span id="key-display-${u}" style="font-family:monospace; background:rgba(0,0,0,0.35); padding:2px 6px; border-radius:4px; color:#93c5fd; font-size:0.75rem;">••••••••</span>
-                <button onclick="toggleKeyReveal('${u}', '${(ws.password || '').replace(/'/g, "\\'")}')" class="btn btn-secondary btn-sm" style="font-size:0.6rem; padding:1px 4px;" title="Reveal Password">👁️</button>
+                <button onclick="toggleKeyReveal('${u}', '${(ws.password || '').replace(/'/g, "\\'")}')" class="btn btn-secondary btn-sm" style="font-size:0.6rem; padding:1px 4px;${ws.password_hashed ? ' opacity:0.45;' : ''}" title="${ws.password_hashed ? 'Password is stored as a hash and cannot be revealed' : 'Reveal Password'}">👁️</button>
               </div>
             </td>
             <td style="padding:8px 6px;">
@@ -10321,7 +9786,7 @@
     async function loadWorkspacesList() {
       try {
         const headers = {};
-        const key = currentAccessKey || localStorage.getItem('dc_access_key') || sessionStorage.getItem('dc_access_key') || '';
+        const key = currentAccessKey || sessionStorage.getItem('dc_access_key') || '';
         const targetWs = (typeof currentActiveWorkspace !== 'undefined' ? currentActiveWorkspace : (localStorage.getItem('dc_active_workspace') || '')).trim();
         if (key) {
           headers['X-Access-Key'] = key;
@@ -10402,77 +9867,13 @@
     }
 
     async function handleAutomaticWorkspacesPersistence(serverWorkspaces, adminKey) {
+      // Workspaces are persisted server-side (workspaces.json / cloud providers).
+      // Older builds copied full workspace objects, including passwords, into
+      // localStorage; purge that cache and do not re-import credentials.
       try {
-        const STORAGE_KEY = 'dc_persisted_users_backup';
-        let cached = {};
-        try {
-          cached = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-        } catch (e) {
-          cached = {};
-        }
-
-        const serverMap = {};
-        (serverWorkspaces || []).forEach(ws => {
-          const u = (ws.username || ws.key || '').trim().toLowerCase();
-          if (u) serverMap[u] = ws;
-        });
-
-        // 1. Detect if server restarted and lost users from previous sessions
-        const missingOnServer = {};
-        let missingCount = 0;
-        for (const [k, ws] of Object.entries(cached)) {
-          if (!serverMap[k] && k !== 'admin' && k !== 'hubg50') {
-            missingOnServer[k] = ws;
-            missingCount++;
-          }
-        }
-
-        if (missingCount > 0) {
-          console.log(`[Auto-Sync] Server restart detected! Restoring ${missingCount} user(s) automatically...`);
-          const res = await fetch('/api/action', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Access-Key': adminKey },
-            body: JSON.stringify({
-              action: 'import_workspaces',
-              admin_key: adminKey,
-              key: adminKey,
-              workspaces: missingOnServer
-            })
-          });
-          const resData = await res.json();
-          if (resData && resData.success) {
-            showToast(`⚡ [Auto-Sync] Restored ${missingCount} user(s) automatically after restart!`);
-            const ref = await fetch(`/api/workspaces?key=${encodeURIComponent(adminKey)}`, {
-              headers: { 'X-Access-Key': adminKey }
-            });
-            const refData = await ref.json();
-            if (refData && refData.workspaces) {
-              renderWorkspacesTable(refData.workspaces, adminKey, true);
-              if (refData.env_string && document.getElementById('render-env-users-string')) {
-                document.getElementById('render-env-users-string').value = refData.env_string;
-              }
-            }
-          }
-          return;
-        }
-
-        // 2. Otherwise update local cache with all valid non-admin users from server
-        let updatedCache = false;
-        (serverWorkspaces || []).forEach(ws => {
-          const u = (ws.username || ws.key || '').trim().toLowerCase();
-          if (u && u !== 'admin' && u !== 'hubg50') {
-            if (!cached[u] || cached[u].password !== ws.password) {
-              cached[u] = ws;
-              updatedCache = true;
-            }
-          }
-        });
-        if (updatedCache) {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(cached));
-        }
-      } catch (err) {
-        console.warn('[Auto-Sync Error]:', err);
-      }
+        localStorage.removeItem('dc_persisted_users_backup');
+        localStorage.removeItem('dc_custom_admin_pass');
+      } catch (e) {}
     }
 
     function copyRenderEnvUsersString() {
@@ -10490,7 +9891,7 @@
 
     async function exportWorkspacesBackup() {
       try {
-        const key = currentAccessKey || localStorage.getItem('dc_access_key') || '';
+        const key = currentAccessKey || '';
         const res = await fetch('/api/action', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Access-Key': key },
@@ -10517,7 +9918,7 @@
       if (!jsonStr || !jsonStr.trim()) return;
       try {
         const parsed = JSON.parse(jsonStr.trim());
-        const key = currentAccessKey || localStorage.getItem('dc_access_key') || '';
+        const key = currentAccessKey || '';
         const res = await fetch('/api/action', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Access-Key': key },
@@ -10563,7 +9964,7 @@
 
       try {
         const headers = { 'Content-Type': 'application/json' };
-        const key = currentAccessKey || localStorage.getItem('dc_access_key') || sessionStorage.getItem('dc_access_key') || '';
+        const key = currentAccessKey || sessionStorage.getItem('dc_access_key') || '';
         if (key) {
           headers['X-Access-Key'] = key;
         }
@@ -10582,21 +9983,7 @@
         });
         const data = await res.json();
         if (data && data.success) {
-          // Immediately update local persistent cache
-          try {
-            const cached = JSON.parse(localStorage.getItem('dc_persisted_users_backup') || '{}');
-            cached[uVal.toLowerCase()] = {
-              username: uVal,
-              password: pVal,
-              key: uVal,
-              name: nameVal,
-              guild_id: gidVal,
-              is_admin: false,
-              created_at: Math.floor(Date.now() / 1000)
-            };
-            localStorage.setItem('dc_persisted_users_backup', JSON.stringify(cached));
-          } catch (e) {}
-          showToast(`🏢 User '${uVal}' created successfully! (Auto-saved)`);
+          showToast(`🏢 User '${uVal}' created successfully!`);
           if (uInp) uInp.value = '';
           if (pInp) pInp.value = '';
           if (nameInp) nameInp.value = '';
@@ -10622,7 +10009,7 @@
       }
       try {
         const headers = { 'Content-Type': 'application/json' };
-        const key = currentAccessKey || localStorage.getItem('dc_access_key') || sessionStorage.getItem('dc_access_key') || '';
+        const key = currentAccessKey || sessionStorage.getItem('dc_access_key') || '';
         if (key) {
           headers['X-Access-Key'] = key;
         }
@@ -10638,14 +10025,6 @@
         });
         const data = await res.json();
         if (data && data.success) {
-          // Remove from local persistent cache immediately
-          try {
-            const cached = JSON.parse(localStorage.getItem('dc_persisted_users_backup') || '{}');
-            if (cached[targetKey.toLowerCase()]) {
-              delete cached[targetKey.toLowerCase()];
-              localStorage.setItem('dc_persisted_users_backup', JSON.stringify(cached));
-            }
-          } catch (e) {}
           showToast(`🗑️ User space '${targetKey}' deleted`);
           fetchStatus();
           loadWorkspacesList();
@@ -10662,11 +10041,7 @@
       if (!targetKey) return;
       currentActiveWorkspace = targetKey.toLowerCase();
       localStorage.setItem('dc_active_workspace', currentActiveWorkspace);
-      if (!currentIsAdmin) {
-        currentAccessKey = targetKey;
-        localStorage.setItem('dc_access_key', targetKey);
-        document.cookie = "dc_access_key=" + encodeURIComponent(targetKey) + "; path=/; max-age=31536000; SameSite=Lax";
-      }
+      // Keep the session credential: usernames are identifiers, not passwords.
       showToast(`🏢 Switched to active space: ${targetKey}`);
       fetchStatus();
       loadWorkspacesList();
@@ -10683,20 +10058,28 @@
     }
 
     function copyWorkspaceLink(key) {
-      const url = `${window.location.origin}/?key=${encodeURIComponent(key)}`;
+      // Never put a password or session token in a URL. The link only preselects
+      // the workspace; the recipient still has to sign in with their password.
+      const url = `${window.location.origin}/?workspace=${encodeURIComponent(key)}`;
       navigator.clipboard.writeText(url).then(() => {
-        showToast(`🔗 Share link for '${key}' copied to clipboard!`);
+        showToast(`🔗 Workspace link for '${key}' copied. The recipient still needs their password.`);
       }).catch(() => {
-        prompt('Shareable link for this space:', url);
+        prompt('Shareable link for this space (password required):', url);
       });
     }
 
     function copyRenderEnvKeyString() {
       const el = document.getElementById('render-env-key-string');
-      const curKey = currentAccessKey || localStorage.getItem('dc_custom_admin_pass') || localStorage.getItem('dc_access_key') || 'hubg50';
-      const val = (el && el.value) || `DC_ACCESS_KEY=${curKey}`;
+      let val = el && el.value ? el.value : '';
+      if (!val) {
+        const pw = prompt('Enter your master password to build DC_ACCESS_KEY=...');
+        if (!pw) return;
+        val = `DC_ACCESS_KEY=${pw}`;
+        if (el) el.value = val;
+      }
       navigator.clipboard.writeText(val).then(() => {
-        showToast('📋 Copied: ' + val + ' (Paste into Render Environment)');
+        if (el) el.value = '';
+        showToast('📋 Copied DC_ACCESS_KEY (store it as a deployment secret)');
       }).catch(() => {
         prompt('Copy this into Render Environment Variables:', val);
       });
@@ -10707,8 +10090,12 @@
       const newInp = document.getElementById('settings-new-key');
       if (!newInp) return;
       const newK = newInp.value.trim();
-      const curK = (curInp && curInp.value.trim()) || currentAccessKey || 'hubg50';
+      const curK = (curInp && curInp.value.trim()) || '';
 
+      if (!curK) {
+        showToast('Enter your current password first.', true);
+        return;
+      }
       if (!newK) {
         showToast('Please enter a new access key.', true);
         return;
@@ -10722,17 +10109,32 @@
         });
         const data = await res.json();
         if (data && data.success) {
-          currentAccessKey = newK;
-          localStorage.setItem('dc_custom_admin_pass', newK);
-          localStorage.setItem('dc_access_key', newK);
-          localStorage.setItem('dc_password', newK);
-          sessionStorage.setItem('dc_access_key', newK);
-          sessionStorage.setItem('dc_password', newK);
+          // Password change revoked all sessions; log in again for a fresh token.
+          let newToken = newK;
+          try {
+            const lr = await fetch('/api/action', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'login',
+                username: localStorage.getItem('dc_username') || sessionStorage.getItem('dc_username') || 'admin',
+                password: newK
+              })
+            });
+            const ld = await lr.json();
+            if (ld && ld.valid && ld.key) newToken = ld.key;
+          } catch (e) {}
+          currentAccessKey = newToken;
+          sessionStorage.setItem('dc_access_key', newToken);
+          sessionStorage.removeItem('dc_password');
+          localStorage.removeItem('dc_access_key');
+          localStorage.removeItem('dc_password');
+          localStorage.removeItem('dc_custom_admin_pass');
           if (curInp) curInp.value = newK;
           newInp.value = '';
           const envInp = document.getElementById('render-env-key-string');
           if (envInp) envInp.value = `DC_ACCESS_KEY=${newK}`;
-          showToast(`🔐 Key updated to: ${newK} (Auto-heal active)`);
+          showToast('🔐 Password updated. Update DC_ACCESS_KEY in your deployment too.');
         } else {
           showToast(data.error || 'Failed to update access key.', true);
         }
