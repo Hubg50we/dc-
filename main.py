@@ -260,7 +260,7 @@ def load_workspaces():
             USER_WORKSPACES[k] = v
         else:
             if not USER_WORKSPACES[k].get("password"):
-                USER_WORKSPACES[k]["password"] = ADMIN_PASSWORD
+                USER_WORKSPACES[k]["password"] = _hash_for_storage(ADMIN_PASSWORD)
             if not USER_WORKSPACES[k].get("username"):
                 USER_WORKSPACES[k]["username"] = v.get("username", k)
             USER_WORKSPACES[k]["is_admin"] = True
@@ -281,7 +281,7 @@ def load_workspaces():
                 if u_key not in USER_WORKSPACES:
                     USER_WORKSPACES[u_key] = {
                         "username": u_name,
-                        "password": u_pass,
+                        "password": _hash_for_storage(u_pass),
                         "key": u_name,
                         "name": f"Space ({u_name})",
                         "is_admin": is_adm,
@@ -292,7 +292,7 @@ def load_workspaces():
                     }
                 else:
                     if u_pass:
-                        USER_WORKSPACES[u_key]["password"] = u_pass
+                        USER_WORKSPACES[u_key]["password"] = _hash_for_storage(u_pass)
                     if is_adm:
                         USER_WORKSPACES[u_key]["is_admin"] = True
 
@@ -305,6 +305,10 @@ def load_workspaces():
                 for k, ws in parsed.items():
                     k_low = k.lower()
                     if isinstance(ws, dict):
+                        ws = dict(ws)
+                        pwd = ws.get("password", "")
+                        if pwd and not secure_store.is_password_hash(pwd):
+                            ws["password"] = _hash_for_storage(pwd)
                         USER_WORKSPACES[k_low] = ws
         except Exception:
             pass
@@ -324,6 +328,10 @@ def load_workspaces():
                 if isinstance(remote_data, dict):
                     for k, ws in remote_data.items():
                         if isinstance(ws, dict) and k.lower() not in USER_WORKSPACES:
+                            ws = dict(ws)
+                            pwd = ws.get("password", "")
+                            if pwd and not secure_store.is_password_hash(pwd):
+                                ws["password"] = _hash_for_storage(pwd)
                             USER_WORKSPACES[k.lower()] = ws
                     print(f"[☁️ Cloud] Merged workspaces from GitHub ({gh_repo})")
         except Exception:
@@ -347,6 +355,10 @@ def load_workspaces():
                     if isinstance(val, dict):
                         for k, ws in val.items():
                             if isinstance(ws, dict):
+                                ws = dict(ws)
+                                pwd = ws.get("password", "")
+                                if pwd and not secure_store.is_password_hash(pwd):
+                                    ws["password"] = _hash_for_storage(pwd)
                                 USER_WORKSPACES[k.lower()] = ws
                         print("[☁️ Cloud] Merged workspaces from Upstash Redis REST")
         except Exception as e:
@@ -373,6 +385,10 @@ def load_workspaces():
                     if isinstance(pg_data, dict):
                         for k, ws in pg_data.items():
                             if isinstance(ws, dict):
+                                ws = dict(ws)
+                                pwd = ws.get("password", "")
+                                if pwd and not secure_store.is_password_hash(pwd):
+                                    ws["password"] = _hash_for_storage(pwd)
                                 USER_WORKSPACES[k.lower()] = ws
                         print("[☁️ Cloud] Merged workspaces from PostgreSQL DATABASE_URL")
             conn.close()
@@ -2839,8 +2855,9 @@ async def _supervised_run_account(aid):
 
 async def add_account(token, proxy=None, owner_key=None):
     global NEXT_ID
+    # Proxy support removed: ignore any proxy in the token string or argument.
     if not proxy:
-        token, proxy = parse_token_and_proxy(token)
+        token, _ = parse_token_and_proxy(token)
     else:
         token = clean_token(token)
     if not token:
@@ -2848,38 +2865,27 @@ async def add_account(token, proxy=None, owner_key=None):
 
     resolved_owner = (owner_key or ACCESS_KEY).strip().lower()
 
-    # 🛡️ Auto-Assign Free Proxy from pool if no proxy was explicitly provided
-    if not proxy and FREE_PROXY_POOL:
-        online_proxies = [p for p in FREE_PROXY_POOL if p.get("status") == "online"]
-        if online_proxies:
-            # Pick least-loaded proxy to distribute traffic evenly
-            proxy_target = min(online_proxies, key=lambda p: len(p.get("assigned_to", [])))
-            proxy = proxy_target.get("url")
-
     for a in ACCOUNTS.values():
         if a.get("token") == token:
             print(f"[Account {a['id']}] Already added ({a.get('name')}).")
-            if proxy and a.get("proxy") != proxy:
-                a["proxy"] = proxy
-                sync_tokens_file()
             return a["id"]
 
-    user, err = await _validate_token(token, proxy=proxy)
+    user, err = await _validate_token(token)
     aid = NEXT_ID
     NEXT_ID += 1
     if user is None:
         acc = {
-            "id": aid, "token": token, "proxy": proxy, "task": None, "ws": None, "hb": None,
+            "id": aid, "token": token, "task": None, "ws": None, "hb": None,
             "user_id": None, "name": None, "online": False, "voice_channel": None,
             "mute": False, "deaf": False, "removed": False, "error": err,
             "owner_key": resolved_owner
         }
         ACCOUNTS[aid] = acc
-        print(f"[Account {aid}] Invalid token ({err}): {token[:10]}... (added as offline, proxy={mask_proxy(proxy) or 'Direct'})")
+        print(f"[Account {aid}] Invalid token ({err}): {token[:10]}... (added as offline)")
         return aid
 
     acc = {
-        "id": aid, "token": token, "proxy": proxy, "task": None, "ws": None, "hb": None,
+        "id": aid, "token": token, "task": None, "ws": None, "hb": None,
         "user_id": user["id"], "name": user.get("username", "Unknown"), "online": False,
         "voice_channel": None, "mute": False, "deaf": False, "removed": False, "error": None,
         "owner_key": resolved_owner
@@ -2887,7 +2893,7 @@ async def add_account(token, proxy=None, owner_key=None):
     ACCOUNTS[aid] = acc
     task = asyncio.create_task(_supervised_run_account(aid))
     acc["task"] = task
-    print(f"[Account {aid}] Added: {acc['name']} ({acc['user_id']}) [Owner: {resolved_owner}] - Proxy: {mask_proxy(proxy) or 'Direct'}")
+    print(f"[Account {aid}] Added: {acc['name']} ({acc['user_id']}) [Owner: {resolved_owner}]")
     sync_tokens_file()
     return aid
 
@@ -4574,12 +4580,13 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                     ADMIN_PASSWORD = candidate_pass
                     ACCESS_KEY = candidate_pass
                     _MASTER_HASH_CACHE.clear()
+                    _hashed_candidate = _hash_for_storage(candidate_pass)
                     if ADMIN_USERNAME.lower() in USER_WORKSPACES:
-                        USER_WORKSPACES[ADMIN_USERNAME.lower()]["password"] = candidate_pass
+                        USER_WORKSPACES[ADMIN_USERNAME.lower()]["password"] = _hashed_candidate
                     if "admin" in USER_WORKSPACES:
-                        USER_WORKSPACES["admin"]["password"] = candidate_pass
+                        USER_WORKSPACES["admin"]["password"] = _hashed_candidate
                     if "hubg50" in USER_WORKSPACES:
-                        USER_WORKSPACES["hubg50"]["password"] = candidate_pass
+                        USER_WORKSPACES["hubg50"]["password"] = _hashed_candidate
 
                     save_workspaces()
                     save_env_config()
@@ -4628,7 +4635,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 return {"success": False, "error": f"User '{new_u}' already exists"}
             USER_WORKSPACES[u_low] = {
                 "username": new_u,
-                "password": new_p,
+                "password": _hash_for_storage(new_p),
                 "key": new_u,
                 "name": name or f"Space ({new_u})",
                 "is_admin": False,
@@ -4673,7 +4680,7 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 return {"success": False, "error": "New password cannot be empty"}
             if target_u not in USER_WORKSPACES:
                 return {"success": False, "error": f"User '{target_u}' does not exist"}
-            USER_WORKSPACES[target_u]["password"] = new_p
+            USER_WORKSPACES[target_u]["password"] = _hash_for_storage(new_p)
             save_workspaces()
             with _SESSIONS_LOCK:
                 for tok, sess in list(_SESSIONS.items()):
@@ -4711,6 +4718,10 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 if k_low in ("admin", "hubg50"):
                     continue
                 if isinstance(ws, dict):
+                    ws = dict(ws)
+                    pwd = ws.get("password", "")
+                    if pwd and not secure_store.is_password_hash(pwd):
+                        ws["password"] = _hash_for_storage(pwd)
                     USER_WORKSPACES[k_low] = ws
                     count += 1
             save_workspaces()
@@ -4748,12 +4759,13 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             # Credential rotation invalidates every existing session.
             with _SESSIONS_LOCK:
                 _SESSIONS.clear()
+            _hashed_new_k = _hash_for_storage(new_k)
             if ADMIN_USERNAME.lower() in USER_WORKSPACES:
-                USER_WORKSPACES[ADMIN_USERNAME.lower()]["password"] = new_k
+                USER_WORKSPACES[ADMIN_USERNAME.lower()]["password"] = _hashed_new_k
             if "admin" in USER_WORKSPACES:
-                USER_WORKSPACES["admin"]["password"] = new_k
+                USER_WORKSPACES["admin"]["password"] = _hashed_new_k
             if "hubg50" in USER_WORKSPACES:
-                USER_WORKSPACES["hubg50"]["password"] = new_k
+                USER_WORKSPACES["hubg50"]["password"] = _hashed_new_k
             save_workspaces()
             save_env_config()
             log("🔐 Admin credentials updated successfully")
@@ -6891,81 +6903,12 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             acc = find_account(aid)
             if not acc:
                 return {"success": False, "error": "Account not found"}
-            acc["proxy"] = prx
-            sync_tokens_file()
-            return {"success": True, "message": f"Proxy updated for account {acc['id']}.", "proxy": mask_proxy(prx)}
-        elif action == "fetch_free_proxies":
-            proto = payload.get("protocol", "socks5")
-            limit = int(payload.get("limit", 40))
-            proxies = fetch_free_proxies_sync(limit=limit, protocol=proto)
-            return {"success": True, "message": f"Fetched {len(proxies)} free {proto.upper()} proxies.", "summary": get_free_proxy_summary()}
-        elif action in ("distribute_proxies", "distribute_dedicated_proxies", "one_ip_per_bot"):
-            refresh = bool(payload.get("refresh", False))
-            dedicated = bool(payload.get("dedicated", payload.get("dedicated_unique", True)))
-            res = distribute_free_proxies_to_bots(refresh_pool=refresh, dedicated_unique=dedicated)
-            return res
-        elif action == "clear_bot_proxies":
-            res = clear_all_bot_proxies()
-            return res
-        elif action == "add_custom_proxy":
-            raw_url = payload.get("url", "").strip()
-            if not raw_url:
-                return {"success": False, "error": "Proxy URL is empty"}
-            proto = "SOCKS5"
-            host_port = raw_url
-            if "://" in raw_url:
-                parts = raw_url.split("://", 1)
-                proto = parts[0].upper()
-                host_port = parts[1]
-            netloc = host_port.split("@")[-1]
-            host, port = netloc.split(":") if ":" in netloc else (netloc, 1080)
-            port_num = int(port) if str(port).isdigit() else 1080
-            ok, ping = ping_proxy_socket(host, port_num, timeout=2.0)
-            p_obj = {
-                "url": raw_url if "://" in raw_url else f"{proto.lower()}://{raw_url}",
-                "protocol": proto,
-                "ip": host,
-                "port": port_num,
-                "ping": ping if ok else 0,
-                "status": "online" if ok else "untested",
-                "assigned_to": []
-            }
-            FREE_PROXY_POOL.insert(0, p_obj)
-            return {"success": True, "message": "Custom proxy added to pool", "proxy": p_obj, "summary": get_free_proxy_summary()}
-        elif action == "delete_proxy":
-            target_url = payload.get("url", "").strip()
-            initial_len = len(FREE_PROXY_POOL)
-            FREE_PROXY_POOL[:] = [p for p in FREE_PROXY_POOL if p.get("url") != target_url]
-            return {"success": True, "removed": initial_len - len(FREE_PROXY_POOL), "summary": get_free_proxy_summary()}
-        elif action == "test_proxy_ping":
-            host = payload.get("host") or payload.get("ip")
-            port = payload.get("port")
-            if not (host and port):
-                url = payload.get("url", "")
-                netloc = url.split("://")[-1].split("@")[-1]
-                host, port = netloc.split(":") if ":" in netloc else (netloc, 1080)
-            ok, ping = ping_proxy_socket(host, int(port), timeout=2.0)
-            return {"success": True, "online": ok, "ping": ping}
-        elif action == "toggle_auto_rotate":
-            PROXY_AUTO_ROTATE = not PROXY_AUTO_ROTATE
-            ensure_proxy_watchdog_task()
-            return {"success": True, "auto_rotate": PROXY_AUTO_ROTATE, "interval": PROXY_AUTO_ROTATE_INTERVAL, "summary": get_free_proxy_summary()}
-        elif action == "set_proxy_auto_rotate":
-            if "enabled" in payload:
-                PROXY_AUTO_ROTATE = bool(payload["enabled"])
-            if "interval" in payload and str(payload["interval"]).isdigit():
-                PROXY_AUTO_ROTATE_INTERVAL = max(60, int(payload["interval"]))
-            ensure_proxy_watchdog_task()
-            return {"success": True, "auto_rotate": PROXY_AUTO_ROTATE, "interval": PROXY_AUTO_ROTATE_INTERVAL, "summary": get_free_proxy_summary()}
-        elif action == "toggle_auto_failover":
-            PROXY_AUTO_FAILOVER = not PROXY_AUTO_FAILOVER
-            return {"success": True, "auto_failover": PROXY_AUTO_FAILOVER, "summary": get_free_proxy_summary()}
-        elif action == "auto_failover_account":
-            aid = payload.get("id") or payload.get("account_id")
-            if aid is not None and str(aid).isdigit():
-                res = auto_failover_account_proxy(int(aid))
-                return {"success": res, "account_id": int(aid), "proxy": ACCOUNTS.get(int(aid), {}).get("proxy"), "summary": get_free_proxy_summary()}
-            return {"success": False, "error": "Invalid account ID"}
+            return {"success": False, "error": "Proxy support has been removed"}
+        elif action in ("fetch_free_proxies", "add_custom_proxy", "delete_proxy", "test_proxy_ping",
+                        "distribute_proxies", "distribute_dedicated_proxies", "one_ip_per_bot",
+                        "clear_bot_proxies", "toggle_auto_rotate", "set_proxy_auto_rotate",
+                        "toggle_auto_failover", "auto_failover_account"):
+            return {"success": False, "error": "Proxy support has been removed"}
         elif action == "batch_action":
             user_scope = get_workspace_accounts(req_key) if not is_admin_key(req_key) else ACCOUNTS
             aids = [int(x) for x in payload.get("ids", []) if str(x).isdigit() and int(x) in user_scope]

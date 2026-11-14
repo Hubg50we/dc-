@@ -1196,17 +1196,9 @@
         gap: 16px;
       }
 
-      /* 2-Column Balanced Proxy Fleet Studio */
-      #tab-proxies.active {
-        display: grid !important;
-        grid-template-columns: 460px 1fr !important;
-        gap: 20px !important;
-        align-items: start !important;
-      }
-      .proxy-column-ops, .proxy-column-pool {
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
+      /* Proxy support removed from the UI */
+      #tab-proxies, [data-tab="proxies"] {
+        display: none !important;
       }
     }
   
