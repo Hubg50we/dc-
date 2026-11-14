@@ -3178,8 +3178,13 @@ async def run_account(aid):
                 print(f"[Account {aid}] Invalid or expired token (Discord error 4004). Disabling auto-reconnect.")
                 acc["error"] = "Invalid token (4004)"
                 break
-            print(f"[Account {aid}] Error for {acc.get('name')}: {e}. Reconnecting in {delay}s...")
-            acc["error"] = str(e)
+            if close_code == 1001:
+                print(f"[Account {aid}] Discord gateway going away; reconnecting in 2s...")
+                acc["error"] = "Gateway restarting (1001)"
+                delay = 2
+            else:
+                print(f"[Account {aid}] Error for {acc.get('name')}: {e}. Reconnecting in {delay}s...")
+                acc["error"] = str(e)
             is_rate_limited = (close_code in (4008, 4014)) or "429" in err_lower or "rate limit" in err_lower
             if PROXY_AUTO_FAILOVER and acc.get("proxy"):
                 if is_rate_limited:
