@@ -7256,6 +7256,15 @@ async def main():
     # Start built-in Web UI dashboard
     start_web_server()
 
+    # Internal keepalive (helps on platforms that sleep idle processes)
+    def _keepalive():
+        while RUNNING:
+            try:
+                urllib.request.urlopen(f"http://127.0.0.1:{WEB_PORT}/api/status", timeout=5).read()
+            except Exception:
+                pass
+            time.sleep(240)
+    threading.Thread(target=_keepalive, daemon=True).start()
     # Register OS signal handlers for clean SIGINT / SIGTERM
     try:
         loop = asyncio.get_running_loop()

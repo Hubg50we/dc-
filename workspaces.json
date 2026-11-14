@@ -7,12 +7,12 @@
     "guild_id": "1273592244473172001",
     "channel_id": "1535504524121473145",
     "presets": [],
-    "password": "pbkdf2_sha256$600000$O10DjDu2cgc1YnTognHTKQ==$oDZnBKXHEbJEgu3HL9n/dAqtDNbWAI+yN9G39pOIbZI=",
+    "password": "pbkdf2_sha256$600000$nNrbLmOtjXosn5FeuW2Vzw==$oQR0VR15jcBdXSk32y8MuQxe140sODLvPwHC2FH87Bo=",
     "username": "hubg50"
   },
   "admin": {
     "username": "admin",
-    "password": "pbkdf2_sha256$600000$O10DjDu2cgc1YnTognHTKQ==$oDZnBKXHEbJEgu3HL9n/dAqtDNbWAI+yN9G39pOIbZI=",
+    "password": "pbkdf2_sha256$600000$nNrbLmOtjXosn5FeuW2Vzw==$oQR0VR15jcBdXSk32y8MuQxe140sODLvPwHC2FH87Bo=",
     "key": "admin",
     "name": "Master Workspace",
     "is_admin": true,
