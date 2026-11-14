@@ -2809,6 +2809,34 @@ async def apply(targets, channel="keep", mute="keep", deaf="keep", video="keep",
     return done
 
 
+async def _supervised_run_account(aid):
+    """Run an account and recreate its task if it exits unexpectedly."""
+    failures = 0
+    while RUNNING:
+        acc = ACCOUNTS.get(aid)
+        if acc is None or acc.get("removed"):
+            return
+        try:
+            await run_account(aid)
+            failures = 0
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            failures += 1
+            print(f"[Account {aid}] Supervisor caught crash ({failures}): {e}")
+            acc = ACCOUNTS.get(aid)
+            if acc is not None:
+                acc["error"] = str(e)
+        if acc is None or acc.get("removed") or not RUNNING:
+            return
+        if failures >= 5:
+            print(f"[Account {aid}] Too many crashes; disabling auto-restart.")
+            if ACCOUNTS.get(aid) is not None:
+                ACCOUNTS[aid]["removed"] = True
+            return
+        await asyncio.sleep(min(5 * failures, 30))
+
+
 async def add_account(token, proxy=None, owner_key=None):
     global NEXT_ID
     if not proxy:
@@ -2857,7 +2885,7 @@ async def add_account(token, proxy=None, owner_key=None):
         "owner_key": resolved_owner
     }
     ACCOUNTS[aid] = acc
-    task = asyncio.create_task(run_account(aid))
+    task = asyncio.create_task(_supervised_run_account(aid))
     acc["task"] = task
     print(f"[Account {aid}] Added: {acc['name']} ({acc['user_id']}) [Owner: {resolved_owner}] - Proxy: {mask_proxy(proxy) or 'Direct'}")
     sync_tokens_file()
@@ -3234,7 +3262,7 @@ async def restart_account(identifier):
     acc["online"] = False
     acc["voice_channel"] = None
     acc["error"] = None
-    new_task = asyncio.create_task(run_account(aid))
+    new_task = asyncio.create_task(_supervised_run_account(aid))
     acc["task"] = new_task
     print(f"[Account {aid}] Restarted {acc.get('name') or acc.get('token', '')[:10]}.")
 
